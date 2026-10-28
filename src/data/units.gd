@@ -32,9 +32,12 @@ const SUMMONS := {
 
 ## Buildable objects. lure: heroes detour to loot it (loot_time s each, once per hero).
 ## nest: spawns a weak slime every spawn_every s during raids, up to max_alive.
+## mine: an imp digs `income` gold each wave clear; heroes within reach detour to rob it
+## (loot_time s), and a robbed mine pays nothing that wave.
 const OBJECTS := {
 	"lure": {"name": "미끼 보물", "cost": 30, "loot_time": 2.5, "reach": 10, "color": Color(1.0, 0.85, 0.2)},
 	"nest": {"name": "슬라임 둥지", "cost": 60, "spawn_every": 7.0, "max_alive": 2, "color": Color(0.4, 0.9, 0.5)},
+	"mine": {"name": "임프 광산", "cost": 50, "income": 15, "loot_time": 2.0, "reach": 6, "color": Color(0.75, 0.45, 1.0)},
 }
 
 ## Terrain from dungeon generation. water: hero speed multiplier. lava: damage per tick to heroes.
@@ -98,6 +101,16 @@ const MONSTER_XP := [3, 8]
 const MONSTER_LEVEL_HP := 1.45
 const MONSTER_LEVEL_DMG := 1.35
 const MONSTER_MAX_LEVEL := 3
+
+## Reaching MONSTER_MAX_LEVEL evolves a monster: these keys override its MONSTERS entry.
+## ability — split: dies into two small slimes; spread: ranged attack fires 3 shots.
+const EVOLUTIONS := {
+	"slime": {"name": "킹 슬라임", "hp": 26, "radius": 9.0, "tint": Color(1.2, 0.8, 1.4), "ability": "split"},
+	"goblin": {"name": "고블린 광전사", "damage": 3, "speed": 95.0, "cooldown": 0.4, "windup": 0.2,
+		"tint": Color(1.5, 0.75, 0.6)},
+	"skeleton": {"name": "리치", "damage": 2, "range": 110.0, "cooldown": 1.1, "tint": Color(0.8, 0.9, 1.6),
+		"spread": 3},
+}
 const UPGRADE_COST := 35
 
 const TRAPS := {

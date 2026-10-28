@@ -22,6 +22,7 @@ func _physics_process(delta: float) -> void:
 			var n := node as Node2D
 			if n.global_position.distance_to(global_position) <= radius + float(n.get("radius")):
 				n.call("take_damage", damage, (n.global_position - global_position).normalized())
+	Audio.play("skill", -6.0)
 	Fx.burst(get_parent(), global_position, color, 30, 160.0)
 	Fx.ring(get_parent(), global_position, radius, color)
 	var lord := get_tree().get_first_node_in_group("demon_lord") as DemonLord

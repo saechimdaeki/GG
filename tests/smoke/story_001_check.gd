@@ -14,6 +14,7 @@ func _initialize() -> void:
 	var has_lava := false
 	var themes := {}
 	var altar_seen := false
+	var gate_maps := 0
 	for s in range(1, 21):
 		var g := DungeonGrid.new()
 		g.seed_value = s
@@ -27,14 +28,18 @@ func _initialize() -> void:
 		for t in g.room_themes:
 			themes[t] = true
 		altar_seen = altar_seen or not g.altars.is_empty()
+		gate_maps += 1 if not g.gates.is_empty() else 0
 		g.free()
 	_check("map: 20 seeds all have 3 entrances reaching the core", bad_maps == 0)
 	_check("map: water and lava both appear across seeds", has_water and has_lava)
+	_check("map: most maps have iron gates (%d/20)" % gate_maps, gate_maps >= 15)
 	_check("map: rooms get several themes (%d) and altars appear" % themes.size(), themes.size() >= 5 and altar_seen)
 
 	# Meta save goes to a throwaway file so the check never touches the player's save.
 	Meta.save_path = "user://meta_check.cfg"
 	DirAccess.remove_absolute(Meta.save_path)
+	RunSave.save_path = "user://run_check.cfg"  # never touch the player's save
+	Story.enabled = false  # dialogue would pause the game waiting for a click
 	var game: Game = load("res://src/scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -45,6 +50,14 @@ func _initialize() -> void:
 	# 002: build phase, dig / wall / trap rules
 	_check("002 starts in build phase", game.phase == Game.Phase.BUILD)
 	_check("B wave 1 uses one entrance", grid.active_entrances.size() == 1)
+	if not grid.gates.is_empty():
+		var before := grid.find_path(grid.entrance_position(0), grid.core_position()).size()
+		var closed_ok := game.toggle_gate(0)
+		_check("gate: closing keeps entrances connected", grid.all_connected())
+		_check("gate: closed gate is not buildable", not grid.is_buildable_floor(grid.gates[0].cells[0]))
+		if closed_ok:
+			game.toggle_gate(0)
+		_check("gate: reopening restores the path", grid.find_path(grid.entrance_position(0), grid.core_position()).size() == before and not grid.gates[0].closed)
 	_check("map is the big 60x36 grid", DungeonGrid.W == 60 and DungeonGrid.H == 36)
 	game.tool = "wall"
 	var placed := 0
@@ -75,6 +88,13 @@ func _initialize() -> void:
 	var lure := get_first_node_in_group("lures") as BuildObject
 	game.tool = "nest"
 	_check("B nest placed", game.try_build(_find(grid, func(c: Vector2i) -> bool: return game._build_error(c) == "")))
+	game.tool = "mine"
+	_check("mine placed", game.try_build(_find(grid, func(c: Vector2i) -> bool: return game._build_error(c) == "")))
+	var mine := get_first_node_in_group("mines") as BuildObject
+	var g0 := game.gold
+	_check("mine pays income at wave clear", game._collect_mines() == int(Units.OBJECTS.mine.income) and game.gold == g0 + int(Units.OBJECTS.mine.income))
+	mine.robbed = true
+	_check("robbed mine pays nothing and resets", game._collect_mines() == 0 and not mine.robbed)
 
 	# raid
 	game.start_raid()
@@ -180,7 +200,7 @@ func _initialize() -> void:
 		await process_frame
 		sh.enemy_groups = [&"demon_lord"]  # ignore monsters left over from earlier checks
 		if kind == "warrior":
-			_check("enemy skill gauge starts empty", is_equal_approx(sh._skill_cd, float(Units.HEROES.warrior.skill_cd)))
+			_check("enemy skill gauge starts empty", sh._skill_cd > float(Units.HEROES.warrior.skill_cd) - 0.2)  # a physics tick may already run
 		sh._skill_cd = 0.0
 		await physics_frame
 		await physics_frame
@@ -254,9 +274,16 @@ func _initialize() -> void:
 	for i in Units.MONSTER_XP[0]:
 		sl.add_xp(1)
 	_check("monster levels up from XP", sl.level == 2 and sl.max_health > hp1)
+	var sk := Monster.new()
+	sk.kind = "skeleton"
+	sk.level = Units.MONSTER_MAX_LEVEL
+	sk.refresh(Vector2.ONE)
+	_check("evolved skeleton (lich) fires a 3-shot spread", int(sk.stats.get("spread", 1)) == 3)
+	sk.free()
 	game.tool = "upgrade"
 	var g_before := game.gold
 	_check("upgrade tool levels a monster for gold", game.try_build(scell) and sl.level == 3 and game.gold == g_before - Units.UPGRADE_COST * 2)
+	_check("monster evolves at max level (%s)" % sl.stats.name, sl.is_evolved() and sl.stats.name == Units.EVOLUTIONS.slime.name)
 	_check("upgrade refused at max level", not game.try_build(scell))
 	var atk := lord.melee_bonus
 	var p1 := game.shop_price("lord_atk")
@@ -274,7 +301,37 @@ func _initialize() -> void:
 	game._on_reward_picked("lord_hp")
 	_check("picking a level card resumes the raid", not paused and game.phase == Game.Phase.RAID)
 
+	# Save / continue: the rebuilt run matches (map, walls, monsters, gold, wave).
+	game.phase = Game.Phase.BUILD
+	RunSave.save(game)
+	_check("save: file written", RunSave.exists())
+	RunSave.load_next = true
+	var g4: Game = load("res://src/scenes/main.tscn").instantiate()
+	root.add_child(g4)
+	await process_frame
+	var same_walls := true
+	for y in DungeonGrid.H:
+		for x in DungeonGrid.W:
+			if g4.grid.is_wall(Vector2i(x, y)) != grid.is_wall(Vector2i(x, y)):
+				same_walls = false
+	_check("save: map and built walls restored", same_walls)
+	_check("save: gold / wave / monsters / traps restored",
+		g4.wave == game.wave and g4.monster_cells().size() == game.monster_cells().size()
+		and g4.grid.traps.size() == grid.traps.size() and g4.lord.weapon_id == lord.weapon_id)
+	g4.free()
+	RunSave.clear()
+	game.phase = Game.Phase.RAID
+
+	# Story dialogue pauses the game until the last line is read.
+	game._hud.show_dialog([["마왕", "a"], ["집사 임프", "b"]])
+	var paused_in := paused
+	game._hud._next_line()
+	var still := paused and game._hud.dialog_open()
+	game._hud._next_line()
+	_check("story: dialogue pauses, advances, then resumes", paused_in and still and not paused and not game._hud.dialog_open())
+
 	# Altar heals the lord standing next to it.
+	lord.add_to_group("demon_lord")  # earlier fights may have killed it (out of the group while respawning)
 	var acell := grid.cell_at(lord.global_position)
 	grid.altars.append(acell)
 	lord.health = lord.max_health - 2

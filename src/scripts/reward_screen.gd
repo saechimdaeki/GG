@@ -49,5 +49,6 @@ func open(choices: Array, title: String = "웨이브 클리어! 보상을 하나
 
 
 func _choose(id: String) -> void:
+	Audio.play("click")
 	_root.visible = false
 	picked.emit(id)

@@ -16,7 +16,16 @@ var mult: Vector2 = Vector2.ONE
 func refresh(m: Vector2) -> void:
 	mult = m
 	var lv := level - 1
-	setup(Units.MONSTERS[kind], m.x * pow(Units.MONSTER_LEVEL_HP, lv), m.y * pow(Units.MONSTER_LEVEL_DMG, lv))
+	var base: Dictionary = Units.MONSTERS[kind]
+	if is_evolved():
+		base = base.duplicate()
+		base.merge(Units.EVOLUTIONS[kind], true)
+	setup(base, m.x * pow(Units.MONSTER_LEVEL_HP, lv), m.y * pow(Units.MONSTER_LEVEL_DMG, lv))
+
+
+## True at max level for kinds that have an evolution (Units.EVOLUTIONS).
+func is_evolved() -> bool:
+	return level >= Units.MONSTER_MAX_LEVEL and Units.EVOLUTIONS.has(kind)
 
 
 ## Adds XP; levels up when the threshold for the current level is reached.
@@ -36,7 +45,12 @@ func level_up() -> void:
 	refresh(mult)
 	base_scale = Vector2.ONE * (1.0 + 0.1 * (level - 1))
 	scale = base_scale
-	Fx.text(get_parent(), global_position + Vector2(0, -10), "LV %d!" % level, Color(1, 0.9, 0.3))
+	if is_evolved():
+		Fx.text(get_parent(), global_position + Vector2(0, -14), "진화! %s" % stats.name, Color(1, 0.5, 1.0))
+		Fx.ring(get_parent(), global_position, 40.0, Color(1, 0.5, 1.0))
+		Audio.play("level_up")
+	else:
+		Fx.text(get_parent(), global_position + Vector2(0, -10), "LV %d!" % level, Color(1, 0.9, 0.3))
 	Fx.burst(get_parent(), global_position, Color(1, 0.9, 0.3), 16, 90.0)
 
 
@@ -44,6 +58,21 @@ func _ready() -> void:
 	super()
 	add_to_group("monsters")
 	enemy_groups = [&"heroes"]
+	died.connect(_on_died)
+
+
+## King slime splits into two small slimes that fight on where it fell.
+func _on_died(_u: Unit) -> void:
+	if not (is_evolved() and stats.get("ability", "") == "split"):
+		return
+	for k in 2:
+		var s := Monster.new()
+		s.kind = "slime"
+		s.setup(Units.MONSTERS.slime, 0.5, 1.0)
+		s.home = global_position + Vector2(k * 12 - 6, 0)
+		s.position = s.home
+		s.add_to_group("summons")  # cleared when the next build phase starts
+		get_parent().add_child.call_deferred(s)
 
 
 ## Full heal and back to the post; called at the start of every build phase.
@@ -70,6 +99,8 @@ func _draw_body(col: Color) -> void:
 
 
 func _draw() -> void:
+	if is_evolved():
+		draw_arc(Vector2(0, radius - 1.0), radius + 3.0, 0.0, TAU, 24, Color(1.6, 0.6, 1.8, 0.8), 1.5)
 	super()
 	for i in level - 1:
 		var p := Vector2(-3.0 + i * 6.0 - (level - 2) * 3.0, -radius - 18.0)

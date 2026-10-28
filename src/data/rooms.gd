@@ -24,6 +24,13 @@ const SHAPES := ["rect", "rect", "rounded", "cross", "oval"]
 ## Path cost per terrain: heroes walk around water and cross lava only on bridges if they can.
 const TERRAIN_COST := {"water": 3.0, "lava": 8.0}
 
+## Iron gates placed across corridors: how many per map, and how far from entrances/core
+## (tiles). A closed gate blocks heroes (they reroute); the demon lord passes freely.
+const GATES := {"count": 3, "min_spacing": 8, "keep_clear": 5}
+
+## Floor pattern drawn over each theme's color: planks | flags | tiles | carpet | "" (stone texture).
+const PATTERNS := {"library": "planks", "prison": "flags", "crypt": "tiles", "shrine": "carpet"}
+
 ## Altar: the demon lord and monsters within radius (tiles) heal `heal` HP every `interval` s
 ## during raids.
 const ALTAR := {"radius": 2.5, "heal": 1, "interval": 2.0}

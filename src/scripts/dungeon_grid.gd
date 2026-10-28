@@ -5,7 +5,7 @@ extends Node2D
 ## pillars and decor. Owns wall collision, hero pathfinding (AStarGrid2D), trap and lava ticks.
 
 const TILE := 16
-## Color channel above 1.0 = blooms through the HDR 2D glow (Game._glow_env).
+## Color channel above 1.0 = blooms through the HDR 2D glow (Game.make_glow_env).
 const HDR := 2.6
 const W := 60
 const H := 36
@@ -29,6 +29,8 @@ var decor: Dictionary = {}
 var room_themes: Array[String] = []
 ## Vector2i -> theme key for room floor cells (corridors are absent).
 var floor_theme: Dictionary = {}
+## Iron gates: {"cells": [Vector2i, Vector2i], "closed": bool}. Toggled during build.
+var gates: Array[Dictionary] = []
 ## Altar cells (shrine rooms): heal the lord and monsters nearby during raids.
 var altars: Array[Vector2i] = []
 ## Vector2i -> trap kind (key of Units.TRAPS).
@@ -53,8 +55,11 @@ var wall_tex: Texture2D = Sprites.tex("wall")
 var _torches: Array[PointLight2D] = []
 var _time: float = 0.0
 var _floor: PackedByteArray
+## Floor layout as generated, before the player filled any walls.
+var _original: PackedByteArray
 var _astar := AStarGrid2D.new()
 var _walls: StaticBody2D
+var _gate_body: StaticBody2D
 var _trap_clock: Dictionary = {}
 var _lava_clock: float = 0.0
 var _altar_clock: float = 0.0
@@ -67,12 +72,17 @@ func _ready() -> void:
 	_walls.collision_layer = 4
 	_walls.collision_mask = 0
 	add_child(_walls)
+	_gate_body = StaticBody2D.new()
+	_gate_body.collision_layer = 8  # heroes collide with layer 8, the demon lord does not
+	_gate_body.collision_mask = 0
+	add_child(_gate_body)
 	_astar.region = Rect2i(0, 0, W, H)
 	_astar.cell_size = Vector2(TILE, TILE)
 	_astar.offset = position + Vector2(TILE, TILE) / 2.0
 	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
 	_astar.update()
 	_generate()
+	_original = _floor.duplicate()
 	_rebuild()
 	_add_lights()
 
@@ -85,6 +95,8 @@ func _generate() -> void:
 		rng.seed = seed_value
 	else:
 		rng.randomize()
+		seed_value = int(rng.seed)  # kept so a saved run can rebuild this exact map
+		rng.seed = seed_value
 	var cw := rng.randi_range(7, 8)
 	var ch := rng.randi_range(7, 9)
 	var core_room := Rect2i(rng.randi_range(W - 14, W - 2 - cw), rng.randi_range(4, H - 4 - ch), cw, ch)
@@ -144,6 +156,7 @@ func _generate() -> void:
 		_corridor(e, _center(nearest), rng)
 		entrances.append(e)
 	_tidy()
+	_place_gates(rng)
 	_sync_astar()
 	for i in range(1, rooms.size()):
 		_decorate(i)
@@ -228,6 +241,83 @@ func _tidy() -> void:
 					_floor[y * W + x] = 0
 					floor_theme.erase(c)
 					changed = true
+
+
+## Finds 2-wide corridor cross-sections (not in rooms, away from entrances/core) for gates.
+func _place_gates(rng: RandomNumberGenerator) -> void:
+	var spots: Array = []
+	for y in range(1, H - 1):
+		for x in range(1, W - 1):
+			var c := Vector2i(x, y)
+			for along: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
+				var c2 := c + along
+				if is_wall(c) or is_wall(c2) or floor_theme.has(c) or floor_theme.has(c2):
+					continue
+				# Walls on both ends of the cross-section, open floor on both sides of the gate.
+				var side := Vector2i(along.y, along.x)
+				if not (is_wall(c - along) and is_wall(c2 + along)):
+					continue
+				if is_wall(c + side) or is_wall(c - side) or is_wall(c2 + side) or is_wall(c2 - side):
+					continue
+				var far := Vector2(c).distance_to(Vector2(core)) > float(Rooms.GATES.keep_clear)
+				for e in entrances:
+					far = far and Vector2(c).distance_to(Vector2(e)) > float(Rooms.GATES.keep_clear)
+				if far:
+					spots.append([c, c2])
+	for k in range(spots.size() - 1, 0, -1):  # shuffle with the map's rng (seeded maps repeat)
+		var j := rng.randi_range(0, k)
+		var tmp: Array = spots[k]
+		spots[k] = spots[j]
+		spots[j] = tmp
+	for sp: Array in spots:
+		if gates.size() >= int(Rooms.GATES.count):
+			break
+		var ok := true
+		for g in gates:
+			if Vector2(g.cells[0]).distance_to(Vector2(sp[0])) < float(Rooms.GATES.min_spacing):
+				ok = false
+		if ok:
+			gates.append({"cells": sp, "closed": false})
+
+
+## Index of the gate covering cell c, or -1.
+func gate_at(c: Vector2i) -> int:
+	for i in gates.size():
+		if (gates[i].cells as Array).has(c):
+			return i
+	return -1
+
+
+## Opens or closes gate i. Closing is refused (returns false) if it would cut an entrance off.
+func toggle_gate(i: int) -> bool:
+	var g := gates[i]
+	g.closed = not g.closed
+	for c: Vector2i in g.cells:
+		_astar.set_point_solid(c, g.closed)
+	if g.closed and not all_connected():
+		g.closed = false
+		for c: Vector2i in g.cells:
+			_astar.set_point_solid(c, false)
+		return false
+	_rebuild_gates()
+	return true
+
+
+func _rebuild_gates() -> void:
+	for child in _gate_body.get_children():
+		child.free()
+	for g in gates:
+		if not g.closed:
+			continue
+		for c: Vector2i in g.cells:
+			_astar.set_point_solid(c, true)
+			var shape := CollisionShape2D.new()
+			var rect := RectangleShape2D.new()
+			rect.size = Vector2(TILE, TILE)
+			shape.shape = rect
+			shape.position = Vector2(c) * TILE + Vector2(TILE, TILE) / 2.0
+			_gate_body.add_child(shape)
+	queue_redraw()
 
 
 ## Puts room i's one terrain feature and its tidy wall-side props in place.
@@ -369,7 +459,7 @@ func terrain_at(world: Vector2) -> String:
 
 ## Floor cell that is neither an entrance nor the core: where builds may go.
 func is_buildable_floor(c: Vector2i) -> bool:
-	return not is_wall(c) and not entrances.has(c) and c != core and not altars.has(c)
+	return not is_wall(c) and not entrances.has(c) and c != core and not altars.has(c) and gate_at(c) == -1
 
 
 ## True when every entrance can still reach the core.
@@ -416,6 +506,20 @@ func fill(c: Vector2i) -> void:
 	_rebuild()
 
 
+## True when cell c was wall in the generated map (not built by the player).
+func was_wall(c: Vector2i) -> bool:
+	return not in_bounds(c) or _original[c.y * W + c.x] == 0
+
+
+## Fills many cells at once (restoring a saved run), rebuilding collision once.
+func apply_walls(cells: Array) -> void:
+	for c: Vector2i in cells:
+		_floor[c.y * W + c.x] = 0
+		terrain.erase(c)
+		decor.erase(c)
+	_rebuild()
+
+
 func can_place_trap(c: Vector2i) -> bool:
 	return is_buildable_floor(c) and not traps.has(c)
 
@@ -441,6 +545,7 @@ func _rebuild() -> void:
 				shape.shape = rect
 				shape.position = Vector2(c) * TILE + Vector2(TILE, TILE) / 2.0
 				_walls.add_child(shape)
+	_rebuild_gates()
 	queue_redraw()
 
 
@@ -488,6 +593,7 @@ func _altar_heal() -> void:
 		if lord != null and lord.global_position.distance_to(at) <= reach and lord.health < lord.max_health:
 			lord.health = mini(lord.health + amount, lord.max_health)
 			Fx.text(get_parent(), lord.global_position, "+%d" % amount, Color(0.6, 1.0, 0.6))
+			Audio.play("heal", -8.0)
 		for node in get_tree().get_nodes_in_group("monsters"):
 			var m := node as Unit
 			if m.global_position.distance_to(at) <= reach and m.health < m.max_health:
@@ -499,6 +605,7 @@ func _hurt_heroes_on(match_cell: Callable, dmg: int) -> void:
 		var hero := node as Hero
 		if match_cell.call(cell_at(hero.global_position)):
 			hero.take_damage(dmg, Vector2.ZERO)
+			Audio.play("trap", -8.0)
 
 
 # --- drawing --------------------------------------------------------------
@@ -531,7 +638,10 @@ func _draw() -> void:
 				continue
 			var th: String = floor_theme.get(c, "")
 			draw_rect(r, Rooms.CORE_FLOOR if th == "core" else (Rooms.THEMES[th].floor if th != "" else Rooms.CORRIDOR_FLOOR))
-			if floor_tex != null:
+			var pattern: String = Rooms.PATTERNS.get(th, "")
+			if pattern != "":
+				_draw_pattern(pattern, c, r)
+			elif floor_tex != null:
 				_draw_tiled(floor_tex, c, r, FLOOR_DETAIL)
 			if is_wall(c + Vector2i.UP):
 				draw_rect(Rect2(r.position, Vector2(TILE, 5)), Color(0, 0, 0, 0.4))
@@ -542,6 +652,7 @@ func _draw() -> void:
 					draw_line(a, b, EDGE, 1.0)
 	_draw_terrain()
 	_draw_decor()
+	_draw_gates()
 	for i in entrances.size():
 		var er := Rect2(Vector2(entrances[i]) * TILE, Vector2(TILE, TILE))
 		draw_rect(er, Color(0.25, 0.45, 0.9, 0.55))
@@ -602,6 +713,89 @@ func _draw() -> void:
 	if hover_visible and in_bounds(hover_cell):
 		var hc := Color(0.3, 1.0, 0.4) if hover_ok else Color(1.0, 0.3, 0.3)
 		draw_rect(Rect2(Vector2(hover_cell) * TILE, Vector2(TILE, TILE)), hc, false, 1.0)
+
+
+## Clean geometric floor for themed rooms (planks, flagstones, tiles, carpet runner).
+func _draw_pattern(pattern: String, c: Vector2i, r: Rect2) -> void:
+	var line := Color(0, 0, 0, 0.22)
+	var lite := Color(1, 1, 1, 0.06)
+	match pattern:
+		"planks":
+			for k in 4:
+				var y := r.position.y + k * 4.0
+				draw_rect(Rect2(r.position.x, y, TILE, 1), line)
+				draw_rect(Rect2(r.position.x, y + 1, TILE, 1), lite)
+				var seam := fposmod(_hash(c + Vector2i(0, k)) * 16.0 + k * 5.0, TILE)
+				draw_rect(Rect2(r.position.x + floorf(seam), y, 1, 4), line)
+		"flags":
+			# 2x2-tile flagstones: grout only on the stone's top and left edges.
+			if c.x % 2 == 0:
+				draw_rect(Rect2(r.position, Vector2(1, TILE)), line)
+			if c.y % 2 == 0:
+				draw_rect(Rect2(r.position, Vector2(TILE, 1)), line)
+			draw_rect(Rect2(r.position + Vector2(1, 1), Vector2(TILE - 1, 1)), lite)
+		"tiles":
+			for k in 4:
+				if (k + c.x + c.y) % 2 == 0:
+					draw_rect(Rect2(r.position + Vector2(k % 2, k / 2) * 8.0, Vector2(8, 8)), Color(0, 0, 0, 0.12))
+			draw_rect(Rect2(r.position, Vector2(TILE, 1)), line)
+			draw_rect(Rect2(r.position, Vector2(1, TILE)), line)
+		"carpet":
+			# Runner down the room's middle columns, gold trim on its edges.
+			var room := _room_of(c)
+			if room != -1 and absi(c.x - _center(room).x) <= 1:
+				draw_rect(r, Color(0.45, 0.12, 0.2))
+				if absi(c.x - _center(room).x) == 1:
+					var edge := r.position.x + (TILE - 2.0 if c.x > _center(room).x else 0.0)
+					draw_rect(Rect2(edge, r.position.y, 2, TILE), Color(0.85, 0.65, 0.25))
+			else:
+				draw_rect(Rect2(r.position, Vector2(TILE, 1)), line)
+
+
+## Index of the room whose rect holds cell c, or -1.
+func _room_of(c: Vector2i) -> int:
+	for i in rooms.size():
+		if rooms[i].has_point(c):
+			return i
+	return -1
+
+
+func _draw_gates() -> void:
+	for g in gates:
+		var a: Vector2i = g.cells[0]
+		var b: Vector2i = g.cells[1]
+		var horiz := b.x != a.x  # gate spans left-right (vertical corridor)
+		var o := Vector2(a) * TILE
+		var span := Rect2(o, Vector2(TILE * 2, TILE) if horiz else Vector2(TILE, TILE * 2))
+		var frame := Color(0.22, 0.2, 0.24)
+		var iron := Color(0.78, 0.8, 0.88)
+		if g.closed:
+			draw_rect(span, Color(0.06, 0.05, 0.08, 0.8))
+			draw_rect(span, Color(0.9, 0.35, 0.3, 0.9), false, 1.0)  # red rim = closed
+			var n := 7
+			for k in n:
+				var t := (k + 0.5) / n
+				if horiz:
+					var x := span.position.x + span.size.x * t
+					draw_line(Vector2(x, span.position.y + 2), Vector2(x, span.end.y - 2), iron, 2.0)
+				else:
+					var y := span.position.y + span.size.y * t
+					draw_line(Vector2(span.position.x + 2, y), Vector2(span.end.x - 2, y), iron, 2.0)
+			var mid := span.get_center()
+			if horiz:
+				draw_line(Vector2(span.position.x, mid.y), Vector2(span.end.x, mid.y), frame, 2.0)
+			else:
+				draw_line(Vector2(mid.x, span.position.y), Vector2(mid.x, span.end.y), frame, 2.0)
+		else:
+			# Raised gate: thin bar of spikes along one edge.
+			var e := Rect2(span.position, Vector2(span.size.x, 3)) if horiz else Rect2(span.position, Vector2(3, span.size.y))
+			draw_rect(e, frame)
+			draw_rect(e.grow(-1), iron.darkened(0.3))
+		# Posts at both ends.
+		var p1 := Rect2(o - (Vector2(3, 0) if horiz else Vector2(0, 3)), Vector2(3, TILE) if horiz else Vector2(TILE, 3))
+		var p2 := Rect2(span.end - (Vector2(0, TILE) if horiz else Vector2(TILE, 0)), Vector2(3, TILE) if horiz else Vector2(TILE, 3))
+		draw_rect(p1, frame)
+		draw_rect(p2, frame)
 
 
 func _draw_terrain() -> void:

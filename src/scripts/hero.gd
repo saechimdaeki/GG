@@ -41,6 +41,7 @@ func _ready() -> void:
 	super()
 	add_to_group("heroes")
 	enemy_groups = [&"demon_lord", &"monsters"]
+	collision_mask |= 8  # closed iron gates
 	_skill_cd = float(stats.get("skill_cd", 0.0))  # gauge starts empty: no skill on first sight
 	if elite:
 		add_child(Fx.light(Color(1.0, 0.8, 0.2), 1.2, 0.7))
@@ -169,6 +170,10 @@ func _idle_velocity(delta: float) -> Vector2:
 	elif global_position.distance_to(_loot.global_position) < 8.0:
 		_loot_t += delta
 		if _loot_t >= float(_loot.data.loot_time):
+			if _loot.kind == "mine" and not _loot.robbed:
+				_loot.robbed = true
+				_loot.queue_redraw()
+				Fx.text(get_parent(), _loot.global_position, "광산 약탈!", Color(1, 0.4, 0.4))
 			_looted.append(_loot)
 			_loot = null
 			_loot_t = 0.0

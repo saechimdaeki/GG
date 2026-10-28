@@ -73,6 +73,7 @@ func take_damage(amount: int, _dir: Vector2 = Vector2.ZERO) -> bool:
 		return false
 	health = max(health - amount, 0)
 	_hurt_flash = 0.15
+	Audio.play("hurt")
 	shake(5.0)
 	Fx.damage_number(get_parent(), global_position, amount, Color(1, 0.3, 0.3))
 	Fx.burst(get_parent(), global_position, Color(0.8, 0.1, 0.2), 10, 100.0)
@@ -122,6 +123,7 @@ func _physics_process(delta: float) -> void:
 		_dash_dir = input if input != Vector2.ZERO else _aim_dir()
 		_dash_left = dash_time
 		_dash_cd = dash_cooldown
+		Audio.play("dash", -4.0)
 	if _dash_left > 0.0:
 		_dash_left -= delta
 		velocity = _dash_dir * dash_speed
@@ -160,6 +162,7 @@ func _swing() -> void:
 	_melee_cd = float(weapon.cooldown)
 	_swing_dir = _aim_dir()
 	_swing_show = SWING_TIME
+	Audio.play("swing", -8.0)
 	var hit := false
 	var reach := float(weapon.range)
 	for node in get_tree().get_nodes_in_group("heroes"):
@@ -173,6 +176,7 @@ func _swing() -> void:
 		Fx.burst(get_parent(), hero.global_position, Color(1.0, 0.9, 0.5), 8, 120.0)
 		hit = true
 	if hit:
+		Audio.play("hit")
 		shake(float(weapon.shake))
 		HitFeedback.hitstop(get_tree(), 0.06)
 
@@ -180,6 +184,7 @@ func _swing() -> void:
 func _fire_bolt(dir: Vector2) -> void:
 	if bolts > 0:
 		bolts -= 1
+	Audio.play("bolt", -6.0)
 	_spawn_bolt(dir)
 
 
@@ -198,6 +203,7 @@ func try_skill(i: int) -> bool:
 		return false
 	var id := skills[i]
 	skill_cd[i] = float(Arsenal.SKILLS[id].cooldown)
+	Audio.play("skill", -2.0)
 	var col: Color = Arsenal.SKILLS[id].color
 	match id:
 		"hellfire":

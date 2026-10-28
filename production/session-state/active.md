@@ -196,3 +196,19 @@ Status 값: Ready → In Progress → Done. Done 일 때 스토리 파일의 AC 
 - `_draw_lava`: 2px 블록 플라즈마(어두운 굳은 용암/주황 용융/HDR 백열 줄기, 블룸됨) + 거품 링 + 가장자리 굳은 껍질 + 발광 이음선
 - 이웃 지형 비교 `_open_sides`, 셀별 해시 `_hash` 로 애니 위상 분산
 - 확대 데모 `tests/smoke/terrain_demo.gd`. 증거 `production/qa/evidence/lava-closeup.png`, `water-closeup.png`. 체크 60 PASS
+
+### 2026-10-29 8차: 사운드 + 철문 + 바닥 무늬 + 타이틀/설정/일시정지 + 진화 + 광산 + 스토리/이어하기 (유저: "2 3 4 5 쭉")
+- **사운드**: `tools/gen_audio.py` (numpy 합성, 다운로드 없음) → `assets/audio/` 효과음 21 + `music_build`/`music_raid` 루프
+  - `src/scripts/audio.gd` (`Audio.play(name)`, `Audio.music(name)`, 버스 Music/SFX). headless 에선 무음(테스트 누수 경고 방지)
+  - 연결: 휘두르기/타격/피격/대시/마법탄/스킬/사망/함정/건설/에러/코인/웨이브 시작·클리어/레벨업/코어 피격/승리·패배/회복/철문/클릭
+- **철문**: 복도 2칸 단면에 맵당 3개 (`Rooms.GATES`). 건설 중 클릭하면 열고 닫음(무료). 닫으면 용사만 막힘(충돌 레이어 8, 마왕 통과), 연결 끊기면 거부
+- **바닥 무늬** `Rooms.PATTERNS`: 서고 널빤지, 감옥 판석, 납골당 타일, 제단실 붉은 카펫
+- **타이틀** `src/scenes/title.tscn` (메인 씬): 떠다니는 던전 배경, 이어하기/새 게임/영구 강화/설정/종료
+  - 설정 `Settings` (user://settings.cfg: 볼륨 3종, 전체화면) + `SettingsPanel`(조작법 포함). 일시정지 `PauseMenu` (Esc)
+- **몬스터 진화** `Units.EVOLUTIONS`: Lv3 에 킹 슬라임(죽으면 슬라임 2마리로 분열), 고블린 광전사(빠름), 리치(3갈래 사격)
+- **임프 광산** (툴 9, 강화는 0): 웨이브 클리어마다 +15G, 용사가 2초 약탈하면 그 웨이브 수입 0
+- **스토리** `src/data/story.gd`: 새 게임 인트로 5줄, 웨이브 4/8/10 대사, 엔딩 한 줄. 대화창 `Hud.show_dialog` (게임 일시정지)
+- **이어하기** `RunSave` (user://run.cfg): 건설 단계 시작마다 자동 저장(맵 시드 + 벽/함정/철문/몬스터/오브젝트/마왕 상태), 런 종료 시 삭제
+- 테스트/데모는 `RunSave.save_path`, `Meta.save_path` 를 바꾸고 `Story.enabled = false`
+- 체크 73 PASS + input 3. 증거: title.png, story-intro.png, gates-patterns.png
+- 알려진 것: 창 모드 종료 시 "resources still in use" 경고 1-2줄 (오디오 스트림, 게임 동작 영향 없음)

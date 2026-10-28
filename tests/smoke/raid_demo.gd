@@ -4,6 +4,8 @@ extends SceneTree
 
 
 func _initialize() -> void:
+	RunSave.save_path = "user://run_check.cfg"  # never touch the player's save
+	Story.enabled = false  # dialogue would pause the game waiting for a click
 	var game: Game = load("res://src/scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -17,6 +19,9 @@ func _initialize() -> void:
 	for k in [["spike", 4], ["spike", 5], ["slime", 8], ["goblin", 12], ["lure", 16], ["skeleton", 20], ["nest", 24]]:
 		game.tool = k[0]
 		game.try_build(game.grid.cell_at(path[mini(k[1], path.size() - 2)]))
+	if OS.get_environment("GATES") != "":
+		for i in game.grid.gates.size():
+			game.toggle_gate(i)
 	if OS.get_environment("WAVE") != "":
 		game.wave = int(OS.get_environment("WAVE")) - 1
 		game._enter_build()

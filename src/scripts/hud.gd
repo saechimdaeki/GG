@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Status line, build toolbar (click or keys 1-7), toast messages, and the end-of-run panel.
 
 signal restart_pressed
+signal title_pressed
 signal tool_clicked(id: String)
 signal shop_clicked(id: String)
 signal meta_clicked(id: String)
@@ -17,6 +18,10 @@ var _shop_buttons: Dictionary = {}
 var _end: CenterContainer
 var _end_label: Label
 var _meta_box: VBoxContainer
+var _dialog: PanelContainer
+var _dialog_name: Label
+var _dialog_text: Label
+var _lines: Array = []
 
 
 func _ready() -> void:
@@ -45,6 +50,28 @@ func _ready() -> void:
 	title.text = "상점  [Tab] 닫기"
 	title.add_theme_font_size_override("font_size", 9)
 	_shop.add_child(title)
+	_dialog = PanelContainer.new()
+	_dialog.theme = UiTheme.get_theme()
+	_dialog.position = Vector2(60, 250)
+	_dialog.custom_minimum_size = Vector2(520, 70)
+	_dialog.visible = false
+	add_child(_dialog)
+	var dbox := VBoxContainer.new()
+	_dialog.add_child(dbox)
+	_dialog_name = Label.new()
+	_dialog_name.add_theme_font_size_override("font_size", 11)
+	dbox.add_child(_dialog_name)
+	_dialog_text = Label.new()
+	_dialog_text.add_theme_font_size_override("font_size", 10)
+	_dialog_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_dialog_text.custom_minimum_size.x = 500
+	dbox.add_child(_dialog_text)
+	var more := Label.new()
+	more.text = "▶ 클릭 / Space"
+	more.add_theme_font_size_override("font_size", 7)
+	more.add_theme_color_override("font_color", Color(0.7, 0.65, 0.8))
+	more.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	dbox.add_child(more)
 	_end = CenterContainer.new()
 	_end.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_end.visible = false
@@ -69,6 +96,11 @@ func _ready() -> void:
 	button.focus_mode = Control.FOCUS_NONE
 	button.pressed.connect(restart_pressed.emit)
 	box.add_child(button)
+	var to_title := Button.new()
+	to_title.text = "타이틀로"
+	to_title.focus_mode = Control.FOCUS_NONE
+	to_title.pressed.connect(title_pressed.emit)
+	box.add_child(to_title)
 
 
 func _label(pos: Vector2, size: int) -> Label:
@@ -151,6 +183,44 @@ func toast(text: String, color: Color = Color(1, 0.85, 0.4)) -> void:
 	var tw := _toast.create_tween()
 	tw.tween_interval(0.8)
 	tw.tween_property(_toast, "modulate:a", 0.0, 0.4)
+
+
+## Plays dialogue lines ([speaker, text]) one by one, pausing the game until the last is read.
+func show_dialog(lines: Array) -> void:
+	if lines.is_empty():
+		return
+	_lines = lines.duplicate()
+	get_tree().paused = true
+	_next_line()
+
+
+func _next_line() -> void:
+	if _lines.is_empty():
+		_dialog.visible = false
+		get_tree().paused = false
+		return
+	var line: Array = _lines.pop_front()
+	_dialog_name.text = line[0]
+	_dialog_name.add_theme_color_override("font_color", Story.SPEAKERS.get(line[0], Color.WHITE))
+	_dialog_text.text = line[1]
+	_dialog.visible = true
+	Audio.play("click", -8.0)
+
+
+func _input(event: InputEvent) -> void:
+	if not _dialog.visible:
+		return
+	var advance: bool = (event is InputEventMouseButton and event.pressed) \
+		or (event is InputEventKey and event.pressed and not event.echo
+			and (event as InputEventKey).physical_keycode in [KEY_SPACE, KEY_ENTER, KEY_ESCAPE])
+	if advance:
+		get_viewport().set_input_as_handled()
+		_next_line()
+
+
+## True while dialogue is on screen.
+func dialog_open() -> bool:
+	return _dialog.visible
 
 
 ## Shows the run-end panel with permanent-upgrade buttons and a restart button.

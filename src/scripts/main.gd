@@ -4,8 +4,8 @@ extends Node2D
 
 enum Phase { BUILD, RAID, REWARD, OVER }
 
-## Build tools selected with keys 1-9, in this order.
-const TOOLS := ["wall", "spike", "fire", "slime", "goblin", "skeleton", "lure", "nest", "upgrade"]
+## Build tools selected with keys 1-9 and 0, in this order.
+const TOOLS := ["wall", "spike", "fire", "slime", "goblin", "skeleton", "lure", "nest", "mine", "upgrade"]
 ## Camera zoom while building (whole map visible) and while raiding (follow the lord).
 const BUILD_ZOOM := 0.62
 const RAID_ZOOM := 1.0
@@ -44,6 +44,9 @@ var core_max: int = Units.CORE_HP
 ## Permanent upgrades (Meta.load_data()), applied at run start, spent on the end screen.
 var meta: Dictionary = {}
 var _end_text: String = ""
+var _pause: PauseMenu
+## True when this run was loaded from a save (skip the intro).
+var _continued := false
 
 
 func _ready() -> void:
@@ -52,8 +55,12 @@ func _ready() -> void:
 	var dark := CanvasModulate.new()
 	dark.color = Color(0.62, 0.6, 0.7)
 	add_child(dark)
-	add_child(_glow_env())
+	add_child(make_glow_env())
 	grid = DungeonGrid.new()
+	var saved := RunSave.read() if RunSave.load_next else {}
+	RunSave.load_next = false
+	if not saved.is_empty():
+		grid.seed_value = int(saved.seed)
 	grid.position = Vector2(0, 4)
 	add_child(grid)
 	_camera = Camera2D.new()
@@ -78,11 +85,17 @@ func _ready() -> void:
 	_rewards.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_rewards)
 	_rewards.picked.connect(_on_reward_picked)
+	_pause = PauseMenu.new()
+	add_child(_pause)
+	_hud.title_pressed.connect(_to_title)
+	if not saved.is_empty():
+		RunSave.restore(self, saved)
+		_continued = true
 	_enter_build()
 
 
 ## Bloom: anything drawn brighter than GLOW_THRESHOLD (bolts, fire, core, torches) glows.
-func _glow_env() -> WorldEnvironment:
+static func make_glow_env() -> WorldEnvironment:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CANVAS
 	env.glow_enabled = true
@@ -148,11 +161,14 @@ func _zoom_to(z: float, pos: Vector2) -> void:
 
 func _enter_build() -> void:
 	phase = Phase.BUILD
+	Audio.music("music_build")
 	_zoom_to(BUILD_ZOOM, _map_center())
 	lord.combat_enabled = false
 	grid.traps_active = false
 	for m: Monster in _monster_cells.values():
 		m.reset_for_wave()
+	for n in get_tree().get_nodes_in_group("summons"):
+		n.queue_free()
 	for o: BuildObject in _object_cells.values():
 		o.end_raid()
 	# Waves 1-3 use one entrance, 4-7 two, 8-10 all three; which ones is random each wave.
@@ -165,6 +181,10 @@ func _enter_build() -> void:
 	_refresh_toolbar()
 	_hud.show_toolbar(true)
 	grid.refresh_preview()
+	RunSave.save(self)  # autosave: 이어하기 resumes from this build phase
+	_hud.set_status(_status(), _bottom_line())  # HUD is filled even while dialogue pauses _process
+	if Story.enabled:
+		_hud.show_dialog(Story.INTRO if wave == 0 and not _continued else Story.WAVE_LINES.get(wave, []))
 
 
 ## Starts the current wave's raid.
@@ -180,6 +200,8 @@ func start_raid() -> void:
 		o.active = true
 	_hud.show_toolbar(false)
 	_hud.toast("웨이브 %d 침입!" % (wave + 1), Color(1, 0.4, 0.3))
+	Audio.play("wave_start")
+	Audio.music("music_raid")
 	_spawn_queue.clear()
 	for group: Array in Waves.WAVES[wave].heroes:
 		for i in int(group[1]):
@@ -220,6 +242,7 @@ func _on_hero_died(hero: Unit) -> void:
 	gold += int(hero.stats.gold)
 	if int(hero.stats.gold) > 0:
 		Fx.text(self, hero.global_position + Vector2(0, -8), "+%dG" % hero.stats.gold, Color(1, 0.85, 0.3))
+		Audio.play("coin", -10.0)
 	lord_xp += 5 if hero.stats.sprite == "boss_hero" else (3 if (hero as Hero).elite else 1)
 	if not _leveling and lord_xp >= lord_xp_needed() and phase == Phase.RAID:
 		_level_up.call_deferred()
@@ -247,6 +270,7 @@ func damage_core(amount: int) -> void:
 	core_hp = maxi(core_hp - amount, 0)
 	lord.shake(6.0)
 	_hud.toast("코어가 공격받는 중! (-%d)" % amount, Color(1, 0.3, 0.3))
+	Audio.play("core_hit")
 	if core_hp == 0:
 		_end_run("패배... 웨이브 %d 에서 코어 파괴" % (wave + 1))
 
@@ -260,7 +284,10 @@ func _wave_cleared() -> void:
 	phase = Phase.REWARD
 	for o: BuildObject in _object_cells.values():
 		o.end_raid()
-	_hud.toast("웨이브 클리어! +%dG" % Units.WAVE_CLEAR_GOLD)
+	var mined := _collect_mines()
+	_hud.toast("웨이브 클리어! +%dG%s" % [Units.WAVE_CLEAR_GOLD, "  광산 +%dG" % mined if mined > 0 else ""])
+	Audio.play("wave_clear")
+	Audio.music("music_build")
 	lord.combat_enabled = false
 	grid.traps_active = false
 	_rewards.open(Rewards.roll(3, self))
@@ -279,6 +306,7 @@ func _level_up() -> void:
 	_leveling = true
 	lord.health = mini(lord.health + 3, lord.max_health)
 	Fx.ring(self, lord.global_position, 60.0, Color(1, 0.85, 0.3))
+	Audio.play("level_up")
 	get_tree().paused = true
 	_rewards.open(Rewards.roll(3, self), "마왕 레벨 %d! 능력을 하나 고르세요" % lord_level)
 
@@ -295,6 +323,9 @@ func _on_reward_picked(id: String) -> void:
 
 func _end_run(text: String) -> void:
 	phase = Phase.OVER
+	RunSave.clear()
+	Audio.music("")
+	Audio.play("victory" if wave >= Waves.WAVES.size() else "game_over", 0.0, 0.0)
 	lord.combat_enabled = false
 	grid.traps_active = false
 	for node in get_tree().get_nodes_in_group("heroes"):
@@ -304,7 +335,7 @@ func _end_run(text: String) -> void:
 	var earned := Meta.souls_for(wave, wave >= Waves.WAVES.size())
 	meta.souls += earned
 	Meta.save_data(meta)
-	_end_text = "%s\n영혼석 +%d" % [text, earned]
+	_end_text = "%s\n%s\n영혼석 +%d" % [text, Story.VICTORY if wave >= Waves.WAVES.size() else Story.DEFEAT, earned]
 	_show_end()
 
 
@@ -335,9 +366,17 @@ func _show_end() -> void:
 ## Buys a permanent upgrade on the end screen.
 func buy_meta(id: String) -> bool:
 	if phase != Phase.OVER or not Meta.buy(meta, id):
+		Audio.play("error", -6.0)
 		return false
+	Audio.play("coin")
 	_show_end()
 	return true
+
+
+func _to_title() -> void:
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	get_tree().change_scene_to_file("res://src/scenes/title.tscn")
 
 
 func _restart() -> void:
@@ -371,12 +410,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and (event as InputEventKey).physical_keycode == KEY_TAB:
 		_hud.toggle_shop()
 	elif event is InputEventKey and event.pressed and not event.echo:
-		var i: int = (event as InputEventKey).physical_keycode - KEY_1
+		var code := (event as InputEventKey).physical_keycode
+		var i: int = 9 if code == KEY_0 else code - KEY_1
 		if i >= 0 and i < TOOLS.size():
 			_select_tool(TOOLS[i])
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if not try_build(grid.cell_at(_mouse_world)):
+		var gi := grid.gate_at(grid.cell_at(_mouse_world))
+		if gi != -1:
+			toggle_gate(gi)
+		elif not try_build(grid.cell_at(_mouse_world)):
 			_hud.toast(_build_error(grid.cell_at(_mouse_world)), Color(1, 0.45, 0.4))
+			Audio.play("error", -6.0)
 
 
 func _select_tool(t: String) -> void:
@@ -384,6 +428,7 @@ func _select_tool(t: String) -> void:
 		_hud.toast("아직 잠김 (보상으로 해금)", Color(1, 0.45, 0.4))
 		return
 	tool = t
+	Audio.play("click", -6.0)
 	_hud.select_tool(t)
 
 
@@ -427,6 +472,7 @@ func try_build(c: Vector2i) -> bool:
 		return false
 	gold -= _upgrade_cost(c) if tool == "upgrade" else _tool_cost(tool)
 	Fx.burst(self, grid.cell_center(c), _tool_color(tool), 10, 70.0)
+	Audio.play("build", -4.0)
 	match tool:
 		"wall":
 			grid.fill(c)
@@ -434,14 +480,39 @@ func try_build(c: Vector2i) -> bool:
 			grid.place_trap(c, tool)
 		"upgrade":
 			(_monster_cells[c] as Monster).level_up()
-		"lure", "nest":
-			var o := BuildObject.new()
-			o.setup(tool)
-			o.position = grid.cell_center(c)
-			add_child(o)
-			_object_cells[c] = o
+		"lure", "nest", "mine":
+			place_object(c, tool)
 		_:
-			_place_monster(c, tool)
+			place_monster(c, tool)
+	grid.refresh_preview()
+	return true
+
+
+## Pays every mine that wasn't robbed this raid, then resets them. Returns the gold earned.
+func _collect_mines() -> int:
+	var total := 0
+	for o: BuildObject in _object_cells.values():
+		if o.kind != "mine":
+			continue
+		if not o.robbed:
+			total += int(o.data.income)
+			Fx.text(self, o.global_position + Vector2(0, -10), "+%dG" % int(o.data.income), Color(0.8, 0.6, 1.0))
+		o.robbed = false
+		o.queue_redraw()
+	gold += total
+	return total
+
+
+## Opens/closes an iron gate (free, build phase). Closing can't cut heroes off the core.
+func toggle_gate(i: int) -> bool:
+	if phase != Phase.BUILD:
+		return false
+	if not grid.toggle_gate(i):
+		_hud.toast("철문을 닫으면 용사 길이 완전히 막힘", Color(1, 0.45, 0.4))
+		Audio.play("error", -6.0)
+		return false
+	_hud.toast("철문 닫힘 — 용사가 돌아감" if grid.gates[i].closed else "철문 열림", Color(0.7, 0.8, 1.0))
+	Audio.play("gate")
 	grid.refresh_preview()
 	return true
 
@@ -485,7 +556,7 @@ func _tool_cost(t: String) -> int:
 			return Units.WALL_COST
 		"spike", "fire":
 			return int(Units.TRAPS[t].cost)
-		"lure", "nest":
+		"lure", "nest", "mine":
 			return int(Units.OBJECTS[t].cost)
 		"upgrade":
 			return Units.UPGRADE_COST
@@ -497,7 +568,8 @@ func _tool_unlocked(t: String) -> bool:
 	return not Units.TRAPS.has(t) or unlocked_traps.has(t)
 
 
-func _place_monster(c: Vector2i, kind: String) -> void:
+## Spawns a monster guarding cell c (build tool, or restoring a save).
+func place_monster(c: Vector2i, kind: String) -> Monster:
 	var m := Monster.new()
 	m.kind = kind
 	m.refresh(monster_mult.get(kind, Vector2.ONE))
@@ -506,6 +578,36 @@ func _place_monster(c: Vector2i, kind: String) -> void:
 	add_child(m)
 	_monster_cells[c] = m
 	m.died.connect(func(_u: Unit) -> void: _monster_cells.erase(c))
+	return m
+
+
+## Places a lure / nest on cell c.
+func place_object(c: Vector2i, kind: String) -> BuildObject:
+	var o := BuildObject.new()
+	o.setup(kind)
+	o.position = grid.cell_center(c)
+	add_child(o)
+	_object_cells[c] = o
+	return o
+
+
+## Vector2i -> Monster, for saving.
+func monster_cells() -> Dictionary:
+	return _monster_cells
+
+
+## Vector2i -> BuildObject, for saving.
+func object_cells() -> Dictionary:
+	return _object_cells
+
+
+## Shop item id -> times bought this run (prices grow with it).
+func bought() -> Dictionary:
+	return _bought
+
+
+func set_bought(b: Dictionary) -> void:
+	_bought = b
 
 
 ## Permanently boosts one monster kind for the rest of the run (living and future ones).
@@ -546,6 +648,7 @@ func buy(id: String) -> bool:
 		"traps":
 			grid.trap_bonus += 1
 	_hud.toast("%s 구매!" % Units.SHOP[id].name, Color(0.5, 1, 0.5))
+	Audio.play("coin")
 	Fx.burst(self, lord.global_position, Color(1, 0.85, 0.3), 14, 80.0)
 	return true
 
@@ -560,7 +663,7 @@ func _process(delta: float) -> void:
 	if phase == Phase.BUILD:
 		var c := grid.cell_at(_mouse_world)
 		grid.hover_cell = c
-		grid.hover_ok = _build_error(c) == ""
+		grid.hover_ok = grid.gate_at(c) != -1 or _build_error(c) == ""
 		grid.hover_visible = true
 		var items: Array = []
 		for id: String in Units.SHOP:
@@ -602,7 +705,7 @@ func _bottom_line() -> String:
 			var parts: Array[String] = []
 			for group: Array in Waves.WAVES[wave].heroes:
 				parts.append("%s x%d" % [Units.HEROES[group[0]].name, group[1]])
-			return "다음 웨이브: %s · 입구 %d곳(!)   [Tab] 상점 · 점선 = 용사 경로" % [", ".join(parts), grid.active_entrances.size()]
+			return "다음 웨이브: %s · 입구 %d곳(!)   [Tab] 상점 · 철문 클릭 = 열기/닫기 · 점선 = 용사 경로" % [", ".join(parts), grid.active_entrances.size()]
 		Phase.RAID:
 			return "좌클릭 공격 · 우클릭 마법탄 · Space 대시 · Q/E 스킬 · 무기는 밟으면 장착"
 		_:

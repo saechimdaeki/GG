@@ -71,6 +71,7 @@ func take_damage(amount: int, dir: Vector2) -> bool:
 	scale = base_scale * Vector2(1.3, 0.75)
 	create_tween().tween_property(self, "scale", base_scale, 0.12)
 	if health <= 0:
+		Audio.play("hero_die" if is_in_group("heroes") else "monster_die", -3.0)
 		Fx.burst(get_parent(), global_position, col, 18, 140.0)
 		Fx.burst(get_parent(), global_position, Color(0.7, 0.05, 0.1), 10, 110.0)
 		var lord := get_tree().get_first_node_in_group("demon_lord") as DemonLord
@@ -186,8 +187,10 @@ func _attack() -> void:
 	var dir := (_target.global_position - global_position).normalized()
 	if stats.get("ranged", false):
 		var burst := int(stats.get("burst", 1))
+		var spread := int(stats.get("spread", 1))
 		for i in burst:
-			_spawn_bolt(dir.rotated(TAU * i / burst))
+			for k in spread:
+				_spawn_bolt(dir.rotated(TAU * i / burst + deg_to_rad(14.0) * (k - (spread - 1) / 2.0)))
 	else:
 		_knockback = dir * Units.LUNGE_SPEED
 		if global_position.distance_to(_target.global_position) <= _reach(_target) + Units.LUNGE_REACH:
@@ -222,7 +225,7 @@ func _draw() -> void:
 	draw_set_transform(Vector2.ZERO)
 	var t := Sprites.tex(String(stats.get("sprite", "")))
 	var walk := Sprites.tex(String(stats.get("sprite", "")) + "_walk")
-	var tint := Color.WHITE
+	var tint: Color = stats.get("tint", Color.WHITE)
 	if t == null and stats.has("fallback"):
 		t = Sprites.tex(String(stats.fallback))
 		walk = Sprites.tex(String(stats.fallback) + "_walk")

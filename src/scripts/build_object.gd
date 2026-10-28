@@ -8,6 +8,8 @@ var kind: String
 var data: Dictionary
 ## Nest only: raids tick only while true.
 var active: bool = false
+## Mine only: a hero looted it this raid, so it pays nothing at wave clear.
+var robbed: bool = false
 
 var _clock: float = 0.0
 var _spawned: Array[Monster] = []
@@ -21,7 +23,9 @@ func setup(k: String) -> void:
 
 
 func _ready() -> void:
-	add_to_group("lures" if kind == "lure" else "nests")
+	add_to_group("nests" if kind == "nest" else "lures")  # heroes loot lures and mines
+	if kind == "mine":
+		add_to_group("mines")
 	add_child(Fx.light(data.color, 0.9, 0.6))
 
 
@@ -57,6 +61,18 @@ func _physics_process(delta: float) -> void:
 
 func _draw() -> void:
 	var col: Color = data.color
+	if kind == "mine":
+		# Ore heap + an imp swinging a pick (darker when robbed).
+		var ore := col.darkened(0.5) if robbed else col
+		draw_colored_polygon(PackedVector2Array([Vector2(-7, 5), Vector2(-4, -3), Vector2(0, -6), Vector2(5, -2), Vector2(7, 5)]), Color(0.3, 0.25, 0.32))
+		for p: Vector2 in [Vector2(-3, 0), Vector2(2, -3), Vector2(3, 2)]:
+			draw_rect(Rect2(p - Vector2(1.5, 1.5), Vector2(3, 3)), ore * (1.0 if robbed else 1.8))
+		var swing := sin(_t * 8.0)
+		draw_circle(Vector2(9, 1), 3.0, Color(0.9, 0.35, 0.25))
+		draw_line(Vector2(8, 0), Vector2(8, 0) + Vector2.from_angle(-2.2 + swing * 0.6) * 7.0, Color(0.7, 0.7, 0.75), 1.0)
+		if robbed:
+			draw_string(ThemeDB.fallback_font, Vector2(-8, -9), "약탈됨", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(1, 0.4, 0.4))
+		return
 	if kind == "lure":
 		var bob := sin(_t * 3.0) * 1.5
 		draw_rect(Rect2(-6, -4 + bob, 12, 8), Color(0.5, 0.3, 0.1))
