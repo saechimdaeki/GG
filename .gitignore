@@ -16,7 +16,9 @@ project.local.yaml
 production/session-logs/
 # Ephemeral per-session checkpoint. directory-structure.md documents this as
 # gitignored; the rule was missing, so active.md would have been committed.
-production/session-state/
+production/session-state/*
+# active.md is the shared handoff (Claude Code <-> Codex across machines), so it is tracked.
+!production/session-state/active.md
 .scratch/
 # Per-agent working memory written at runtime — not release material
 .claude/agent-memory/
