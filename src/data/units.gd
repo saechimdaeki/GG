@@ -44,45 +44,45 @@ const TERRAIN := {
 }
 
 ## gold: reward on kill. core_damage: damage dealt when the hero reaches the core.
-## Optional: skill (+skill_cd) — heal | fireball | boss; armor (damage taken x (1-armor));
+## Optional: skill (+skill_cd) — charge | volley | blink | slam | heal | fireball | boss (Hero._tick_skill); armor (damage taken x (1-armor));
 ## dodge (chance to ignore a hit); fallback + tint: sprite to borrow (tinted) until its own exists.
 const HEROES := {
 	"warrior": {
-		"sprite": "warrior", "hp": 8, "damage": 1, "range": 4.0, "speed": 60.0, "windup": 0.22, "cooldown": 0.8,
+		"sprite": "warrior", "hp": 8, "damage": 1, "range": 12.0, "speed": 60.0, "windup": 0.18, "cooldown": 0.5,
 		"ranged": false, "aggro": 75.0, "radius": 7.0, "color": Color(0.85, 0.75, 0.3),
-		"gold": 8, "core_damage": 2, "name": "전사",
+		"gold": 8, "core_damage": 2, "name": "전사", "skill": "charge", "skill_cd": 5.0,
 	},
 	"archer": {
-		"sprite": "archer", "hp": 5, "damage": 1, "range": 80.0, "speed": 50.0, "windup": 0.35, "cooldown": 1.1,
+		"sprite": "archer", "hp": 5, "damage": 1, "range": 80.0, "speed": 50.0, "windup": 0.25, "cooldown": 0.75,
 		"ranged": true, "aggro": 110.0, "radius": 6.0, "color": Color(0.4, 0.7, 0.95),
-		"gold": 10, "core_damage": 1, "name": "궁수",
+		"gold": 10, "core_damage": 1, "name": "궁수", "skill": "volley", "skill_cd": 3.5,
 	},
 	"cleric": {
 		"sprite": "cleric", "fallback": "warrior", "tint": Color(1.3, 1.25, 0.85), "hp": 6, "damage": 1,
-		"range": 4.0, "speed": 45.0, "windup": 0.3, "cooldown": 1.0, "ranged": false, "aggro": 60.0,
+		"range": 12.0, "speed": 45.0, "windup": 0.3, "cooldown": 0.7, "ranged": false, "aggro": 60.0,
 		"radius": 6.0, "color": Color(1.0, 0.95, 0.6), "gold": 14, "core_damage": 1, "name": "성직자",
 		"skill": "heal", "skill_cd": 4.0,
 	},
 	"mage": {
 		"sprite": "mage", "fallback": "archer", "tint": Color(0.7, 0.8, 1.6), "hp": 5, "damage": 2,
-		"range": 90.0, "speed": 42.0, "windup": 0.45, "cooldown": 1.5, "ranged": true, "aggro": 130.0,
+		"range": 90.0, "speed": 42.0, "windup": 0.45, "cooldown": 1.1, "ranged": true, "aggro": 130.0,
 		"radius": 6.0, "color": Color(0.5, 0.6, 1.0), "gold": 16, "core_damage": 1, "name": "마법사",
 		"skill": "fireball", "skill_cd": 4.5,
 	},
 	"rogue": {
 		"sprite": "rogue", "fallback": "archer", "tint": Color(0.9, 0.6, 1.3), "hp": 5, "damage": 2,
-		"range": 4.0, "speed": 95.0, "windup": 0.15, "cooldown": 0.5, "ranged": false, "aggro": 60.0,
+		"range": 12.0, "speed": 95.0, "windup": 0.15, "cooldown": 0.4, "ranged": false, "aggro": 60.0,
 		"radius": 6.0, "color": Color(0.7, 0.4, 0.9), "gold": 12, "core_damage": 3, "name": "도적",
-		"dodge": 0.35,
+		"dodge": 0.35, "skill": "blink", "skill_cd": 5.0,
 	},
 	"guardian": {
 		"sprite": "guardian", "fallback": "warrior", "tint": Color(0.75, 0.85, 1.2), "hp": 22, "damage": 2,
-		"range": 4.0, "speed": 35.0, "windup": 0.35, "cooldown": 1.0, "ranged": false, "aggro": 70.0,
+		"range": 12.0, "speed": 35.0, "windup": 0.3, "cooldown": 0.7, "ranged": false, "aggro": 70.0,
 		"radius": 8.0, "color": Color(0.6, 0.7, 0.9), "gold": 20, "core_damage": 3, "name": "방패병",
-		"armor": 0.5,
+		"armor": 0.5, "skill": "slam", "skill_cd": 4.0,
 	},
 	"boss": {
-		"sprite": "boss_hero", "hp": 120, "damage": 2, "range": 100.0, "speed": 30.0, "windup": 0.5, "cooldown": 1.2,
+		"sprite": "boss_hero", "hp": 120, "damage": 2, "range": 100.0, "speed": 30.0, "windup": 0.5, "cooldown": 0.9,
 		"ranged": true, "burst": 10, "aggro": 170.0, "radius": 12.0, "color": Color(0.95, 0.4, 0.2),
 		"gold": 0, "core_damage": 10, "name": "용사 보스", "skill": "boss", "skill_cd": 3.5, "armor": 0.2,
 	},
@@ -110,7 +110,14 @@ const START_GOLD := 150
 const WAVE_CLEAR_GOLD := 40
 const CORE_HP := 20
 const LORD_RESPAWN_TIME := 3.0
-const BOLT_SPEED_ENEMY := 230.0
+const BOLT_SPEED_ENEMY := 280.0
+## Knockback push speed (x weapon knockback); decays at 600 px/s in Unit.
+const KNOCKBACK_SPEED := 150.0
+## After a knockback, further hits for this long deal damage but don't push (no juggling).
+const KNOCKBACK_IMMUNE := 0.8
+## Melee units lunge toward the target when the swing lands: push speed, and extra hit reach.
+const LUNGE_SPEED := 200.0
+const LUNGE_REACH := 12.0
 
 ## Build-phase shop. price grows by step each purchase (price + step * times_bought).
 const SHOP := {

@@ -42,4 +42,4 @@ func _physics_process(delta: float) -> void:
 
 func _draw() -> void:
 	draw_circle(Vector2.ZERO, radius * 2.2, Color(color, 0.25))
-	draw_circle(Vector2.ZERO, radius, color.lightened(0.3))
+	draw_circle(Vector2.ZERO, radius, color.lightened(0.3) * 2.2)  # >1.0 = bloom (HDR 2D)

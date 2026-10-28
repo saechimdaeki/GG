@@ -23,6 +23,8 @@ var _face_left: bool = false
 var _anim_t: float = randf() * 10.0
 var _moving: bool = false
 var _stun: float = 0.0
+## Seconds left during which hits deal damage but no knockback.
+var _kb_immune: float = 0.0
 ## Resting scale (elites are bigger); hit squash returns here.
 var base_scale: Vector2 = Vector2.ONE
 
@@ -58,8 +60,11 @@ func take_damage(amount: int, dir: Vector2) -> bool:
 		return true
 	health -= amount
 	_hurt_flash = 0.1
-	_knockback = dir * 220.0
-	_windup = -1.0
+	# Attacks in progress are not cancelled, and after one knockback the unit shrugs off more
+	# for a moment, so spamming melee can no longer juggle enemies in place.
+	if _kb_immune <= 0.0:
+		_knockback = dir * Units.KNOCKBACK_SPEED
+		_kb_immune = Units.KNOCKBACK_IMMUNE
 	var col: Color = stats.color
 	Fx.damage_number(get_parent(), global_position, amount, Color(1, 0.9, 0.5) if is_in_group("heroes") else Color(1, 0.4, 0.4))
 	Fx.burst(get_parent(), global_position, col.lightened(0.3), 6, 80.0)
@@ -114,6 +119,7 @@ func _physics_process(delta: float) -> void:
 	_hurt_flash -= delta
 	_anim_t += delta
 	_knockback = _knockback.move_toward(Vector2.ZERO, 600.0 * delta)
+	_kb_immune -= delta
 	if _stun > 0.0:
 		_stun -= delta
 		_moving = false
@@ -182,8 +188,10 @@ func _attack() -> void:
 		var burst := int(stats.get("burst", 1))
 		for i in burst:
 			_spawn_bolt(dir.rotated(TAU * i / burst))
-	elif global_position.distance_to(_target.global_position) <= _reach(_target) + 4.0:
-		_target.call("take_damage", damage, dir)
+	else:
+		_knockback = dir * Units.LUNGE_SPEED
+		if global_position.distance_to(_target.global_position) <= _reach(_target) + Units.LUNGE_REACH:
+			_target.call("take_damage", damage, dir)
 
 
 func _spawn_bolt(dir: Vector2) -> void:

@@ -41,14 +41,18 @@ var _object_cells: Dictionary = {}
 ## Shop item id -> times bought this run.
 var _bought: Dictionary = {}
 var core_max: int = Units.CORE_HP
+## Permanent upgrades (Meta.load_data()), applied at run start, spent on the end screen.
+var meta: Dictionary = {}
+var _end_text: String = ""
 
 
 func _ready() -> void:
 	Engine.time_scale = 1.0
 	_setup_input()
 	var dark := CanvasModulate.new()
-	dark.color = Color(0.5, 0.47, 0.58)
+	dark.color = Color(0.62, 0.6, 0.7)
 	add_child(dark)
+	add_child(_glow_env())
 	grid = DungeonGrid.new()
 	grid.position = Vector2(0, 4)
 	add_child(grid)
@@ -62,17 +66,35 @@ func _ready() -> void:
 	lord.position = grid.cell_center(grid.core + Vector2i(-2, 0))
 	add_child(lord)
 	lord.died.connect(_on_lord_died)
+	_apply_meta()
 	_hud = Hud.new()
 	add_child(_hud)
 	_hud.restart_pressed.connect(_restart)
 	_hud.tool_clicked.connect(_select_tool)
 	_hud.shop_clicked.connect(buy)
+	_hud.meta_clicked.connect(buy_meta)
 	_hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	_rewards = RewardScreen.new()
 	_rewards.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_rewards)
 	_rewards.picked.connect(_on_reward_picked)
 	_enter_build()
+
+
+## Bloom: anything drawn brighter than GLOW_THRESHOLD (bolts, fire, core, torches) glows.
+func _glow_env() -> WorldEnvironment:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CANVAS
+	env.glow_enabled = true
+	env.glow_intensity = 0.6
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.0
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	for i in 7:
+		env.set_glow_level(i, 1.0 if i in [1, 2, 3, 4] else 0.0)
+	var we := WorldEnvironment.new()
+	we.environment = env
+	return we
 
 
 # ponytail: input map built in code, move to project.godot [input] if rebinding UI is ever needed
@@ -279,7 +301,43 @@ func _end_run(text: String) -> void:
 		node.set_physics_process(false)
 	for o: BuildObject in _object_cells.values():
 		o.end_raid()
-	_hud.show_end(text)
+	var earned := Meta.souls_for(wave, wave >= Waves.WAVES.size())
+	meta.souls += earned
+	Meta.save_data(meta)
+	_end_text = "%s\n영혼석 +%d" % [text, earned]
+	_show_end()
+
+
+func _apply_meta() -> void:
+	meta = Meta.load_data()
+	gold += Meta.bonus(meta, "start_gold")
+	core_max += Meta.bonus(meta, "core_hp")
+	core_hp = core_max
+	lord.max_health += Meta.bonus(meta, "lord_hp")
+	lord.health = lord.max_health
+	lord.melee_bonus += Meta.bonus(meta, "lord_atk")
+	if Meta.bonus(meta, "fire_start") > 0:
+		unlocked_traps.append("fire")
+
+
+func _show_end() -> void:
+	var items: Array = []
+	for id: String in Meta.UPGRADES:
+		var up: Dictionary = Meta.UPGRADES[id]
+		var p := Meta.price(meta, id)
+		var desc: String = up.desc % Meta.bonus(meta, id) if "%d" in up.desc else up.desc
+		items.append({"id": id, "enabled": p >= 0 and meta.souls >= p,
+			"label": "%s Lv%d/%d  (%s)  %s" % [up.name, meta.levels[id], up.max, desc,
+				"MAX" if p < 0 else "%d영혼" % p]})
+	_hud.show_end("%s\n보유 영혼석 %d — 영구 강화는 다음 판부터" % [_end_text, meta.souls], items)
+
+
+## Buys a permanent upgrade on the end screen.
+func buy_meta(id: String) -> bool:
+	if phase != Phase.OVER or not Meta.buy(meta, id):
+		return false
+	_show_end()
+	return true
 
 
 func _restart() -> void:
@@ -510,27 +568,32 @@ func _process(delta: float) -> void:
 			items.append({"id": id, "label": Units.SHOP[id].name, "price": price,
 				"enabled": gold >= price and (id != "repair" or core_hp < core_max)})
 		_hud.set_shop(items)
-	_hud.set_lines(_top_line(), _bottom_line())
+	_hud.set_status(_status(), _bottom_line())
 
 
-func _top_line() -> String:
-	var sk: Array[String] = []
+## Numbers for the StatusPanel HUD.
+func _status() -> Dictionary:
+	var skills: Array = []
 	for i in 2:
 		var id := lord.skills[i]
-		var key: String = ["Q", "E"][i]
-		if id == "":
-			sk.append("%s -" % key)
-		elif lord.skill_cd[i] > 0.0:
-			sk.append("%s %s %.0fs" % [key, Arsenal.SKILLS[id].name, ceilf(lord.skill_cd[i])])
-		else:
-			sk.append("%s %s OK" % [key, Arsenal.SKILLS[id].name])
-	return "HP %d/%d  마법탄 %s  골드 %d  웨이브 %d/%d  코어 %d/%d  마왕 Lv%d (%d/%d)\n무기: %s   스킬: %s" % [
-		lord.health, lord.max_health,
-		"●".repeat(lord.bolts) + "○".repeat(maxi(lord.max_bolts - lord.bolts, 0)),
-		gold, mini(wave + 1, Waves.WAVES.size()), Waves.WAVES.size(), core_hp, core_max,
-		lord_level, lord_xp, lord_xp_needed(),
-		lord.weapon.name, "  ".join(sk),
-	]
+		var sk: Dictionary = Arsenal.SKILLS.get(id, {})
+		skills.append({"key": ["Q", "E"][i], "name": String(sk.get("name", "")).split(" ")[-1], "cd": lord.skill_cd[i],
+			"cd_ratio": lord.skill_cd[i] / float(sk.cooldown) if id != "" else 0.0,
+			"color": sk.get("color", Color.GRAY)})
+	var phase_text := ""
+	match phase:
+		Phase.BUILD: phase_text = "건설 단계 — [Enter] 침입 시작"
+		Phase.RAID: phase_text = "남은 용사 %d" % (_alive_heroes + _spawn_queue.size())
+	return {
+		"hp": lord.health, "hp_max": lord.max_health,
+		"bolts": lord.bolts, "bolts_max": lord.max_bolts,
+		"bolt_charge": lord._recharge / lord.bolt_recharge_time,
+		"level": lord_level, "xp": lord_xp, "xp_need": lord_xp_needed(),
+		"gold": gold, "core": core_hp, "core_max": core_max,
+		"wave": mini(wave + 1, Waves.WAVES.size()), "waves": Waves.WAVES.size(),
+		"phase_text": phase_text, "raid": phase == Phase.RAID,
+		"weapon": String(lord.weapon.name).split(" ")[-1], "skills": skills,
+	}
 
 
 func _bottom_line() -> String:
@@ -539,8 +602,8 @@ func _bottom_line() -> String:
 			var parts: Array[String] = []
 			for group: Array in Waves.WAVES[wave].heroes:
 				parts.append("%s x%d" % [Units.HEROES[group[0]].name, group[1]])
-			return "다음: %s  입구 %d곳(!)  |  [Tab] 상점 · 점선=용사 경로 · [Enter] 침입" % [", ".join(parts), grid.active_entrances.size()]
+			return "다음 웨이브: %s · 입구 %d곳(!)   [Tab] 상점 · 점선 = 용사 경로" % [", ".join(parts), grid.active_entrances.size()]
 		Phase.RAID:
-			return "남은 용사 %d   좌클릭 공격 · 우클릭 마법탄 · Space 대시 · Q/E 스킬 · 떨어진 무기 밟으면 장착" % (_alive_heroes + _spawn_queue.size())
+			return "좌클릭 공격 · 우클릭 마법탄 · Space 대시 · Q/E 스킬 · 무기는 밟으면 장착"
 		_:
 			return ""

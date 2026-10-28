@@ -140,3 +140,43 @@ Status 값: Ready → In Progress → Done. Done 일 때 스토리 파일의 AC 
 - 지금 하던 일: 새 적 4종 + 걷기 11종 생성/변환/적용 완료.
 - 다음 할 일: 실제 플레이에서 동작 가독성과 프레임 전환 확인.
 - 난이도 2차: 웨이브별 용사 공격력 +보너스 (`waves.gd` dmg_bonus: 1~3웨이브 0, 4~6 +1, 7~9 +2, 보스웨이브 +1), 엘리트 확률 웨이브당 3%→5%. 체크 50 PASS
+
+### 2026-10-29: 메타 업그레이드 + 발광 (유저: "메타 업그레이드 + 아트 다듬기")
+- **메타 업그레이드** `src/data/meta.gd` (`Meta`): 런 종료 시 영혼석 = 클리어 웨이브 x4 (+승리 25). 저장 `user://meta.cfg` (ConfigFile)
+  - 게임오버 화면에서 구매: 금고 상속(시작 골드 +30/Lv, 5), 단단한 코어(+4/Lv, 5), 마왕의 체력(+2/Lv, 5), 마왕의 힘(+1/Lv, 3), 화염 비전(화염 함정 시작 해금, 1)
+  - 적용: `Game._apply_meta()` (런 시작), 구매: `Game.buy_meta()` → `Hud.show_end(text, items)`
+  - 테스트는 `Meta.save_path` 를 바꿔서 실제 세이브 안 건드림. 화면 데모: `tests/smoke/meta_demo.gd`
+- **발광**: project.godot `rendering/viewport/hdr_2d=true` + `Game._glow_env()` WorldEnvironment glow. 색 채널 >1.0 이면 번짐
+  - 적용: 마법탄 중심, 코어(halo + 스프라이트), 횃불 불꽃, 용암 거품, 화염 함정 (`DungeonGrid.HDR`)
+  - 횃불 스프라이트는 이미 연결돼 있었음
+- 체크 56 PASS + input_check 3 PASS. 증거: `production/qa/evidence/meta-upgrade-end.png`, `glow-raid.png`
+- 다음: 유저 플레이테스트 (메타 비용/보상 밸런스, 블룸 강도 `glow_intensity` 0.6)
+
+### 2026-10-29 2차: 넉백 너프 + HUD 개편 (유저: "제자리 클릭만 해도 다 넉백돼서 못 다가옴", "UI/UX 후짐")
+- 넉백: `Unit.take_damage` 가 더 이상 공격 예고(windup)를 캔슬 안 함. 넉백 후 0.8초 넉백 면역(데미지는 들어감). 속도 220→150
+  - 수치: `Units.KNOCKBACK_SPEED`, `Units.KNOCKBACK_IMMUNE`
+- HUD: 텍스트 2줄 → `src/scripts/status_panel.gd` (`StatusPanel`, _draw 로 그림). 좌상 HP 바/마법탄 구슬(충전 표시)/XP 바, 상단 중앙 WAVE, 우상 골드/코어 바, 우하 무기·Q·E 슬롯(쿨다운 덮개, 침입 중만)
+  - 데이터: `Game._status()` → `Hud.set_status(state, hint)`
+- 버튼/패널 공통 테마 `src/scripts/ui_theme.gd` (`UiTheme.get_theme()`): 툴바, 상점, 보상 카드, 게임오버
+- 체크 56 PASS + input 3 PASS. 증거: `production/qa/evidence/hud-build.png`, `hud-raid.png`
+- 다음: 유저 플레이 (넉백 체감, HUD 가독성)
+
+### 2026-10-29 3차: 난이도 3차 (유저: "여전히 쉬움, 한 대도 안 맞음, 몬스터 배치할 이유 없음, 마왕 HP 너무 많음, 용사 공격 느림")
+- 마왕 HP 10 → 6 (`demon_lord.gd max_health`)
+- 근접 용사 사거리 4 → 12 + 공격 시 돌진(`Units.LUNGE_SPEED` 200, 추가 판정 `LUNGE_REACH` 12). 마왕 손톱(34)과 사거리 차이 축소
+- 쿨다운: 전사 0.8→0.5(windup 0.18), 궁수 1.1→0.75(windup 0.25), 성직자 1.0→0.7, 도적 0.5→0.4, 방패병 1.0→0.7, 마법사 1.5→1.1, 보스 1.2→0.9
+- 적 탄속 230 → 280
+- 의도: 마왕 혼자 버티기 어렵게 → 몬스터가 어그로/탱킹 역할. 아직 부족하면 다음 후보: 마왕 사망 시 코어 피해 or 부활 시간 증가
+- 체크 56 PASS
+
+### 2026-10-29 4차: 용사 스킬 + 맵 가독성 (유저: "용사들도 스킬 쓰게", "맵이 사람 눈으로 보기 어려움")
+- 용사 스킬 (`Hero._tick_skill`, 데이터 `Units.HEROES[*].skill/skill_cd`):
+  - 전사 `charge` 돌진(110px 안, 5초), 궁수 `volley` 3갈래 화살(3.5초), 도적 `blink` 대상 뒤로 순간이동 후 즉시 공격(뒤→양옆, 벽이면 취소, 5초), 방패병 `slam` 주변 0.5초 경고 후 강타(4초)
+  - 돌진은 보스와 공용 `Hero._charge()`
+- 맵: 바닥 = 단색(`FLOOR_BASE`) + 돌 텍스처 28% 투명하게(`FLOOR_DETAIL`) → 유닛이 바닥에서 뜸. 벽 앞면 어둡게, 경계선 진하게, 전체 어둠(CanvasModulate) 0.5→0.62
+- 체크 57 PASS (용사 스킬 4종 발동 체크 추가). 증거: `production/qa/evidence/map-readable.png`
+
+### 2026-10-29 5차: 용사 스킬 게이지 (유저: "보자마자 스킬 갈김, 게이지 차면 쓰게")
+- `Hero._skill_cd` 가 스폰 시 skill_cd 로 시작(게이지 빈 상태), 전투 대상(`_target`)이 있을 때만 참 → 마주친 뒤 skill_cd 초 지나야 첫 스킬
+- 발밑에 게이지 바(파랑, 다 차면 금색 발광). 증거: `production/qa/evidence/hero-skill-gauge.png`
+- 체크 58 PASS

@@ -10,7 +10,7 @@ const BOLT_SCRIPT := preload("res://src/scripts/magic_bolt.gd")
 const SWING_TIME := 0.12
 
 @export var move_speed: float = 140.0
-@export var max_health: int = 10
+@export var max_health: int = 6
 @export var dash_speed: float = 420.0
 @export var dash_time: float = 0.15
 @export var dash_cooldown: float = 0.6

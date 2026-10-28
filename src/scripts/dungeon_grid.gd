@@ -5,12 +5,16 @@ extends Node2D
 ## pillars and decor. Owns wall collision, hero pathfinding (AStarGrid2D), trap and lava ticks.
 
 const TILE := 16
+## Color channel above 1.0 = blooms through the HDR 2D glow (Game._glow_env).
+const HDR := 2.6
 const W := 60
 const H := 36
 const WALL_TOP := Color(0.2, 0.18, 0.26)
 const VOID := Color(0.03, 0.025, 0.05)
-const EDGE := Color(0.75, 0.68, 0.85, 0.55)
-const FLOOR_TINT := Color(1.3, 1.22, 1.15)
+const EDGE := Color(0.85, 0.78, 0.95, 0.85)
+## Floor = flat base color + the stone texture faintly on top, so units stand out from it.
+const FLOOR_BASE := Color(0.46, 0.42, 0.4)
+const FLOOR_DETAIL := Color(1.2, 1.15, 1.1, 0.28)
 const DIRS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 
 ## Set before add_child for a reproducible map; 0 = random.
@@ -389,7 +393,7 @@ func _draw() -> void:
 				var front := in_bounds(c + Vector2i.DOWN) and not is_wall(c + Vector2i.DOWN)
 				if front:
 					if wall_tex != null:
-						_draw_tiled(wall_tex, c, r, Color(0.85, 0.8, 0.9))
+						_draw_tiled(wall_tex, c, r, Color(0.6, 0.55, 0.68))
 					else:
 						draw_rect(r, Color(0.33, 0.31, 0.36))
 					draw_rect(Rect2(r.position, Vector2(TILE, 4)), WALL_TOP)
@@ -398,11 +402,9 @@ func _draw() -> void:
 				else:
 					draw_rect(r, VOID)
 				continue
+			draw_rect(r, FLOOR_BASE)
 			if floor_tex != null:
-				_draw_tiled(floor_tex, c, r, FLOOR_TINT)
-			else:
-				var shade := 0.22 if (x + y) % 2 == 0 else 0.19
-				draw_rect(r, Color(shade, shade, shade + 0.03))
+				_draw_tiled(floor_tex, c, r, FLOOR_DETAIL)
 			if is_wall(c + Vector2i.UP):
 				draw_rect(Rect2(r.position, Vector2(TILE, 5)), Color(0, 0, 0, 0.4))
 			for d in DIRS:
@@ -422,13 +424,14 @@ func _draw() -> void:
 	var core_c := Vector2(core) * TILE + Vector2(TILE, TILE) / 2.0
 	var pulse := 1.0 + 0.15 * sin(_time * 3.0)
 	draw_circle(core_c, 22.0 * pulse, Color(0.9, 0.1, 0.25, 0.2))
+	draw_circle(core_c, 9.0 * pulse, Color(HDR, 0.3, 0.8, 0.35))
 	draw_set_transform(core_c + Vector2(0, 14), 0.0, Vector2(1.0, 0.35))
 	draw_circle(Vector2.ZERO, 14.0, Color(0, 0, 0, 0.5))
 	draw_set_transform(Vector2.ZERO)
 	var core_tex := Sprites.tex("core")
 	var bob := Vector2(0, sin(_time * 2.0) * 2.0)
 	if core_tex != null:
-		draw_texture(core_tex, core_c + bob - core_tex.get_size() / 2.0 - Vector2(0, 4))
+		draw_texture(core_tex, core_c + bob - core_tex.get_size() / 2.0 - Vector2(0, 4), Color(1.5, 1.2, 1.3))
 	else:
 		draw_circle(core_c + bob, 12.0, Color(1.0, 0.25, 0.35))
 	var ring_col := Color(0.3, 1.0, 0.45).lerp(Color(1.0, 0.2, 0.2), 1.0 - core_ratio)
@@ -437,7 +440,10 @@ func _draw() -> void:
 	for t in _torches:
 		var tp := t.position
 		if torch_tex != null:
-			draw_texture(torch_tex, tp - Vector2(torch_tex.get_size().x / 2.0, torch_tex.get_size().y + 1.0))
+			var tsz := torch_tex.get_size()
+			draw_texture(torch_tex, tp - Vector2(tsz.x / 2.0, tsz.y + 1.0))
+			var fl := 1.0 + 0.3 * sin(_time * 12.0 + tp.x)
+			draw_circle(tp + Vector2(0, -tsz.y + 3.0), 1.6 * fl, Color(HDR, HDR * 0.6, 0.4))
 			continue
 		draw_rect(Rect2(tp + Vector2(-1, -8), Vector2(2, 5)), Color(0.4, 0.25, 0.1))
 		var flick := 1.0 + 0.3 * sin(_time * 12.0 + tp.x)
@@ -453,7 +459,7 @@ func _draw() -> void:
 		var o := Vector2(c) * TILE
 		var trap_tex := Sprites.tex(String(Units.TRAPS[traps[c]].sprite))
 		if trap_tex != null:
-			draw_texture(trap_tex, o)
+			draw_texture(trap_tex, o, Color(1.8, 1.4, 1.1) if traps[c] == "fire" else Color.WHITE)
 			continue
 		for i in 3:
 			var bx := o.x + 2.0 + i * 4.5
@@ -474,7 +480,7 @@ func _draw_terrain() -> void:
 		else:
 			var glow := 0.75 + 0.25 * sin(_time * 3.0 + c.x * 0.7 + c.y)
 			draw_rect(r, Color(0.9 * glow, 0.3 * glow, 0.05))
-			draw_circle(r.position + Vector2(5 + 3 * sin(_time + c.y), 8), 1.5, Color(1.0, 0.85, 0.3))
+			draw_circle(r.position + Vector2(5 + 3 * sin(_time + c.y), 8), 1.5, Color(HDR, HDR * 0.8, 0.5))
 
 
 func _draw_decor() -> void:

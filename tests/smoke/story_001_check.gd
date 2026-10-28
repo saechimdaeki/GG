@@ -26,6 +26,9 @@ func _initialize() -> void:
 	_check("map: 20 seeds all have 3 entrances reaching the core", bad_maps == 0)
 	_check("map: water and lava both appear across seeds", has_water and has_lava)
 
+	# Meta save goes to a throwaway file so the check never touches the player's save.
+	Meta.save_path = "user://meta_check.cfg"
+	DirAccess.remove_absolute(Meta.save_path)
 	var game: Game = load("res://src/scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -152,6 +155,36 @@ func _initialize() -> void:
 	var ghp := g2.health
 	g2.take_damage(4, Vector2.ZERO)
 	_check("enemy guardian armor halves damage", ghp - g2.health == 2)
+	# Hero skills fire when the lord is close (skill cooldown restarts).
+	var fired: Array[String] = []
+	# A floor cell with floor on both sides (room for the rogue to blink behind), nearest the core.
+	var opens := _cells(grid, func(c: Vector2i) -> bool:
+		return not grid.is_wall(c) and not grid.is_wall(c + Vector2i.LEFT) and not grid.is_wall(c + Vector2i.RIGHT))
+	opens.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.distance_to(grid.core) < b.distance_to(grid.core))
+	var open_cell: Vector2i = opens[0] if not opens.is_empty() else grid.core + Vector2i(-2, 0)
+	for kind: String in ["warrior", "archer", "rogue", "guardian"]:
+		lord.position = grid.cell_center(open_cell)
+		lord.health = lord.max_health  # earlier volleys must not kill the target
+		var sh := Hero.new()
+		sh.setup(Units.HEROES[kind])
+		sh.grid = grid
+		sh.position = lord.position + Vector2(16, 0)
+		game.add_child(sh)
+		await process_frame
+		sh.enemy_groups = [&"demon_lord"]  # ignore monsters left over from earlier checks
+		if kind == "warrior":
+			_check("enemy skill gauge starts empty", is_equal_approx(sh._skill_cd, float(Units.HEROES.warrior.skill_cd)))
+		sh._skill_cd = 0.0
+		await physics_frame
+		await physics_frame
+		if sh._skill_cd > 1.0:
+			fired.append(kind)
+		sh.free()
+		for n in game.get_children():
+			if n is Telegraph or n.get_script() == load("res://src/scripts/magic_bolt.gd"):
+				n.free()
+	_check("enemy skills: charge / volley / blink / slam all fire (%s)" % ", ".join(fired), fired.size() == 4)
 	var e := Hero.new()
 	e.setup(Units.HEROES.warrior)
 	var base_hp := e.max_health
@@ -238,6 +271,22 @@ func _initialize() -> void:
 	# 007: core 0 ends the run
 	game.damage_core(999)
 	_check("007 core 0 ends run", game.phase == Game.Phase.OVER)
+
+	# Meta upgrades: run end pays souls, buying saves, next run starts stronger.
+	var m: Dictionary = Meta.load_data()
+	_check("meta: run end saved souls", m.souls == Meta.souls_for(game.wave, false) and m.souls > 0)
+	game.meta.souls = 100
+	_check("meta: buy start_gold", game.buy_meta("start_gold"))
+	_check("meta: buy fire_start", game.buy_meta("fire_start"))
+	_check("meta: fire_start maxes at 1", Meta.price(game.meta, "fire_start") == -1 and not game.buy_meta("fire_start"))
+	_check("meta: purchase persisted", Meta.load_data().levels.start_gold == 1)
+	var g3: Game = load("res://src/scenes/main.tscn").instantiate()
+	root.add_child(g3)
+	await process_frame
+	_check("meta: next run gets bonus gold + fire trap",
+		g3.gold == Units.START_GOLD + 30 and g3.unlocked_traps.has("fire"))
+	g3.free()
+	DirAccess.remove_absolute(Meta.save_path)
 
 	quit(1 if _fails > 0 else 0)
 

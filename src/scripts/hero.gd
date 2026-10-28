@@ -17,7 +17,8 @@ var _repath: float = 0.0
 var _looted: Array[BuildObject] = []
 var _loot: BuildObject
 var _loot_t: float = 0.0
-var _skill_cd: float = 2.0
+## Skill gauge: counts down from skill_cd only while fighting; the skill fires at 0.
+var _skill_cd: float = 0.0
 var _boss_step: int = 0
 var _charge_left: float = 0.0
 var _charge_hit: Array[Node2D] = []
@@ -40,6 +41,7 @@ func _ready() -> void:
 	super()
 	add_to_group("heroes")
 	enemy_groups = [&"demon_lord", &"monsters"]
+	_skill_cd = float(stats.get("skill_cd", 0.0))  # gauge starts empty: no skill on first sight
 	if elite:
 		add_child(Fx.light(Color(1.0, 0.8, 0.2), 1.2, 0.7))
 
@@ -62,10 +64,50 @@ func _tick_skill(delta: float) -> void:
 	var skill := String(stats.get("skill", ""))
 	if skill == "":
 		return
-	_skill_cd -= delta
+	if _target != null:
+		_skill_cd -= delta
 	if _skill_cd > 0.0:
 		return
 	match skill:
+		"charge":
+			if _target == null or global_position.distance_to(_target.global_position) > 110.0:
+				return
+			_charge(_target.global_position, 360.0, 0.35)
+		"volley":
+			if _target == null:
+				return
+			var aim := (_target.global_position - global_position).normalized()
+			for k in [-1, 0, 1]:
+				_spawn_bolt(aim.rotated(deg_to_rad(14.0) * k))
+			Fx.text(get_parent(), global_position, "연사!", Color(0.5, 0.8, 1.0))
+		"blink":
+			if _target == null:
+				return
+			# Behind the target, else either flank; skip if all three are walls.
+			var away: Vector2 = (_target.global_position - global_position).normalized() * 16.0
+			var behind := Vector2.INF
+			for turn: float in [0.0, PI / 2.0, -PI / 2.0]:
+				var spot: Vector2 = _target.global_position + away.rotated(turn)
+				if not grid.is_wall_at(spot):
+					behind = spot
+					break
+			if behind == Vector2.INF:
+				return
+			Fx.burst(get_parent(), global_position, Color(0.5, 0.3, 0.7), 12, 60.0)
+			global_position = behind
+			_windup = 0.0  # strike right away from behind
+			Fx.text(get_parent(), global_position, "기습!", Color(0.8, 0.5, 1.0))
+		"slam":
+			if _target == null or global_position.distance_to(_target.global_position) > 40.0:
+				return
+			var tg := Telegraph.new()
+			tg.position = global_position
+			tg.radius = 34.0
+			tg.delay = 0.5
+			tg.damage = damage + 1
+			tg.color = Color(0.6, 0.8, 1.0)
+			get_parent().add_child(tg)
+			Fx.text(get_parent(), global_position, "강타!", Color(0.6, 0.8, 1.0))
 		"heal":
 			var hurt := false
 			for node in get_tree().get_nodes_in_group("heroes"):
@@ -92,15 +134,20 @@ func _tick_skill(delta: float) -> void:
 				1:
 					if _target == null:
 						return
-					_knockback = (_target.global_position - global_position).normalized() * 420.0
-					_charge_left = 0.45
-					_charge_hit.clear()
-					Fx.text(get_parent(), global_position, "돌진!", Color(1, 0.5, 0.2))
+					_charge(_target.global_position, 420.0, 0.45)
 				2:
 					for k in 2:
 						summon_requested.emit("warrior", global_position + Vector2.from_angle(TAU * k / 2.0) * 18.0)
 					Fx.ring(get_parent(), global_position, 40.0, Color(1.0, 0.8, 0.3))
 	_skill_cd = float(stats.skill_cd)
+
+
+## Dashes toward `to`, hitting each enemy it touches once (damage + 1).
+func _charge(to: Vector2, speed: float, time: float) -> void:
+	_knockback = (to - global_position).normalized() * speed
+	_charge_left = time
+	_charge_hit.clear()
+	Fx.text(get_parent(), global_position, "돌진!", Color(1, 0.5, 0.2))
 
 
 func _speed_mult() -> float:
@@ -153,5 +200,12 @@ func _draw() -> void:
 	if elite:
 		draw_arc(Vector2(0, radius - 1.0), radius + 2.0, 0.0, TAU, 20, Color(1.0, 0.8, 0.2, 0.7), 1.0)
 	super()
+	if stats.has("skill_cd"):
+		# Skill gauge under the feet; glows when the skill is ready.
+		var k := clampf(1.0 - _skill_cd / float(stats.skill_cd), 0.0, 1.0)
+		var gy := radius + 3.0
+		draw_rect(Rect2(-radius, gy, radius * 2.0, 2.0), Color(0, 0, 0, 0.6))
+		var col := Color(2.2, 1.6, 0.4) if k >= 1.0 else Color(0.4, 0.75, 1.0)
+		draw_rect(Rect2(-radius, gy, radius * 2.0 * k, 2.0), col)
 	if _loot != null and _loot_t > 0.0:
 		draw_arc(Vector2(0, -radius - 12.0), 3.0, -PI / 2.0, -PI / 2.0 + TAU * _loot_t / float(_loot.data.loot_time), 12, Color(1, 0.85, 0.2), 1.5)

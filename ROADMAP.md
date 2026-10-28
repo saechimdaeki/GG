@@ -6,7 +6,7 @@
 ```bash
 godot --path .
 ```
-테스트: `godot --headless --path . -s tests/smoke/story_001_check.gd` (50 PASS 여야 함)
+테스트: `godot --headless --path . -s tests/smoke/story_001_check.gd` (58 PASS 여야 함)
 
 ## 지금 상태 (2026-10-28)
 - MVP 스토리 001~007 코드 완료 → **유저 플레이 확인 대기**
@@ -22,8 +22,9 @@ godot --path .
 - 튜닝 위치: 적 수치 `src/data/units.gd`, 웨이브 `src/data/waves.gd`, 무기·스킬 `src/data/arsenal.gd`
 
 ### 2. 다음 기능
-- [ ] **메타 업그레이드** — 런 사이에 남는 영구 강화 (기획서 범위 밖 1순위, 반나절)
-- [ ] 아트 다듬기 — Gungeon 풍 디테일, 발광 이펙트, 횃불 스프라이트 연결 (`art/PROMPTS.md` → `tools/pixelate.py`)
+- [x] **메타 업그레이드** — 영혼석 + 게임오버 화면 영구 강화 5종 (2026-10-29)
+- [x] 발광 이펙트 (HDR 2D 블룸), 횃불 스프라이트 연결 (2026-10-29)
+- [ ] 아트 다듬기 남은 것 — Gungeon 풍 디테일 (`art/PROMPTS.md` → `tools/pixelate.py`)
 
 ### 3. 나중
 - [ ] 몬스터 진화/스킬 트리, 자원 경제(임프 채굴)

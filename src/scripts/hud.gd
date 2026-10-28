@@ -5,8 +5,9 @@ extends CanvasLayer
 signal restart_pressed
 signal tool_clicked(id: String)
 signal shop_clicked(id: String)
+signal meta_clicked(id: String)
 
-var _top: Label
+var _status: StatusPanel
 var _hint: Label
 var _toast: Label
 var _toolbar: HBoxContainer
@@ -15,11 +16,14 @@ var _shop: VBoxContainer
 var _shop_buttons: Dictionary = {}
 var _end: CenterContainer
 var _end_label: Label
+var _meta_box: VBoxContainer
 
 
 func _ready() -> void:
-	_top = _label(Vector2(6, 2), 9)
-	_hint = _label(Vector2(6, 318), 9)
+	_status = StatusPanel.new()
+	add_child(_status)
+	_hint = _label(Vector2(6, 318), 8)
+	_hint.add_theme_color_override("font_color", Color(0.78, 0.74, 0.85))
 	_toast = _label(Vector2(0, 150), 14)
 	_toast.size = Vector2(640, 20)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -27,10 +31,12 @@ func _ready() -> void:
 	_toolbar = HBoxContainer.new()
 	_toolbar.position = Vector2(4, 331)
 	_toolbar.add_theme_constant_override("separation", 3)
+	_toolbar.theme = UiTheme.get_theme()
 	add_child(_toolbar)
 	var panel := PanelContainer.new()
 	panel.position = Vector2(260, 110)
 	panel.visible = false
+	panel.theme = UiTheme.get_theme()
 	add_child(panel)
 	_shop = VBoxContainer.new()
 	_shop.add_theme_constant_override("separation", 3)
@@ -42,14 +48,22 @@ func _ready() -> void:
 	_end = CenterContainer.new()
 	_end.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_end.visible = false
+	_end.theme = UiTheme.get_theme()
 	add_child(_end)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_end.add_child(dim)
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_end.add_child(box)
 	_end_label = Label.new()
-	_end_label.add_theme_font_size_override("font_size", 20)
+	_end_label.add_theme_font_size_override("font_size", 16)
 	_end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_end_label)
+	_meta_box = VBoxContainer.new()
+	_meta_box.add_theme_constant_override("separation", 2)
+	box.add_child(_meta_box)
 	var button := Button.new()
 	button.text = "다시 시작"
 	button.focus_mode = Control.FOCUS_NONE
@@ -121,10 +135,12 @@ func set_shop(items: Array) -> void:
 		b.disabled = not it.enabled
 
 
-## Sets the status line and the hint line above the toolbar.
-func set_lines(top: String, hint: String) -> void:
-	_top.text = top
+## Updates the bars/slots (see Game._status() for keys) and the controls hint line.
+func set_status(state: Dictionary, hint: String) -> void:
+	_status.state = state
 	_hint.text = hint
+	# Build: hint sits above the toolbar. Raid: bottom-left, left of the skill slots.
+	_hint.position.y = 318 if not state.raid else 344
 
 
 ## Short message in the middle of the screen that fades out.
@@ -137,7 +153,20 @@ func toast(text: String, color: Color = Color(1, 0.85, 0.4)) -> void:
 	tw.tween_property(_toast, "modulate:a", 0.0, 0.4)
 
 
-## Shows the run-end panel with a restart button.
-func show_end(text: String) -> void:
+## Shows the run-end panel with permanent-upgrade buttons and a restart button.
+## meta_items: [{id, label, enabled}]
+func show_end(text: String, meta_items: Array = []) -> void:
 	_end_label.text = text
+	_toast.modulate.a = 0.0
+	show_toolbar(false)
+	for child in _meta_box.get_children():
+		child.queue_free()
+	for it: Dictionary in meta_items:
+		var b := Button.new()
+		b.text = it.label
+		b.disabled = not it.enabled
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 9)
+		b.pressed.connect(meta_clicked.emit.bind(it.id))
+		_meta_box.add_child(b)
 	_end.visible = true

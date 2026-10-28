@@ -21,5 +21,7 @@ window/stretch/mode="viewport"
 environment/defaults/default_clear_color=Color(0.03, 0.025, 0.05, 1)
 
 renderer/rendering_method="forward_plus"
+; HDR 2D lets colors above 1.0 bloom through the WorldEnvironment glow (Game._ready)
+viewport/hdr_2d=true
 ; ponytail: pixel art needs nearest filtering, otherwise 16x16 sprites blur
 textures/canvas_textures/default_texture_filter=0
