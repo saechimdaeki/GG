@@ -6,6 +6,7 @@ signal picked(id: String)
 
 var _root: Control
 var _row: HBoxContainer
+var _title: Label
 
 
 func _ready() -> void:
@@ -21,21 +22,22 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(box)
-	var title := Label.new()
-	title.text = "웨이브 클리어! 보상을 하나 고르세요"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
+	_title = Label.new()
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_title)
 	_row = HBoxContainer.new()
 	_row.add_theme_constant_override("separation", 12)
 	box.add_child(_row)
 
 
 ## Shows one card per reward dictionary (id, title, desc).
-func open(choices: Array) -> void:
+func open(choices: Array, title: String = "웨이브 클리어! 보상을 하나 고르세요") -> void:
+	_title.text = title
 	for child in _row.get_children():
 		child.queue_free()
 	for r: Dictionary in choices:
 		var card := Button.new()
+		card.focus_mode = Control.FOCUS_NONE
 		card.text = "%s\n\n%s" % [r.title, r.desc]
 		card.custom_minimum_size = Vector2(140, 90)
 		card.pressed.connect(_choose.bind(r.id))

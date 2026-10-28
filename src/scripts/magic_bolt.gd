@@ -17,12 +17,15 @@ var _grid: DungeonGrid
 
 func _ready() -> void:
 	_grid = get_tree().get_first_node_in_group("dungeon") as DungeonGrid
+	material = Fx.additive()
+	add_child(Fx.light(color, 0.8, 0.5))
 
 
 func _physics_process(delta: float) -> void:
 	global_position += direction * speed * delta
 	lifetime -= delta
 	if lifetime <= 0.0 or (_grid != null and _grid.is_wall_at(global_position)):
+		Fx.burst(get_parent(), global_position, color, 5, 60.0)
 		queue_free()
 		return
 	for g in target_groups:
