@@ -180,3 +180,19 @@ Status 값: Ready → In Progress → Done. Done 일 때 스토리 파일의 AC 
 - `Hero._skill_cd` 가 스폰 시 skill_cd 로 시작(게이지 빈 상태), 전투 대상(`_target`)이 있을 때만 참 → 마주친 뒤 skill_cd 초 지나야 첫 스킬
 - 발밑에 게이지 바(파랑, 다 차면 금색 발광). 증거: `production/qa/evidence/hero-skill-gauge.png`
 - 체크 58 PASS
+
+### 2026-10-29 6차: 맵 디자인 개편 (유저: "지저분해 보임, 굴착 말고, 방 테마+모양+상호작용 지형 + 리서치")
+- 리서치 요점: 벽/바닥 명도 대비, 잔디테일 줄이기, 방 템플릿(모양 마스크), 방마다 테마로 구분, 병목+루프
+- 데이터 `src/data/rooms.gd` (`Rooms`): 테마 7종(석실/감옥/서고/납골당/용광로/수몰실/제단실, 각 최대 2개), 모양(rect/rounded/cross/oval), 지형 경로비용, 제단 수치
+- `DungeonGrid._generate`: 방 최대 13→10, 크기 7-11 x 6-9, 간격 3. `_carve_room` 모양 마스크 + `floor_theme`. `_tidy()` 막다른 1칸·1칸 벽 돌기 정리
+- `_decorate(i)`: 테마별 한 가지 지형 — 석실 대칭 기둥 4개, 용광로 2칸 용암 줄기 + 가운데 2칸 다리, 수몰실 물웅덩이, 제단실 제단. 소품은 윗벽을 따라 정렬(책장/창살) 또는 줄(관). 랜덤 뼈/상자 흩뿌리기 삭제
+- 상호작용: 경로비용(물 3, 용암 8) → 용사가 다리/우회로로 몰림(병목). 제단: 침입 중 반경 2.5칸 마왕·몬스터 2초마다 HP+1
+- 횃불: 7칸마다 → 방마다 윗벽 1/3, 2/3 지점 2개. 건설 중 방 이름 표시
+- 체크 60 PASS + input 3. 증거: `production/qa/evidence/map-themes-build.png`, `map-themes-raid.png`
+- 다음 후보: 철문(닫으면 우회), 부술 수 있는 기둥, 테마별 바닥 텍스처
+
+### 2026-10-29 7차: 용암/물 그래픽 (유저: "용암과 물이 후져 보임")
+- `DungeonGrid._draw_water`: 깊은 남색 + 흘러가는 물결 대시 + 가끔 반짝임, 가장자리 돌 테두리(2px) + 물선, 윗변은 깊이 그림자
+- `_draw_lava`: 2px 블록 플라즈마(어두운 굳은 용암/주황 용융/HDR 백열 줄기, 블룸됨) + 거품 링 + 가장자리 굳은 껍질 + 발광 이음선
+- 이웃 지형 비교 `_open_sides`, 셀별 해시 `_hash` 로 애니 위상 분산
+- 확대 데모 `tests/smoke/terrain_demo.gd`. 증거 `production/qa/evidence/lava-closeup.png`, `water-closeup.png`. 체크 60 PASS

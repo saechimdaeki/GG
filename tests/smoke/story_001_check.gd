@@ -12,6 +12,8 @@ func _initialize() -> void:
 	var bad_maps := 0
 	var has_water := false
 	var has_lava := false
+	var themes := {}
+	var altar_seen := false
 	for s in range(1, 21):
 		var g := DungeonGrid.new()
 		g.seed_value = s
@@ -22,9 +24,13 @@ func _initialize() -> void:
 			bad_maps += 1
 		has_water = has_water or g.terrain.values().has("water")
 		has_lava = has_lava or g.terrain.values().has("lava")
+		for t in g.room_themes:
+			themes[t] = true
+		altar_seen = altar_seen or not g.altars.is_empty()
 		g.free()
 	_check("map: 20 seeds all have 3 entrances reaching the core", bad_maps == 0)
 	_check("map: water and lava both appear across seeds", has_water and has_lava)
+	_check("map: rooms get several themes (%d) and altars appear" % themes.size(), themes.size() >= 5 and altar_seen)
 
 	# Meta save goes to a throwaway file so the check never touches the player's save.
 	Meta.save_path = "user://meta_check.cfg"
@@ -267,6 +273,14 @@ func _initialize() -> void:
 	_check("lord levels up and pauses for a card", game.lord_level == lv + 1 and paused and game._leveling)
 	game._on_reward_picked("lord_hp")
 	_check("picking a level card resumes the raid", not paused and game.phase == Game.Phase.RAID)
+
+	# Altar heals the lord standing next to it.
+	var acell := grid.cell_at(lord.global_position)
+	grid.altars.append(acell)
+	lord.health = lord.max_health - 2
+	grid._altar_heal()
+	_check("altar heals the lord nearby", lord.health == lord.max_health - 2 + int(Rooms.ALTAR.heal))
+	grid.altars.erase(acell)
 
 	# 007: core 0 ends the run
 	game.damage_core(999)
