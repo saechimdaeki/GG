@@ -130,7 +130,7 @@ static func _draw_eyes(canvas: CanvasItem, sp: String, head: Vector2, mood: Stri
 	var look := Vector2(3, 1) if mood == "nervous" else Vector2.ZERO
 	if sp == "eyes":
 		look = Vector2(sin(t * 1.3), cos(t * 0.9)) * 2.0 + look
-	for e in EYES[sp]:
+	for e in EYES.get(sp, EYES["goblin"]):
 		var at: Vector2 = head + (e[0] as Vector2)
 		var r: float = e[1]
 		match sp:

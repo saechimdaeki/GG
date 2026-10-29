@@ -2,7 +2,7 @@ class_name CustomerData
 ## Monster customers: species, personalities, haggling numbers, grudge/affection
 ## thresholds and every line they say.
 
-const ROSTER_SIZE := 12
+const ROSTER_SIZE := 18
 const DAY_CUSTOMERS := 5
 const START_MONEY := 400
 
@@ -16,6 +16,22 @@ const SPECIES := {
 	"drowned": {"name": "익사한 선원", "skin": Color(0.62, 0.74, 0.78), "names": ["노르", "바다안개", "짠물"]},
 	"spider": {"name": "거미 귀부인", "skin": Color(0.88, 0.86, 0.9), "names": ["실크 부인", "아라크", "그물"]},
 	"goblin": {"name": "고블린", "skin": Color(0.47, 0.6, 0.3), "names": ["그릭", "스닉", "닙스"]},
+	"mi_go": {"name": "미-고", "skin": Color(0.78, 0.5, 0.55), "names": ["즈크르", "윙윙", "균사"]},
+	"shadow": {"name": "그림자 인간", "skin": Color(0.08, 0.07, 0.09), "names": ["모자", "검은 신사", "어스름"]},
+	"wax_doll": {"name": "밀랍 인형", "skin": Color(0.95, 0.85, 0.8), "names": ["로제", "마리", "도로시"]},
+	"rat_man": {"name": "쥐 인간", "skin": Color(0.45, 0.35, 0.28), "names": ["찍찍", "숟가락", "스크래치"]},
+	"bog_witch": {"name": "늪 마녀 견습생", "skin": Color(0.4, 0.55, 0.3), "names": ["개굴", "올챙이", "리리"]},
+	"masked_noble": {"name": "가면 귀족", "skin": Color(0.95, 0.95, 0.95), "names": ["무슈 X", "미소 백작", "베일"]},
+	"moth_man": {"name": "나방 인간", "skin": Color(0.55, 0.55, 0.58), "names": ["가루", "붉은 눈", "등불쟁이"]},
+	"bone_peddler": {"name": "뼈 행상", "skin": Color(0.9, 0.88, 0.8), "names": ["딸깍", "본조르노", "갈비"]},
+	"candle_beast": {"name": "촛농 괴물", "skin": Color(0.92, 0.9, 0.82), "names": ["심지", "녹아", "뚝뚝"]},
+	"stitched": {"name": "꿰맨 시체", "skin": Color(0.6, 0.68, 0.55), "names": ["제임스", "땜질", "조각"]},
+	"plague_doctor": {"name": "까마귀 역병의사", "skin": Color(0.1, 0.1, 0.12), "names": ["닥터 크로우", "부리", "검은 깃"]},
+	"moss_giant": {"name": "이끼 거인", "skin": Color(0.35, 0.45, 0.28), "names": ["우우움", "바위", "포자"]},
+	"two_headed": {"name": "쌍두 노인", "skin": Color(0.85, 0.72, 0.62), "names": ["형과 아우", "투덜과 낄낄", "오른쪽 왼쪽"]},
+	"weeping_statue": {"name": "우는 석상", "skin": Color(0.6, 0.62, 0.6), "names": ["눈물", "잿빛 날개", "침묵의 천사"]},
+	"mushroom": {"name": "버섯 인간", "skin": Color(0.85, 0.2, 0.2), "names": ["송이", "포롱", "점박이"]},
+	"salt_mummy": {"name": "소금 미라", "skin": Color(0.9, 0.9, 0.86), "names": ["소금쟁이", "닻", "마른 선장"]},
 }
 
 ## Robe / coat colors: muted, grim.

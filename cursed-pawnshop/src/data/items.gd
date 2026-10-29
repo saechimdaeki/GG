@@ -28,6 +28,21 @@ const KINDS := {
 	"dagger": {"name": "의식용 단검", "volume": 80, "lore": ["(칼날에 말라붙은 무언가가 있다)", "(손잡이가 미지근하다. 누가 방금까지 쥐고 있던 것처럼)"]},
 	"idol": {"name": "촉수 우상", "volume": 120, "lore": ["(우상의 촉수가 아까와 다른 방향을 향하고 있다)", "(우상을 오래 보면 머리가 아프다)"]},
 	"crown": {"name": "심해 왕관", "volume": 90, "lore": ["(왕관에서 짠내와 썩은 해초 냄새가 난다)", "(왕관 안쪽에 비늘이 몇 장 붙어 있다)"]},
+	# Kinds below carry their own mark area and seam points (unit coords, item fits a 2x2 box).
+	"ring": {"name": "촉수 인장 반지", "volume": 30, "lore": ["(반지의 촉수가 손가락을 조이려는 것 같다)", "(보석이 빠진 자리에서 미지근한 바람이 분다)"],
+		"mark_area": Rect2(-0.3, 0.35, 0.6, 0.25), "edges": [Vector2(-0.55, 0.35), Vector2(0.55, 0.35), Vector2(0.0, 0.75)]},
+	"brooch": {"name": "감은 눈 브로치", "volume": 40, "lore": ["(브로치의 눈꺼풀이 아주 살짝 떨렸다)", "(눈을 뜨면 무엇이 보일지 생각하지 않기로 한다)"],
+		"mark_area": Rect2(-0.45, -0.15, 0.9, 0.3), "edges": [Vector2(-0.88, 0.0), Vector2(0.88, 0.0), Vector2(0.0, 0.55)]},
+	"censer": {"name": "녹색 연기 향로", "volume": 110, "lore": ["(향로 구멍에서 초록 연기가 저절로 새어 나온다)", "(연기가 잠깐 얼굴 모양이 됐다)"],
+		"mark_area": Rect2(-0.25, 0.1, 0.5, 0.4), "edges": [Vector2(-0.48, 0.3), Vector2(0.48, 0.3), Vector2(0.0, 0.75)]},
+	"bell": {"name": "비명 지르는 종", "volume": 90, "lore": ["(손잡이의 얼굴이 소리 없이 비명을 지르고 있다)", "(흔들지 않았는데 종이 한 번 울렸다)"],
+		"mark_area": Rect2(-0.25, 0.1, 0.5, 0.45), "edges": [Vector2(-0.55, 0.78), Vector2(0.55, 0.78), Vector2(0.0, 0.82)]},
+	"candlestick": {"name": "말라붙은 손 촛대", "volume": 100, "lore": ["(촛대의 손가락이 아까보다 하나 더 접혀 있다)", "(손바닥에 손금이 그대로 남아 있다)"],
+		"mark_area": Rect2(-0.25, 0.15, 0.45, 0.35), "edges": [Vector2(-0.45, 0.25), Vector2(0.4, 0.3), Vector2(-0.3, -0.6)]},
+	"pocket_watch": {"name": "열세 시 회중시계", "volume": 50, "lore": ["(시계판에 숫자가 열셋이다)", "(바늘들이 제각각 다른 시간을 가리킨다)"],
+		"mark_area": Rect2(-0.3, -0.15, 0.6, 0.55), "edges": [Vector2(-0.78, 0.1), Vector2(0.78, 0.1), Vector2(0.0, 0.85)]},
+	"key": {"name": "눈알 열쇠", "volume": 45, "lore": ["(열쇠 머리의 눈이 문을 찾듯 두리번거린다)", "(이 열쇠에 맞는 문은 가게 지하에 있을 것 같다)"],
+		"mark_area": Rect2(-0.08, -0.1, 0.16, 0.45), "edges": [Vector2(-0.12, 0.1), Vector2(0.12, 0.3), Vector2(0.0, 0.85)]},
 }
 
 ## Relative chance of genuine / fake / cursed when nothing forces the truth.

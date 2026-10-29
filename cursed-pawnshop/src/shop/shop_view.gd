@@ -527,7 +527,7 @@ func _inspect(m: Vector2) -> void:
 	var item: Dictionary = _visit["item"]
 	var u := (m - ITEM_CENTER) / ITEM_UNIT
 	var reach := ProgressionData.LENS_CLICK_BONUS if _run.level("lens") > 0 else 1.0
-	if item["mark"] != "" and not _seen.has("mark") and u.distance_to(item["mark_pos"]) < ItemDrawer.MARK_SIZE[item["kind"]] * 1.6 * reach:
+	if item["mark"] != "" and not _seen.has("mark") and u.distance_to(item["mark_pos"]) < ItemDrawer.mark_size(item["kind"]) * 1.6 * reach:
 		_seen["mark"] = true
 		_note("각인: %s%s" % [ItemData.MARKS[item["mark"]], " (두 겹으로 번짐)" if item["mark_blurred"] else ""])
 		_refresh_choices()

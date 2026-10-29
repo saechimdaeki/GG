@@ -13,6 +13,11 @@ const SPRITE_PATH := "res://assets/sprites/items/%s.png"
 static var _sprites := {}
 
 
+## Mark size for a kind, in unit coordinates.
+static func mark_size(kind: String) -> float:
+	return MARK_SIZE.get(kind, 0.1)
+
+
 static func _sprite(kind: String) -> Texture2D:
 	if not _sprites.has(kind):
 		var path := SPRITE_PATH % kind
@@ -123,7 +128,7 @@ static func _draw_details(canvas: CanvasItem, item: Dictionary, center: Vector2,
 		canvas.draw_arc(at, r, 0.0, TAU, 16, col.darkened(0.5), maxf(1.0, unit * 0.01))
 	if item["mark"] != "":
 		var at: Vector2 = center + (item["mark_pos"] as Vector2) * unit
-		var size: float = MARK_SIZE[item["kind"]] * unit
+		var size: float = mark_size(item["kind"]) * unit
 		var ink := col.darkened(0.55)
 		if item["mark_blurred"]:
 			_glyph(canvas, item["mark"], at + Vector2(size * 0.1, size * 0.07), size, ink, 0.55)

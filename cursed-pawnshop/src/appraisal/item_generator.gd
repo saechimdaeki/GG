@@ -123,6 +123,10 @@ static func _add_clues(item: Dictionary, rng: RandomNumberGenerator) -> void:
 
 ## Somewhere on the body of the item, so the player has to look for it.
 static func _mark_pos(rng: RandomNumberGenerator, kind: String) -> Vector2:
+	var k: Dictionary = ItemData.KINDS[kind]
+	if k.has("mark_area"):
+		var r: Rect2 = k["mark_area"]
+		return r.position + Vector2(rng.randf() * r.size.x, rng.randf() * r.size.y)
 	match kind:
 		"medal":
 			return Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, 0.4)
@@ -137,6 +141,9 @@ static func _mark_pos(rng: RandomNumberGenerator, kind: String) -> Vector2:
 
 
 static func _edge_pos(rng: RandomNumberGenerator, kind: String) -> Vector2:
+	var k: Dictionary = ItemData.KINDS[kind]
+	if k.has("edges"):
+		return k["edges"][rng.randi() % k["edges"].size()]
 	match kind:
 		"medal":
 			return Vector2.from_angle(rng.randf() * TAU) * 0.74
