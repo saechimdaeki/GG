@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-29
 **Branch:** `main`
-**Current task:** cursed-pawnshop M4 이야기 — story-005-m4-story.md
-**Next step:** NPC 초상화(묶음 2) 들어오면 도트화. 그다음 M5(저주품·촛불·세공)
-**Blocked on:** 아트 묶음 2
+**Current task:** cursed-pawnshop M1~M4 완료, 정리·푸시
+**Next step:** 유저 플레이 평가 → 밸런스 조정 → M5(저주품·촛불·세공)
+**Blocked on:** 유저 플레이테스트
 **Files in progress:** none
-**Run result:** OBSERVED — 스토리 장면·선택 결과·추궁 메뉴·봉인지기 엔딩 (cursed-pawnshop/production/qa/evidence/story-005-m4-story/)
-**Open questions:** 밸런스는 유저 플레이 후 한 번에
+**Run result:** OBSERVED — NPC 초상화 스토리 장면·바알 방문 (cursed-pawnshop/production/qa/evidence/story-005-m4-story/)
+**Open questions:** 아트 묶음 4 나머지·5는 선택
 <!-- /CHECKPOINT -->
 
 ---
