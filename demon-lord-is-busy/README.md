@@ -4,7 +4,7 @@
 함정 콤보(스프링으로 용사를 용암에 날리기, 기름+불 폭발)와 마왕 걷어차기가 핵심 재미.
 
 - 엔진: **Godot 4.7.2** (GDScript), macOS에서 개발
-- 기획서: [`design/game-brief.md`](../design/game-brief.md) · 진행 로그: [`production/session-state/active.md`](../production/session-state/active.md)
+- 기획서: [`design/game-brief.md`](design/game-brief.md) · 진행 로그: [`production/session-state/active.md`](production/session-state/active.md)
 
 ## 실행
 
