@@ -27,15 +27,18 @@ static func make_roster(rng: RandomNumberGenerator) -> Array:
 	return roster
 
 
-## A visit: the member, their item, the price talk and their mood.
-static func start_visit(member: Dictionary, seed_value: int) -> Dictionary:
+## A selling visit: the member, their item, the price talk and their mood.
+## [param prices] = today's metal multipliers (RunState.prices); sellers know the market.
+static func start_visit(member: Dictionary, seed_value: int, prices: Dictionary = {}) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var p: Dictionary = CustomerData.PERSONALITIES[member["personality"]]
 	var truth := ItemGenerator.Truth.FAKE if rng.randf() < float(p["fake_chance"]) else ItemGenerator.Truth.GENUINE
 	var item := ItemGenerator.generate(rng.randi(), truth)
-	var ask := maxi(5, snap5(item["claimed_value"] * float(p["markup"])))
+	var market: float = prices.get(item["claimed_material"], 1.0)
+	var ask := maxi(5, snap5(item["claimed_value"] * market * float(p["markup"])))
 	return {
+		"role": "sell",
 		"member": member,
 		"item": item,
 		"ask": ask,
@@ -51,6 +54,43 @@ static func start_visit(member: Dictionary, seed_value: int) -> Dictionary:
 		"wrong_accused": false,
 		"walked_out": false,
 	}
+
+
+## A buying visit: the member picks one shelved entry and opens with an offer.
+## [param believed] = what they think it is worth (claimed metal at today's price).
+## Returns {} when [param shelf] is empty.
+static func start_buy_visit(member: Dictionary, seed_value: int, shelf: Array, believed: Callable) -> Dictionary:
+	if shelf.is_empty():
+		return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var b: Dictionary = MarketData.BUYERS[member["personality"]]
+	var entry: Dictionary = shelf[rng.randi() % shelf.size()]
+	var budget := float(believed.call(entry["item"])) * float(b["budget"])
+	var fake: bool = entry["item"]["truth"] == ItemGenerator.Truth.FAKE
+	return {
+		"role": "buy",
+		"member": member,
+		"entry": entry,
+		"item": entry["item"],
+		"budget": budget,
+		"offer": maxi(5, snap5_down(budget * float(b["first"]))),
+		"patience": b["patience"],
+		"spots_fake": fake and rng.randf() < float(b["detect"]),
+		"mood": "angry" if member["grudge"] > 0 else "neutral",
+		"line_seed": rng.randi() % 1000,
+		"nervous": 0,
+		"exposed": false,
+		"insulted": false,
+		"wrong_accused": false,
+		"walked_out": false,
+		"first_ask": 0,
+	}
+
+
+## Rounds down to a multiple of 5 gold.
+static func snap5_down(x: float) -> int:
+	return int(floor(x / 5.0)) * 5
 
 
 ## Rounds up to a multiple of 5 gold.

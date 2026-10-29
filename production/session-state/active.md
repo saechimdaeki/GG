@@ -35,11 +35,11 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-29
 **Branch:** `main`
-**Current task:** cursed-pawnshop 묶음 1 아트 적용 완료 (초상화 8, 물건 5, 배경)
-**Next step:** 유저 플레이 피드백 → M1 다듬기 → M2. 아트 묶음 2~5는 유저가 생성 중
+**Current task:** cursed-pawnshop M2 장사 — cursed-pawnshop/production/epics/cursed-pawnshop/story-003-m2-trade.md
+**Next step:** 유저 플레이 피드백 → M3(주간 빚·상점 업그레이드·도구). 유저는 아트 묶음 3·4(금속) 생성 중
 **Blocked on:** 유저 플레이테스트
-**Files in progress:** cursed-pawnshop/assets/sprites/*, tools/sprite_convert.py, src/shop/*
-**Run result:** OBSERVED — 가게 배경·촉수 상인 초상화·우상 스프라이트 (cursed-pawnshop/production/qa/evidence/story-002-m1-day-cycle/art-*.png)
+**Files in progress:** cursed-pawnshop/src/data/market.gd, src/shop/{run_state,shelf_panel,shop_view,customer,haggle}.gd
+**Run result:** OBSERVED — 진열대 정리·판매·밤 도매 (cursed-pawnshop/production/qa/evidence/story-003-m2-trade/)
 **Open questions:** 커밋 여부
 <!-- /CHECKPOINT -->
 

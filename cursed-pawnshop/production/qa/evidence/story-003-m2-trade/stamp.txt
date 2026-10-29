@@ -1,0 +1,8 @@
+Reviewed-Content-Hash: src/data/market.gd 782ed74b37df49339cb6f85d5cff60c02b62c32a
+Reviewed-Content-Hash: src/data/events.gd 1a98a77348cb38f0068bf54f0c31c94542e6e940
+Reviewed-Content-Hash: src/data/customers.gd df0c7ec775c0850b0f6e03bf3108d205ba4951ba
+Reviewed-Content-Hash: src/shop/customer.gd eb8668858c3e7b9343db37f400c0e429dc295dc2
+Reviewed-Content-Hash: src/shop/haggle.gd 8b1b62014d5f6738704f8a3d362dbfe7b5e2c01e
+Reviewed-Content-Hash: src/shop/run_state.gd 07cd9cbf9ee83daf325d7cbc8ebaf38dcfdefa2f
+Reviewed-Content-Hash: src/shop/shelf_panel.gd fce1afc7945f1036373f59fc78001f0f0f651dd5
+Reviewed-Content-Hash: src/shop/shop_view.gd deb3974b343c29f3685ebce785fdc830b6a41587

@@ -17,7 +17,7 @@ const INK := Color(0.93, 0.88, 0.8)
 ## Optional painted back wall (art/raw/shop_bg.png, see art/PROMPTS.md).
 const BACKGROUND := "res://assets/sprites/shop_bg.png"
 
-enum Phase { MORNING, ENTER, TALK, HAGGLE, RESULT, NIGHT }
+enum Phase { MORNING, ENTER, TALK, HAGGLE, SELL, RESULT, NIGHT }
 
 var _run: RunState
 var _phase := Phase.MORNING
@@ -32,6 +32,10 @@ var _ping := Vector2.INF
 var _ping_t := 0.0
 var _bought := false
 var _background: Texture2D
+var _ask_price := 0
+var _sale_price := 0
+var _caught := false
+var _shelf_panel: ShelfPanel
 
 var _hud: Label
 var _speaker: Label
@@ -142,6 +146,10 @@ func _build_ui() -> void:
 	_overlay_button.add_theme_font_size_override("font_size", 11)
 	_overlay.add_child(_overlay_button)
 
+	_shelf_panel = ShelfPanel.new()
+	_shelf_panel.visible = false
+	add_child(_shelf_panel)
+
 
 func _label(parent: Node, pos: Vector2, font_size: int, color: Color) -> Label:
 	var l := Label.new()
@@ -167,18 +175,28 @@ func _show_morning() -> void:
 	_phase = Phase.MORNING
 	_visit = {}
 	var lines := _run.start_day()
-	_show_overlay("\n\n".join(lines), "🔔 가게 문 열기", _open_shop)
+	_show_overlay("\n\n".join(lines), "🏺 진열대 정리", func():
+		_overlay.visible = false
+		_shelf_panel.open(_run, false, "🔔 가게 문 열기", _open_shop))
 
 
 func _open_shop() -> void:
-	_overlay.visible = false
-	_next_customer()
+	var tips := _run.open_shop()
+	if tips.is_empty():
+		_overlay.visible = false
+		_next_customer()
+	else:
+		_show_overlay("\n\n".join(tips), "손님 맞기", func():
+			_overlay.visible = false
+			_next_customer())
 
 
 func _show_night() -> void:
 	_phase = Phase.NIGHT
 	_visit = {}
-	_show_overlay("\n\n".join(_run.end_day()), "🌙 잠들기 → 다음 날", _show_morning)
+	_show_overlay("\n\n".join(_run.end_day()), "📦 창고 · 도매상", func():
+		_overlay.visible = false
+		_shelf_panel.open(_run, true, "🌙 잠들기 → 다음 날", _show_morning))
 
 
 func _show_overlay(text: String, button: String, action: Callable) -> void:
@@ -216,8 +234,15 @@ func _next_customer() -> void:
 	tw.tween_callback(func():
 		if _visit.is_empty():
 			return
-		_phase = Phase.TALK
-		_say(Customer.greet(_visit))
+		if _visit["role"] == "buy":
+			_phase = Phase.SELL
+			_ask_price = _visit["entry"]["tag"]
+			var greet: Array = CustomerData.LINES["buy_greet"]
+			_say(greet[_visit["line_seed"] % greet.size()] % RunState.item_name(_visit["item"], true)
+				+ " " + CustomerData.LINES["buy_offer"] % _visit["offer"])
+		else:
+			_phase = Phase.TALK
+			_say(Customer.greet(_visit))
 		_refresh_choices())
 	_update_hud()
 
@@ -231,7 +256,7 @@ func _say(text: String) -> void:
 
 
 func _update_hud() -> void:
-	_hud.text = "%d일째   소지금 %dG   남은 손님 %d" % [_run.day, _run.money, _run.visitors_left()]
+	_hud.text = "%d일째   소지금 %dG   남은 손님 %d\n%s" % [_run.day, _run.money, _run.visitors_left(), _run.price_line()]
 
 
 # --- Choices ---------------------------------------------------------------
@@ -277,6 +302,20 @@ func _refresh_choices() -> void:
 			_add_choice("+10", _bump.bind(10))
 			_add_choice("💰 이 값에!", _submit_offer)
 			_add_choice("다시 볼게요", _back_to_talk)
+		Phase.SELL:
+			_choices.columns = 3
+			_choices.position.y = 40
+			_update_sale()
+			_add_choice("-10", _bump_price.bind(-10))
+			_add_choice("+10", _bump_price.bind(10))
+			_add_choice("손님 값 OK", func():
+				_ask_price = _visit["offer"]
+				_submit_sale())
+			_add_choice("💰 이 값에!", _submit_sale)
+			_add_choice("안 팔아요", func():
+				var lines: Array = CustomerData.LINES["buy_refused"]
+				_say(lines[_visit["line_seed"] % lines.size()])
+				_finish_sale(false, 0))
 		Phase.RESULT:
 			_choices.columns = 2
 			_add_choice("다음 손님" if _run.visitors_left() > 0 else "🌙 가게 문 닫기", _leave_and_next)
@@ -345,6 +384,48 @@ func _finish(bought: bool, price: int) -> void:
 	if parting != "":
 		var said := _text.text
 		_say(said + "\n" + parting)
+	_phase = Phase.RESULT
+	_refresh_choices()
+	_update_hud()
+
+
+func _bump_price(delta: int) -> void:
+	_ask_price = maxi(5, _ask_price + delta)
+	_update_sale()
+
+
+func _update_sale() -> void:
+	var e: Dictionary = _visit["entry"]
+	_offer_label.text = "손님 제시 %dG · 내 요구 %dG\n(가격표 %d · 산 값 %d · 시세 %d)" % [
+		_visit["offer"], _ask_price, e["tag"], e["paid"], _run.market_value(e["item"])]
+
+
+## The buyer inspects first: a sharp-eyed one may catch a fake right here.
+func _submit_sale() -> void:
+	if _visit["spots_fake"]:
+		var caught: Array = CustomerData.LINES["buy_caught"]
+		_visit["mood"] = "angry"
+		_say(caught[_visit["line_seed"] % caught.size()])
+		_finish_sale(false, 0, true)
+		return
+	var res := Haggle.respond_buy(_visit, _ask_price)
+	_say(res["line"])
+	match res["result"]:
+		"accept":
+			_finish_sale(true, _ask_price)
+		"walkout":
+			_finish_sale(false, 0)
+		_:
+			_refresh_choices()
+
+
+func _finish_sale(sold: bool, price: int, caught: bool = false) -> void:
+	_bought = sold
+	_sale_price = price
+	_caught = caught
+	var parting := _run.finish_sale(_visit, sold, price, caught)
+	if parting != "":
+		_say(_text.text + "\n" + parting)
 	_phase = Phase.RESULT
 	_refresh_choices()
 	_update_hud()
@@ -487,6 +568,24 @@ func _draw_counter() -> void:
 	var h := 10.0 + sin(_t * 11.0) * 1.5
 	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -30 - h), c + Vector2(4, -32), c + Vector2(0, -29), c + Vector2(-4, -32)]), Color(1, 0.75, 0.3))
 	draw_circle(c + Vector2(0, -33), 3, Color(1, 0.95, 0.7))
+	_draw_shelf()
+
+
+## The shelf: displayed items with price tags on the front of the counter.
+func _draw_shelf() -> void:
+	var font := ThemeDB.fallback_font
+	var wanted: Dictionary = _visit.get("entry", {})
+	var shelf := _run.shelf()
+	for i in MarketData.SHELF_SLOTS:
+		var at := Vector2(96 + i * 54, 222)
+		draw_rect(Rect2(at - Vector2(22, 14), Vector2(44, 34)), Color(0.15, 0.08, 0.06, 0.8))
+		if i >= shelf.size():
+			continue
+		var e: Dictionary = shelf[i]
+		if e == wanted:
+			draw_rect(Rect2(at - Vector2(23, 15), Vector2(46, 36)), GOLD, false, 2)
+		ItemDrawer.draw(self, e["item"], at - Vector2(0, 2), 12, false)
+		draw_string(font, at + Vector2(-20, 18), "%dG" % e["tag"], HORIZONTAL_ALIGNMENT_CENTER, 40, 8, GOLD)
 
 
 func _draw_mat() -> void:
@@ -524,8 +623,19 @@ func _draw_mat() -> void:
 		var title := ("가짜! 실은 %s" % RunState.item_name(item, false)) if fake else "진품 %s" % RunState.item_name(item, true)
 		draw_string(font, MAT_RECT.position + Vector2(14, 26), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.45, 0.4) if fake else Color(0.55, 1, 0.6))
 		var lines := ItemGenerator.clue_lines(item)
-		lines.append("실제 가치 %dG · 되팔면 %dG" % [item["value"], int(round(item["value"] * ItemData.RESALE_MULTIPLIER))])
-		lines.append("✔ 샀음" if _bought else "✘ 안 샀음")
+		lines.append("오늘 시세 가치 %dG" % _run.market_value(item))
+		if _visit["role"] == "buy":
+			var paid: int = _visit["entry"]["paid"]
+			if _caught:
+				lines.append("✘ 가짜를 들켰다! 손님이 앙심을 품었다")
+			elif _bought:
+				lines.append("✔ %dG에 팔았다 (산 값 %d → %+dG)" % [_sale_price, paid, _sale_price - paid])
+				if fake:
+					lines.append("…속은 손님은 언젠가 알아챌 것이다")
+			else:
+				lines.append("✘ 안 팔렸다")
+		else:
+			lines.append("✔ 창고로 (진열대 칸이 있으면 바로 진열)" if _bought else "✘ 안 샀음")
 		for i in lines.size():
 			draw_string(font, MAT_RECT.position + Vector2(14, 48 + i * 15), lines[i], HORIZONTAL_ALIGNMENT_LEFT, 290, 9, INK)
 

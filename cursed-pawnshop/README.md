@@ -4,7 +4,7 @@
 
 - 기획서: [`design/game-brief.md`](design/game-brief.md)
 - 스토리: [`production/epics/cursed-pawnshop/`](production/epics/cursed-pawnshop/EPIC.md) (5개)
-- 상태: M1(하루 순환) 플레이 가능 — 손님 대화·감정·추궁·흥정·원한/선물 이벤트·밤 정산
+- 상태: M2(장사) 플레이 가능 — 매입 + 진열대·가격표 + 사는 손님 + 시세 + 밤 도매. 원한/선물 이벤트
 
 ## 실행 (Godot 4.7.2 필요)
 
