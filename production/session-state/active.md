@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-30
 **Branch:** `main`
-**Current task:** cursed-pawnshop 플레이 전 마무리 완료 — story-008-prerelease.md
-**Next step:** 유저가 한 판 플레이 → 피드백으로 밸런스·재미 조정
-**Blocked on:** 유저 플레이테스트
+**Current task:** cursed-pawnshop UI 개편·튜토리얼·컷신 — story-009-ui-tutorial.md
+**Next step:** 유저가 Grok으로 컷신 11장(묶음 6) → scene 변환. 유저 플레이 평가
+**Blocked on:** 유저 플레이테스트, 컷신 그림
 **Files in progress:** none
-**Run result:** OBSERVED — 일시정지 메뉴·유리 루비 감정 (cursed-pawnshop/production/qa/evidence/story-008-nonmetal/gem-glass.png)
-**Open questions:** 봇 기준 명성이 크게 음수로 감 — 실제 플레이에서 확인
+**Run result:** OBSERVED — 타이틀·오프닝 컷신·튜토리얼 (cursed-pawnshop/production/qa/evidence/story-009-ui-tutorial/)
+**Open questions:** 푸시 여부
 <!-- /CHECKPOINT -->
 
 ---

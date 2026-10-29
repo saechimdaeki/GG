@@ -31,7 +31,7 @@ func _init() -> void:
 	_done = Button.new()
 	_done.position = Vector2(200, 282)
 	_done.size = Vector2(160, 26)
-	_done.add_theme_font_size_override("font_size", 11)
+	UIFont.style(_done, 11)
 	_done.pressed.connect(func():
 		visible = false
 		on_done.call())
@@ -79,15 +79,16 @@ func _row(e: Dictionary) -> Control:
 		label = "  (%s)" % CurseData.CURSES[item["curse"]]["name"]
 		color = Color(0.78, 0.55, 1.0)
 	var name := _text(RunState.item_name(item, true) + label, 9, color)
-	name.custom_minimum_size = Vector2(200, 0)
+	name.custom_minimum_size = Vector2(176, 0)
+	name.clip_text = true
 	row.add_child(name)
+	var info := _text("산 값 %d · 시세 %dG" % [e["paid"], run.market_value(item)], 9, Color(0.75, 0.68, 0.6))
+	info.custom_minimum_size = Vector2(108, 0)
+	row.add_child(info)
 	if cursed:
 		row.add_child(_button("정화 -%dG" % CurseData.PURIFY_COST, func():
 			run.purify(e)
 			_rebuild()))
-	var info := _text("산 값 %d · 시세 %dG" % [e["paid"], run.market_value(item)], 9, Color(0.75, 0.68, 0.6))
-	info.custom_minimum_size = Vector2(118, 0)
-	row.add_child(info)
 	if _night:
 		var gold := int(round(run.market_value(item) * MarketData.WHOLESALE))
 		row.add_child(_button("도매로 팔기 +%dG" % gold, func():
@@ -104,7 +105,7 @@ func _row(e: Dictionary) -> Control:
 	row.add_child(_button("+10", func():
 		e["tag"] += 10
 		_rebuild()))
-	row.add_child(_button("✔ 진열 중" if e["shelved"] else "진열하기", func():
+	row.add_child(_button("✔ 진열" if e["shelved"] else "진열", func():
 		run.set_shelved(e, not e["shelved"])
 		_rebuild()))
 	return row
@@ -113,7 +114,7 @@ func _row(e: Dictionary) -> Control:
 func _text(t: String, font_size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.text = t
-	l.add_theme_font_size_override("font_size", font_size)
+	UIFont.style(l, font_size)
 	l.add_theme_color_override("font_color", color)
 	return l
 

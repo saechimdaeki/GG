@@ -105,7 +105,7 @@ func _slider(parent: Node, text: String, value: float) -> HSlider:
 func _label(text: String, font_size: int) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", font_size)
+	UIFont.style(l, font_size)
 	return l
 
 

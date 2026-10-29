@@ -25,7 +25,7 @@ func _init() -> void:
 	_done = Button.new()
 	_done.position = Vector2(200, 282)
 	_done.size = Vector2(160, 26)
-	_done.add_theme_font_size_override("font_size", 11)
+	UIFont.style(_done, 11)
 	_done.pressed.connect(func():
 		visible = false
 		on_done.call())
@@ -76,6 +76,6 @@ func _rebuild() -> void:
 func _text(t: String, font_size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.text = t
-	l.add_theme_font_size_override("font_size", font_size)
+	UIFont.style(l, font_size)
 	l.add_theme_color_override("font_color", color)
 	return l

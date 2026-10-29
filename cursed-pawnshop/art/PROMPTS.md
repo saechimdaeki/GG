@@ -209,3 +209,25 @@ with four expressions from left to right: neutral, smiling, angry, shocked.
 | `ending_master.png` | Ending scene: a vampire count's grand candlelit ballroom, monsters in fine clothes lining up with treasures, the shopkeeper at a velvet table holding up a brass loupe, everyone watching in awe. |
 | `ending_cleared.png` | Ending scene: the pawnshop counter at dawn, a stamped "paid" contract and an empty money pouch, a demon's burnt handprint on the paper, outside the window the fog still lingers. |
 | `ending_madness.png` | Ending scene: the pawnshop shelf at night, among cursed idols a framed portrait of the shopkeeper whose eyes glow violet, whispering mouths drawn on every object around it. |
+
+---
+
+## 묶음 6 — 컷신 11장 (스타일 C, Grok은 16:9)
+
+저장 위치 `art/raw/scenes/`, 변환은 묶음 5와 같음:
+`python3 tools/sprite_convert.py art/raw/scenes assets/sprites/scenes scene`.
+그림이 없으면 게임이 비슷한 배경으로 대신 보여줌. **그림 안에 글자 넣지 말기**, 화면 아래쪽 1/4은 자막이 덮으니 중요한 건 위쪽에.
+
+| 파일명 | 언제 나오나 | 프롬프트 |
+|---|---|---|
+| `cut_intro_letter.png` | 오프닝 1 | A rainy night in a small human apartment, a single candle on a wooden desk, an old wax-sealed letter with a black tentacle seal being opened by trembling hands, an antique brass key fallen out of the envelope, rain streaking down the window. |
+| `cut_intro_ship.png` | 오프닝 2 | A small ferry boat arriving through thick green fog at a strange harbor town, crooked buildings piled on cliffs, a dead lighthouse, huge dark shapes barely visible under the water around the boat, a lone traveler with a suitcase at the bow, seen from behind. |
+| `cut_intro_alley.png` | 오프닝 3 | A narrow foggy cobblestone alley at dusk, monsters in coats walking past (a fish-man, a hooded figure, a goblin), at the end of the alley an old pawnshop with a hanging brass three-ball sign and a warm candlelit window. |
+| `cut_intro_door.png` | 오프닝 4 | Inside view of a dusty abandoned pawnshop as the front door opens, a beam of pale light falling across the floor, cobwebs, shelves of strange jars and idols covered in dust, a small brass bell above the door still swinging. |
+| `cut_intro_pip.png` | 오프닝 5 | Close-up in the dusty pawnshop: a small cute ghost child with an oversized newsboy cap and a feather duster pops out from behind the counter, glowing pale blue, big curious eyes, dust motes floating in the candlelight. |
+| `cut_intro_baal.png` | 오프닝 6 | The pawnshop at night: a large demon loan shark with red skin, ram horns and a gold monocle stands at the counter, smiling with too many teeth, laying a glowing contract with a burning signature on the counter, shadows stretching behind him. |
+| `cut_week2.png` | 2주차 시작 | Night on the harbor docks: a procession of hooded cultists in soaked dark green robes carrying lanterns, walking toward the black sea, a star-and-tentacle banner, the townsfolk watching fearfully from windows. |
+| `cut_week3.png` | 3주차 시작 | The sea boiling and steaming under a green moon, fishermen pulling nets full of giant black scales instead of fish, drowned sailors with pale skin walking out of the surf onto the beach. |
+| `cut_week4.png` | 4주차 시작 | A night sky above the harbor where the stars are visibly moving into a strange spiral alignment, a faint colossal silhouette of a tentacled god in the clouds, the town tiny and dark below. |
+| `cut_vault.png` | 9일째 금고 발견 | A hidden stone staircase spiraling down under the pawnshop, a candle in a hand, at the bottom a round vault with seven stone pedestals in a circle, violet light leaking from floor cracks, one black tooth relic glowing on a pedestal. |
+| `cut_final.png` | 28일째 밤 | Split mood scene: in the foreground the pawnshop counter with the demon loan shark opening a huge ledger, through the window behind him a sea cliff where hundreds of cultist torches gather under a violet sky. |

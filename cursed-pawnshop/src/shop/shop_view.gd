@@ -44,6 +44,11 @@ var _story_panel: StoryPanel
 ## Full-screen scene picture behind the overlays (morning street, night shop, endings...).
 var _backdrop: TextureRect
 var _accuse_menu := false
+var _cutscene: CutscenePlayer
+var _tutorial: Tutorial
+var _fader: ColorRect
+var _tutorial_started := false
+var _final_shown := false
 
 var _hud: Label
 var _speaker: Label
@@ -70,9 +75,13 @@ func _ready() -> void:
 		_run = RunState.load_save()
 	if _run == null:
 		_run = RunState.new(_start_seed())
+	var fresh := not resume or _run.day == 1
 	resume = false
 	Audio.ambience("ambience")
-	_show_morning()
+	if fresh and _run.day == 1:
+		_cutscene.play("intro", _begin_day)
+	else:
+		_begin_day()
 
 
 func _start_seed() -> int:
@@ -87,19 +96,40 @@ func _start_seed() -> int:
 ## The shop's dark wood-and-gold UI theme (the title screen uses it too).
 static func make_theme() -> Theme:
 	var th := Theme.new()
-	th.set_stylebox("normal", "Button", _box(Color(0.2, 0.12, 0.1), Color(0.55, 0.38, 0.22)))
-	th.set_stylebox("hover", "Button", _box(Color(0.32, 0.19, 0.12), GOLD))
-	th.set_stylebox("pressed", "Button", _box(Color(0.14, 0.08, 0.06), GOLD))
-	th.set_stylebox("disabled", "Button", _box(Color(0.12, 0.08, 0.07), Color(0.25, 0.18, 0.14)))
+	th.default_font = UIFont.BODY
+	th.default_font_size = 12
+	th.set_stylebox("normal", "Button", _frame("button"))
+	th.set_stylebox("hover", "Button", _frame("button_hover"))
+	th.set_stylebox("pressed", "Button", _frame("button_pressed"))
+	th.set_stylebox("disabled", "Button", _frame("button_disabled"))
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	th.set_font("font", "Button", UIFont.SMALL)
+	th.set_font_size("font_size", "Button", 10)
 	th.set_color("font_color", "Button", INK)
-	th.set_color("font_hover_color", "Button", Color(1, 0.95, 0.75))
+	th.set_color("font_hover_color", "Button", Color(1, 0.92, 0.6))
+	th.set_color("font_pressed_color", "Button", GOLD)
 	th.set_color("font_disabled_color", "Button", Color(0.45, 0.4, 0.36))
-	th.set_font_size("font_size", "Button", 9)
-	th.set_stylebox("panel", "Panel", _box(Color(0.09, 0.055, 0.06, 0.94), Color(0.6, 0.42, 0.24)))
+	th.set_stylebox("panel", "Panel", _frame("panel", 6))
+	th.set_font("font", "Label", UIFont.BODY)
+	th.set_font_size("font_size", "Label", 12)
 	th.set_color("font_color", "Label", INK)
-	th.set_font_size("font_size", "Label", 10)
+	th.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.6))
+	th.set_constant("shadow_offset_x", "Label", 1)
+	th.set_constant("shadow_offset_y", "Label", 1)
+	th.set_font("font", "CheckButton", UIFont.SMALL)
+	th.set_font_size("font_size", "CheckButton", 10)
 	return th
+
+
+## 9-slice pixel frame from assets/ui (drawn by hand-made PNGs, nearest filtered).
+static func _frame(name: String, margin: int = 5) -> StyleBoxTexture:
+	var s := StyleBoxTexture.new()
+	s.texture = load("res://assets/ui/%s.png" % name)
+	s.set_texture_margin_all(margin)
+	s.set_content_margin_all(margin + 2)
+	s.content_margin_top = margin
+	s.content_margin_bottom = margin
+	return s
 
 
 static func _box(bg: Color, border: Color) -> StyleBoxFlat:
@@ -127,18 +157,18 @@ func _build_ui() -> void:
 	add_child(_scale_button)
 	_weight_label = _label(self, Vector2(420, 202), 12, Color(1, 1, 1))
 
-	var dialog := _panel(Rect2(8, 250, 412, 104))
+	var dialog := _panel(Rect2(8, 250, 352, 104))
 	_speaker = _label(dialog, Vector2(8, 4), 10, GOLD)
 	_text = _label(dialog, Vector2(8, 20), 10, INK)
-	_text.size = Vector2(396, 80)
+	_text.size = Vector2(336, 80)
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var side := _panel(Rect2(426, 250, 206, 104))
+	var side := _panel(Rect2(366, 250, 266, 104))
 	_offer_label = _label(side, Vector2(6, 3), 9, GOLD)
 	_choices = GridContainer.new()
 	_choices.columns = 2
 	_choices.position = Vector2(4, 4)
-	_choices.size = Vector2(198, 96)
+	_choices.size = Vector2(258, 96)
 	_choices.add_theme_constant_override("h_separation", 3)
 	_choices.add_theme_constant_override("v_separation", 3)
 	side.add_child(_choices)
@@ -164,7 +194,7 @@ func _build_ui() -> void:
 	_overlay_button = Button.new()
 	_overlay_button.position = Vector2(150, 252)
 	_overlay_button.size = Vector2(160, 26)
-	_overlay_button.add_theme_font_size_override("font_size", 11)
+	UIFont.style(_overlay_button, 11)
 	_overlay.add_child(_overlay_button)
 
 	_shelf_panel = ShelfPanel.new()
@@ -177,6 +207,15 @@ func _build_ui() -> void:
 	_story_panel.visible = false
 	_story_panel.on_scene = _set_backdrop
 	add_child(_story_panel)
+	_tutorial = Tutorial.new()
+	add_child(_tutorial)
+	_cutscene = CutscenePlayer.new()
+	add_child(_cutscene)
+	_fader = ColorRect.new()
+	_fader.color = Color(0, 0, 0, 0)
+	_fader.size = Vector2(640, 360)
+	_fader.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fader)
 	var pause := PauseMenu.new()
 	add_child(pause)
 
@@ -184,7 +223,7 @@ func _build_ui() -> void:
 func _label(parent: Node, pos: Vector2, font_size: int, color: Color) -> Label:
 	var l := Label.new()
 	l.position = pos
-	l.add_theme_font_size_override("font_size", font_size)
+	UIFont.style(l, font_size)
 	l.add_theme_color_override("font_color", color)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(l)
@@ -200,6 +239,37 @@ func _panel(rect: Rect2) -> Panel:
 
 
 # --- Day flow --------------------------------------------------------------
+
+## Week openings (and the vault discovery) get a cutscene before the morning report.
+func _begin_day() -> void:
+	var cut: String = {8: "week2", 9: "vault", 15: "week3", 22: "week4"}.get(_run.day, "")
+	if cut != "":
+		_cutscene.play(cut, _show_morning)
+	else:
+		_show_morning()
+
+
+## Fades to black, runs [param then], fades back.
+func _fade(then: Callable) -> void:
+	var tw := create_tween()
+	tw.tween_property(_fader, "color:a", 1.0, 0.35)
+	tw.tween_callback(then)
+	tw.tween_property(_fader, "color:a", 0.0, 0.45)
+
+
+## Tutorial customer: an honest seller with a fake whose wrong mark is the lesson.
+func _tutorial_item() -> void:
+	_tutorial_started = true
+	for s in range(1, 200):
+		var item := ItemGenerator.generate(s, ItemGenerator.Truth.FAKE, "medal")
+		if "mark" in item["clues"] and "weight" in item["clues"]:
+			_visit["item"] = item
+			_visit["ask"] = Customer.snap5(item["claimed_value"] * float(_run.prices.get(item["claimed_material"], 1.0)))
+			_visit["first_ask"] = _visit["ask"]
+			_visit["floor"] = _visit["ask"] * 0.75
+			break
+	_tutorial.start()
+
 
 func _show_morning() -> void:
 	_phase = Phase.MORNING
@@ -218,6 +288,10 @@ func _show_morning() -> void:
 
 
 func _open_shop() -> void:
+	_fade(_open_shop_now)
+
+
+func _open_shop_now() -> void:
 	Audio.music("music_day")
 	_set_backdrop("")
 	var tips := _run.open_shop()
@@ -250,7 +324,11 @@ func _show_night() -> void:
 ## After the night shop: Baal on payday, then sleep — or an ending.
 func _after_shop() -> void:
 	if not _run.payday:
-		_show_morning()
+		_fade(_begin_day)
+		return
+	if _run.debt_week == ProgressionData.DEBT_SCHEDULE.size() - 1 and not _final_shown:
+		_final_shown = true
+		_cutscene.play("final_night", _after_shop)
 		return
 	var lines := _run.pay_debt()
 	_update_hud()
@@ -263,7 +341,7 @@ func _after_shop() -> void:
 		if _run.ended != "":
 			_show_ending(_run.ended == "paid")
 		else:
-			_show_morning())
+			_fade(_begin_day))
 
 
 func _show_ending(_won: bool) -> void:
@@ -309,8 +387,10 @@ func _show_overlay(text: String, button: String, action: Callable) -> void:
 func _next_customer() -> void:
 	_visit = _run.next_visit()
 	if _visit.is_empty():
-		_show_night()
+		_fade(_show_night)
 		return
+	if not _tutorial_started and _run.day == 1 and not Tutorial.done() and _visit["role"] == "sell":
+		_tutorial_item()
 	_seen = {}
 	_confronted = {}
 	_accuse_menu = false
@@ -354,8 +434,10 @@ func _say(text: String) -> void:
 
 
 func _update_hud() -> void:
-	_hud.text = "%d일째   소지금 %dG   남은 손님 %d   %s\n%s   명성 %d · 의심 %d · 저주 %d · 조각 %d/7" % [
-		_run.day, _run.money, _run.visitors_left(), _run.debt_line(), _run.price_line(), _run.rep, _run.suspicion, _run.curse, _run.relics.size()]
+	# three short lines: they must stay left of the appraisal window (x < 310)
+	_hud.text = "%d일째 · %dG · 손님 %d · %s\n%s\n명성 %d · 의심 %d · 저주 %d · 조각 %d/7" % [
+		_run.day, _run.money, _run.visitors_left(), _run.debt_line().replace("바알 상환 ", "바알 "),
+		_run.price_line().replace("시세  ", "").replace(" · ", "  "), _run.rep, _run.suspicion, _run.curse, _run.relics.size()]
 
 
 # --- Choices ---------------------------------------------------------------
@@ -369,7 +451,7 @@ func _clear_choices() -> void:
 func _add_choice(text: String, action: Callable) -> void:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(97 if _choices.columns == 2 else 63, 21)
+	b.custom_minimum_size = Vector2(127 if _choices.columns == 2 else 83, 21)
 	b.pressed.connect(func():
 		Audio.play("click")
 		action.call())
@@ -490,6 +572,7 @@ func _scratch() -> void:
 ## Candle: a cursed item turns the flame violet. Weight and marks can't show a curse.
 func _candle() -> void:
 	_seen["candle"] = true
+	_tutorial.notify("candle")
 	var cursed := ItemGenerator.has_clue(_visit["item"], "cursed")
 	Audio.play("curse" if cursed else "candle")
 	if cursed:
@@ -621,6 +704,7 @@ func _on_weigh() -> void:
 		_refresh_choices()
 	var item: Dictionary = _visit["item"]
 	Audio.play("weigh")
+	_tutorial.notify("weigh")
 	_weight_label.text = "%d g" % item["weight"]
 	if _run.level("scale") > 0:
 		# precision scale: deviation from the claimed metal's true weight
@@ -652,6 +736,7 @@ func _inspect(m: Vector2) -> void:
 	var reach := ProgressionData.LENS_CLICK_BONUS if _run.level("lens") > 0 else 1.0
 	if item["mark"] != "" and not _seen.has("mark") and u.distance_to(item["mark_pos"]) < ItemDrawer.mark_size(item["kind"]) * 1.6 * reach:
 		_seen["mark"] = true
+		_tutorial.notify("mark")
 		_note("각인: %s%s" % [ItemData.MARKS[item["mark"]], " (두 겹으로 번짐)" if item["mark_blurred"] else ""])
 		_refresh_choices()
 	elif item["seam_pos"] != Vector2.INF and not _seen.has("seam") and u.distance_to(item["seam_pos"]) < ItemDrawer.SEAM_RADIUS * 2.2 * reach:
@@ -667,6 +752,8 @@ func _process(delta: float) -> void:
 	var looking := (_phase == Phase.TALK or _phase == Phase.HAGGLE) and MAT_RECT.has_point(m)
 	_notes_label.visible = _phase != Phase.RESULT
 	_loupe.visible = looking
+	if looking:
+		_tutorial.notify("loupe")
 	_loupe.size = Vector2.ONE * (ProgressionData.LENS_LOUPE_SIZE if _run.level("lens") > 0 else LOUPE_SIZE)
 	if looking:
 		_loupe.position = m - _loupe.size * 0.5
@@ -753,7 +840,6 @@ func _draw_counter() -> void:
 
 ## The shelf: displayed items with price tags on the front of the counter.
 func _draw_shelf() -> void:
-	var font := ThemeDB.fallback_font
 	var wanted: Dictionary = _visit.get("entry", {})
 	var shelf := _run.shelf()
 	var slots := _run.shelf_slots()
@@ -768,15 +854,14 @@ func _draw_shelf() -> void:
 		if e == wanted:
 			draw_rect(Rect2(at - Vector2(half + 1, 15), Vector2(half * 2 + 2, 36)), GOLD, false, 2)
 		ItemDrawer.draw(self, e["item"], at - Vector2(0, 2), minf(12.0, half * 0.6), false)
-		draw_string(font, at + Vector2(-half, 18), "%dG" % e["tag"], HORIZONTAL_ALIGNMENT_CENTER, half * 2, 8, GOLD)
+		draw_string(UIFont.font(8), at + Vector2(-half, 18), "%dG" % e["tag"], HORIZONTAL_ALIGNMENT_CENTER, half * 2, UIFont.px(8), GOLD)
 
 
 func _draw_mat() -> void:
 	draw_rect(MAT_RECT, Color(0.2, 0.05, 0.08))
 	draw_rect(MAT_RECT.grow(-4), Color(0.25, 0.07, 0.1))
 	draw_rect(MAT_RECT, GOLD.darkened(0.3), false, 2)
-	var font := ThemeDB.fallback_font
-	draw_string(font, MAT_RECT.position + Vector2(MAT_RECT.size.x - 74, 12), "🔍 감정 확대창", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.8, 0.65, 0.5))
+	draw_string(UIFont.font(8), MAT_RECT.position + Vector2(MAT_RECT.size.x - 74, 12), "🔍 감정 확대창", HORIZONTAL_ALIGNMENT_LEFT, -1, UIFont.px(8), Color(0.8, 0.65, 0.5))
 	if _visit.is_empty():
 		return
 	var item: Dictionary = _visit["item"]
@@ -790,24 +875,24 @@ func _draw_mat() -> void:
 			draw_circle(ITEM_CENTER, ITEM_UNIT * (1.25 - i * 0.12) + pulse * 4.0, Color(0.6, 0.2, 0.9, 0.06 + i * 0.02))
 	ItemDrawer.draw(self, item, ITEM_CENTER, ITEM_UNIT, false)
 	var tip := _pip_tip()
-	draw_string(font, MAT_RECT.position + Vector2(6, MAT_RECT.size.y - 6), tip if tip != "" else "돋보기로 살피고 수상한 곳 클릭 · 진품 무게 오차 ±2%",
-		HORIZONTAL_ALIGNMENT_LEFT, MAT_RECT.size.x - 12, 8, Color(0.7, 0.85, 1.0) if tip != "" else Color(0.7, 0.55, 0.45))
+	draw_string(UIFont.font(8), MAT_RECT.position + Vector2(6, MAT_RECT.size.y - 6), tip if tip != "" else "돋보기로 살피고 수상한 곳 클릭 · 진품 무게 오차 ±2%",
+		HORIZONTAL_ALIGNMENT_LEFT, MAT_RECT.size.x - 12, UIFont.px(8), Color(0.7, 0.85, 1.0) if tip != "" else Color(0.7, 0.55, 0.45))
 
 	# reference strip under the scale: true weight and mark of each material
 	var volume: int = ItemData.KINDS[item["kind"]]["volume"]
 	var y := 240.0
-	draw_string(font, Vector2(316, y), "진품 기준", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.75, 0.65, 0.55))
+	draw_string(UIFont.font(8), Vector2(316, y), "진품 기준", HORIZONTAL_ALIGNMENT_LEFT, -1, UIFont.px(8), Color(0.75, 0.65, 0.55))
 	var cat := ItemGenerator.category(item)
 	if cat != "metal":
 		# non-metal: one reference weight (or none for paper) and what to look for
 		var hint: String = {"gem": "%s %dg · 유리는 가볍고 기포가 있다", "organic": "%s %dg · 밀랍 모조품은 가볍고 이음새가 있다", "document": "%s · 무게로는 모름, 잉크 번짐을 찾아라"}[cat]
 		var kname: String = ItemData.KINDS[item["kind"]]["name"]
-		draw_string(font, Vector2(364, y), hint % ([kname, item["expected_weight"]] if cat != "document" else [kname]), HORIZONTAL_ALIGNMENT_LEFT, 268, 8, INK)
+		draw_string(UIFont.font(8), Vector2(364, y), hint % ([kname, item["expected_weight"]] if cat != "document" else [kname]), HORIZONTAL_ALIGNMENT_LEFT, 268, UIFont.px(8), INK)
 	for i in (ItemData.GENUINE_MATERIALS.size() if cat == "metal" else 0):
 		var mat: Dictionary = ItemData.MATERIALS[ItemData.GENUINE_MATERIALS[i]]
 		var px := 364.0 + i * 90.0
 		draw_circle(Vector2(px, y - 3), 4, mat["color"])
-		draw_string(font, Vector2(px + 7, y), "%s %dg" % [mat["name"], int(round(volume * float(mat["density"])))], HORIZONTAL_ALIGNMENT_LEFT, -1, 8, INK)
+		draw_string(UIFont.font(8), Vector2(px + 7, y), "%s %dg" % [mat["name"], int(round(volume * float(mat["density"])))], HORIZONTAL_ALIGNMENT_LEFT, -1, UIFont.px(8), INK)
 		ItemDrawer.draw_mark(self, mat["mark"], Vector2(px + 62, y - 3), 6.0, Color(0.85, 0.75, 0.6))
 
 	if _ping_t > 0.0:
@@ -820,7 +905,7 @@ func _draw_mat() -> void:
 		var title := ("가짜! 실은 %s" % RunState.item_name(item, false)) if fake else "진품 %s" % RunState.item_name(item, true)
 		if cursed:
 			title = "저주품! %s" % CurseData.CURSES[item["curse"]]["name"]
-		draw_string(font, MAT_RECT.position + Vector2(14, 26), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.45, 0.4) if fake else Color(0.55, 1, 0.6))
+		draw_string(UIFont.font(13), MAT_RECT.position + Vector2(14, 26), title, HORIZONTAL_ALIGNMENT_LEFT, -1, UIFont.px(13), Color(1, 0.45, 0.4) if fake else Color(0.55, 1, 0.6))
 		var lines := ItemGenerator.clue_lines(item)
 		lines.append("오늘 시세 가치 %dG" % _run.market_value(item))
 		if _visit["role"] == "buy":
@@ -838,7 +923,7 @@ func _draw_mat() -> void:
 		else:
 			lines.append("✔ 창고로 (진열대 칸이 있으면 바로 진열)" if _bought else "✘ 안 샀음")
 		for i in lines.size():
-			draw_string(font, MAT_RECT.position + Vector2(14, 48 + i * 15), lines[i], HORIZONTAL_ALIGNMENT_LEFT, 290, 9, INK)
+			draw_string(UIFont.font(9), MAT_RECT.position + Vector2(14, 48 + i * 15), lines[i], HORIZONTAL_ALIGNMENT_LEFT, 290, UIFont.px(9), INK)
 
 
 ## Pip's coaching line for the first days, by what the player has (not) done yet.

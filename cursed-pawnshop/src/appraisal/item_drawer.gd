@@ -9,6 +9,8 @@ const SEAM_RADIUS := 0.07
 ## Optional sprite per kind (from tools/pixelate.py). Drawn tinted by the plated
 ## color in place of the shapes below; marks and seams still go on top.
 const SPRITE_PATH := "res://assets/sprites/items/%s.png"
+## 348 px versions for the loupe, so the 3x close-up is real detail, not big pixels.
+const SPRITE_HD_PATH := "res://assets/sprites/items_hd/%s.png"
 
 static var _sprites := {}
 
@@ -18,11 +20,14 @@ static func mark_size(kind: String) -> float:
 	return MARK_SIZE.get(kind, 0.1)
 
 
-static func _sprite(kind: String) -> Texture2D:
-	if not _sprites.has(kind):
-		var path := SPRITE_PATH % kind
-		_sprites[kind] = load(path) if ResourceLoader.exists(path) else null
-	return _sprites[kind]
+static func _sprite(kind: String, hd: bool = false) -> Texture2D:
+	var key := kind + ("@hd" if hd else "")
+	if not _sprites.has(key):
+		var path := (SPRITE_HD_PATH if hd else SPRITE_PATH) % kind
+		_sprites[key] = load(path) if ResourceLoader.exists(path) else null
+	if hd and _sprites[key] == null:
+		return _sprite(kind)
+	return _sprites[key]
 
 
 ## [param unit] is the pixel size of 1.0 in the item's unit coordinates.
@@ -33,7 +38,7 @@ static func draw(canvas: CanvasItem, item: Dictionary, center: Vector2, unit: fl
 	var col := claimed_col.lerp(true_col, ItemData.PLATING_SHOW_THROUGH)
 	var edge := col.darkened(0.6)
 	var lw := maxf(1.0, unit * 0.035)
-	var tex := _sprite(item["kind"])
+	var tex := _sprite(item["kind"], detail)
 	if tex:
 		# fit inside the 2x2 unit box, keeping the sprite's aspect
 		var s := tex.get_size()

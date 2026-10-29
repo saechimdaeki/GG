@@ -1,0 +1,6 @@
+Reviewed-Content-Hash: src/ui/ui_font.gd 402660c9460f398a4e96b158f4f028e3c3bf7331
+Reviewed-Content-Hash: src/ui/cutscene_player.gd a7fa49fdf0d91d770370d61f80f81d84a4bb66e2
+Reviewed-Content-Hash: src/shop/tutorial.gd 2bf113bf5ffa9dcc34bb02c250d8ce5a67751217
+Reviewed-Content-Hash: src/shop/shop_view.gd 70d900d2a4826abd3089cd137ad59cad0bd7661a
+Reviewed-Content-Hash: src/title/title.gd 9f5243bce5e438026ccd217370d9b406e6f822fd
+Reviewed-Content-Hash: src/appraisal/item_drawer.gd c62cf3ba7e935edfa4a3b9441c21a82dd5238a1f

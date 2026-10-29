@@ -42,11 +42,13 @@ godot
 - 화면 증거: `production/qa/evidence/story-00N-*/`
 - **사람 플레이테스트는 아직** — 밸런스(흥정 수치·빚 금액)는 첫 평가 후 조정 예정
 
-**아트**: 프롬프트 묶음 1~5 전부 생성 완료(GPT/Grok). 새 그림이 필요하면 `art/PROMPTS.md`에 추가.
+**아트**: 묶음 1~5 완료. **묶음 6 컷신 11장 대기**(없으면 기존 배경으로 대체). 프롬프트는 `art/PROMPTS.md`.
 
 **음악**: 타이틀·아침 / 낮 영업 / 밤·바알 세 곡 + 합성 빗소리 레이어. 곡 바꾸려면 `assets/audio/music_title|music_day|music_night` 를 같은 이름의 .ogg/.mp3/.wav로 교체.
 
 ## 크레딧
+
+- 글꼴 갈무리(Galmuri) — quiple, SIL Open Font License 1.1 (`assets/fonts/Galmuri-OFL.txt`)
 
 - 음악 "Night on the Docks - Sax" — Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 — https://creativecommons.org/licenses/by/4.0/
 - 음악 "I swear I saw it" — yd (OpenGameArt.org), CC0

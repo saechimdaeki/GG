@@ -30,7 +30,7 @@ func _init() -> void:
 	_initial.size = _fallback.size
 	_initial.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_initial.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_initial.add_theme_font_size_override("font_size", 48)
+	UIFont.style(_initial, 48)
 	add_child(_initial)
 	_portrait = TextureRect.new()
 	_portrait.position = Vector2(14, 40)
@@ -40,7 +40,7 @@ func _init() -> void:
 	add_child(_portrait)
 	_name = Label.new()
 	_name.position = Vector2(14, 10)
-	_name.add_theme_font_size_override("font_size", 12)
+	UIFont.style(_name, 12)
 	_name.add_theme_color_override("font_color", Color(0.95, 0.78, 0.4))
 	add_child(_name)
 	_text = Label.new()
