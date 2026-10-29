@@ -4,7 +4,7 @@
 
 - 기획서: [`design/game-brief.md`](design/game-brief.md)
 - 스토리: [`production/epics/cursed-pawnshop/`](production/epics/cursed-pawnshop/EPIC.md) (5개)
-- 상태: M4(이야기)까지 플레이 가능 — 28일 스토리·NPC 사건·조각 7개·평판·장물·엔딩 6종. NPC 초상화 대기
+- 상태: M4(이야기)까지 플레이 가능 — 28일 스토리·NPC 사건·조각 7개·평판·장물·엔딩 6종. NPC 초상화 포함
 
 ## 실행 (Godot 4.7.2 필요)
 

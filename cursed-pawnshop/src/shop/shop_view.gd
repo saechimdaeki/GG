@@ -219,13 +219,14 @@ func _after_shop() -> void:
 		return
 	var lines := _run.pay_debt()
 	_update_hud()
-	match _run.ended:
-		"paid":
-			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "📜 엔딩 보기", func(): _show_ending(true))
-		"foreclose":
-			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "📜 엔딩 보기", func(): _show_ending(false))
-		_:
-			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "🌙 잠들기 → 다음 날", _show_morning)
+	# Baal speaks through the story panel so his portrait shows
+	var scene := {"npc": "baal", "text": "(문이 열리지 않았는데 그가 카운터 앞에 서 있다)\n\n" + "\n\n".join(lines),
+		"choices": [{"label": "📜 엔딩 보기" if _run.ended != "" else "🌙 잠들기 → 다음 날"}]}
+	_story_panel.play(_run, [scene], func():
+		if _run.ended != "":
+			_show_ending(_run.ended == "paid")
+		else:
+			_show_morning())
 
 
 func _show_ending(_won: bool) -> void:

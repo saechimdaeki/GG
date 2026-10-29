@@ -81,6 +81,9 @@ func _next() -> void:
 
 
 func _choose(c: Dictionary) -> void:
+	if not c.has("reply") and not c.has("effects"):
+		_next()
+		return
 	var summary := run.apply_effects(c.get("effects", {}))
 	_text.text = c.get("reply", "...") + ("\n\n" + summary if summary != "" else "")
 	_text.visible_ratio = 1.0
