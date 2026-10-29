@@ -6,7 +6,6 @@ signal restart_pressed
 signal title_pressed
 signal tool_clicked(id: String)
 signal shop_clicked(id: String)
-signal meta_clicked(id: String)
 
 var _status: StatusPanel
 var _hint: Label
@@ -17,7 +16,7 @@ var _shop: VBoxContainer
 var _shop_buttons: Dictionary = {}
 var _end: CenterContainer
 var _end_label: Label
-var _meta_box: VBoxContainer
+var _meta_tree: MetaTree
 var _dialog: PanelContainer
 var _dialog_name: Label
 var _dialog_text: Label
@@ -85,12 +84,11 @@ func _ready() -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_end.add_child(box)
 	_end_label = Label.new()
-	_end_label.add_theme_font_size_override("font_size", 16)
+	_end_label.add_theme_font_size_override("font_size", 12)
 	_end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(_end_label)
-	_meta_box = VBoxContainer.new()
-	_meta_box.add_theme_constant_override("separation", 2)
-	box.add_child(_meta_box)
+	_meta_tree = MetaTree.new()
+	box.add_child(_meta_tree)
 	var button := Button.new()
 	button.text = "다시 시작"
 	button.focus_mode = Control.FOCUS_NONE
@@ -223,20 +221,14 @@ func dialog_open() -> bool:
 	return _dialog.visible
 
 
-## Shows the run-end panel with permanent-upgrade buttons and a restart button.
-## meta_items: [{id, label, enabled}]
-func show_end(text: String, meta_items: Array = []) -> void:
+## Shows the run-end panel: result text, the permanent-upgrade tree (meta = Meta.load_data()
+## dictionary, spent in place) and restart / title buttons.
+func show_end(text: String, meta: Dictionary) -> void:
 	_end_label.text = text
 	_toast.modulate.a = 0.0
 	show_toolbar(false)
-	for child in _meta_box.get_children():
-		child.queue_free()
-	for it: Dictionary in meta_items:
-		var b := Button.new()
-		b.text = it.label
-		b.disabled = not it.enabled
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 9)
-		b.pressed.connect(meta_clicked.emit.bind(it.id))
-		_meta_box.add_child(b)
+	_meta_tree.data = meta
+	_meta_tree.refresh()
+	_status.visible = false
+	_hint.visible = false
 	_end.visible = true

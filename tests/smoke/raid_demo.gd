@@ -6,6 +6,9 @@ extends SceneTree
 func _initialize() -> void:
 	RunSave.save_path = "user://run_check.cfg"  # never touch the player's save
 	Story.enabled = false  # dialogue would pause the game waiting for a click
+	Tutorial.enabled = false
+	if OS.get_environment("BIOME") != "":
+		Game.next_biome = OS.get_environment("BIOME")
 	var game: Game = load("res://src/scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -16,7 +19,7 @@ func _initialize() -> void:
 				spots.append(Vector2i(x, y))
 	game.gold = 400
 	var path := game.grid.find_path(game.grid.entrance_position(game.grid.active_entrances[0]), game.grid.core_position())
-	for k in [["spike", 4], ["spike", 5], ["slime", 8], ["goblin", 12], ["lure", 16], ["skeleton", 20], ["nest", 24]]:
+	for k in [["spike", 4], ["spike", 5], ["slime", 8], ["goblin", 12], ["lure", 16], ["skeleton", 20], ["nest", 24], ["mine", 28]]:
 		game.tool = k[0]
 		game.try_build(game.grid.cell_at(path[mini(k[1], path.size() - 2)]))
 	if OS.get_environment("GATES") != "":

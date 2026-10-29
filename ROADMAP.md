@@ -6,7 +6,7 @@
 ```bash
 godot --path .
 ```
-테스트: `godot --headless --path . -s tests/smoke/story_001_check.gd` (73 PASS 여야 함)
+테스트: `godot --headless --path . -s tests/smoke/story_001_check.gd` (77 PASS 여야 함)
 
 ## 지금 상태 (2026-10-28)
 - MVP 스토리 001~007 코드 완료 → **유저 플레이 확인 대기**
@@ -28,6 +28,7 @@ godot --path .
 - [ ] 아트 다듬기 남은 것 — Gungeon 풍 디테일 (`art/PROMPTS.md` → `tools/pixelate.py`)
 
 ### 3. 나중
-- [x] 몬스터 진화(Lv3), 임프 광산 (2026-10-29) — 스킬 트리는 아직
+- [x] 몬스터 진화(Lv3), 임프 광산, 영구 강화 스킬 트리 3갈래 (2026-10-29)
 - [x] 스토리 대사, 이어하기 자동 저장 (2026-10-29)
-- [ ] 여러 맵, 멀티
+- [x] 지역 3종(지하 감옥/화산 요새/망자의 묘역), 튜토리얼, 소품 도트 스프라이트 (2026-10-29)
+- [ ] 멀티, 배포 빌드(export + itch.io)

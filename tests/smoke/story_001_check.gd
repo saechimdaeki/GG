@@ -32,6 +32,17 @@ func _initialize() -> void:
 		g.free()
 	_check("map: 20 seeds all have 3 entrances reaching the core", bad_maps == 0)
 	_check("map: water and lava both appear across seeds", has_water and has_lava)
+	var forge_rooms := {"dungeon": 0, "volcano": 0}
+	for b: String in forge_rooms:
+		for sd in range(1, 6):
+			var bg := DungeonGrid.new()
+			bg.seed_value = sd
+			bg.biome = b
+			root.add_child(bg)
+			await process_frame
+			forge_rooms[b] += bg.room_themes.count("forge")
+			bg.free()
+	_check("biome: volcano maps have more forge rooms (%s)" % forge_rooms, forge_rooms.volcano > forge_rooms.dungeon * 2)
 	_check("map: most maps have iron gates (%d/20)" % gate_maps, gate_maps >= 15)
 	_check("map: rooms get several themes (%d) and altars appear" % themes.size(), themes.size() >= 5 and altar_seen)
 
@@ -40,6 +51,7 @@ func _initialize() -> void:
 	DirAccess.remove_absolute(Meta.save_path)
 	RunSave.save_path = "user://run_check.cfg"  # never touch the player's save
 	Story.enabled = false  # dialogue would pause the game waiting for a click
+	Tutorial.enabled = false
 	var game: Game = load("res://src/scenes/main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -330,6 +342,22 @@ func _initialize() -> void:
 	game._hud._next_line()
 	_check("story: dialogue pauses, advances, then resumes", paused_in and still and not paused and not game._hud.dialog_open())
 
+	# Tutorial advances on game state (traps/monsters already placed) and remembers it's done.
+	Settings.save_path = "user://settings_check.cfg"
+	DirAccess.remove_absolute(Settings.save_path)
+	Settings.load_and_apply()
+	var tut := Tutorial.new()
+	tut.setup(game)
+	game.add_child(tut)
+	for k in 4:
+		await process_frame
+	_check("tutorial: skips steps already done (step %d)" % tut.step(), tut.step() >= 2)
+	tut.finish()
+	Tutorial.enabled = true
+	_check("tutorial: finishing saves it, never shown again", not Tutorial.pending())
+	Tutorial.enabled = false
+	DirAccess.remove_absolute(Settings.save_path)
+
 	# Altar heals the lord standing next to it.
 	lord.add_to_group("demon_lord")  # earlier fights may have killed it (out of the group while respawning)
 	var acell := grid.cell_at(lord.global_position)
@@ -347,6 +375,7 @@ func _initialize() -> void:
 	var m: Dictionary = Meta.load_data()
 	_check("meta: run end saved souls", m.souls == Meta.souls_for(game.wave, false) and m.souls > 0)
 	game.meta.souls = 100
+	_check("meta tree: node is locked until its prerequisite has a level", not game.buy_meta("lord_atk"))
 	_check("meta: buy start_gold", game.buy_meta("start_gold"))
 	_check("meta: buy fire_start", game.buy_meta("fire_start"))
 	_check("meta: fire_start maxes at 1", Meta.price(game.meta, "fire_start") == -1 and not game.buy_meta("fire_start"))

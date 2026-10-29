@@ -38,7 +38,7 @@ static func save(game: Game) -> void:
 		gates.append(bool(gate.closed))
 	var cfg := ConfigFile.new()
 	var run := {
-		"seed": g.seed_value, "wave": game.wave, "gold": game.gold,
+		"seed": g.seed_value, "biome": game.biome, "wave": game.wave, "gold": game.gold,
 		"core_hp": game.core_hp, "core_max": game.core_max,
 		"unlocked_traps": game.unlocked_traps, "monster_mult": game.monster_mult,
 		"bought": game.bought(), "lord_level": game.lord_level, "lord_xp": game.lord_xp,

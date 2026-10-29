@@ -4,7 +4,7 @@ class_name Settings
 ## Overridable so tests do not touch the real file.
 static var save_path := "user://settings.cfg"
 
-const DEFAULTS := {"master": 0.8, "music": 0.6, "sfx": 0.8, "fullscreen": false}
+const DEFAULTS := {"master": 0.8, "music": 0.6, "sfx": 0.8, "fullscreen": false, "tutorial_done": false}
 
 static var values: Dictionary = {}
 

@@ -6,5 +6,7 @@ extends SceneTree
 func _initialize() -> void:
 	RunSave.save_path = "user://run_demo.cfg"
 	Meta.save_path = "user://meta_demo.cfg"
+	Settings.save_path = "user://settings_demo.cfg"
+	DirAccess.remove_absolute(Settings.save_path)
 	var game: Game = load("res://src/scenes/main.tscn").instantiate()
 	root.add_child(game)

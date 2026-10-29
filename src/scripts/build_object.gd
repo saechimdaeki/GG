@@ -61,6 +61,21 @@ func _physics_process(delta: float) -> void:
 
 func _draw() -> void:
 	var col: Color = data.color
+	var tex := Sprites.tex({"lure": "chest", "nest": "nest", "mine": "mine"}[kind])
+	if tex != null:
+		var bob := sin(_t * 3.0) * 1.0 if kind == "lure" else 0.0
+		draw_texture(tex, Vector2(-8, -12 + bob), Color(0.6, 0.6, 0.6) if robbed else Color.WHITE)
+		if kind == "mine":
+			var imp := Sprites.tex("imp")
+			if imp != null:
+				# The mining imp hops as it swings.
+				var hop := absf(sin(_t * 8.0)) * 2.0
+				draw_set_transform(Vector2(9, -4 - hop), 0.0, Vector2(0.6, 0.6))
+				draw_texture(imp, Vector2(-8, -8))
+				draw_set_transform(Vector2.ZERO)
+			if robbed:
+				draw_string(ThemeDB.fallback_font, Vector2(-10, -14), "약탈됨", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(1, 0.4, 0.4))
+		return
 	if kind == "mine":
 		# Ore heap + an imp swinging a pick (darker when robbed).
 		var ore := col.darkened(0.5) if robbed else col

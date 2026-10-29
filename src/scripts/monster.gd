@@ -102,6 +102,9 @@ func _draw() -> void:
 	if is_evolved():
 		draw_arc(Vector2(0, radius - 1.0), radius + 3.0, 0.0, TAU, 24, Color(1.6, 0.6, 1.8, 0.8), 1.5)
 	super()
+	var crown := Sprites.tex("crown")
+	if is_evolved() and crown != null:
+		draw_texture(crown, Vector2(-4, -radius - 26.0))
 	for i in level - 1:
 		var p := Vector2(-3.0 + i * 6.0 - (level - 2) * 3.0, -radius - 18.0)
 		draw_colored_polygon(PackedVector2Array([p + Vector2(0, -2.5), p + Vector2(2.2, 0), p + Vector2(0, 2.5), p + Vector2(-2.2, 0)]), Color(1, 0.85, 0.2))

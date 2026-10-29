@@ -18,6 +18,8 @@ const DIRS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vecto
 
 ## Set before add_child for a reproducible map; 0 = random.
 var seed_value: int = 0
+## Region (key of Rooms.BIOMES): which room themes appear. Set before add_child.
+var biome: String = "dungeon"
 var entrances: Array[Vector2i] = []
 var core := Vector2i.ZERO
 var rooms: Array[Rect2i] = []
@@ -183,17 +185,20 @@ func _corridor(a: Vector2i, b: Vector2i, rng: RandomNumberGenerator) -> void:
 		_carve(Rect2i(mini(p.x, q.x), mini(p.y, q.y), absi(p.x - q.x) + 2, absi(p.y - q.y) + 2))
 
 
-## Weighted theme pick; each theme at most twice per map.
+## Weighted theme pick (the biome's weights), each theme at most max_per_theme times.
 func _pick_theme(rng: RandomNumberGenerator, used: Dictionary) -> String:
+	var b: Dictionary = Rooms.BIOMES[biome]
+	var cap := int(b.max_per_theme)
+	var weight := func(k: String) -> int: return int(b.weights.get(k, Rooms.THEMES[k].weight))
 	var total := 0
 	for k: String in Rooms.THEMES:
-		if int(used.get(k, 0)) < 2:
-			total += int(Rooms.THEMES[k].weight)
+		if int(used.get(k, 0)) < cap:
+			total += weight.call(k)
 	var roll := rng.randi_range(1, maxi(total, 1))
 	for k: String in Rooms.THEMES:
-		if int(used.get(k, 0)) >= 2:
+		if int(used.get(k, 0)) >= cap or weight.call(k) == 0:
 			continue
-		roll -= int(Rooms.THEMES[k].weight)
+		roll -= weight.call(k)
 		if roll <= 0:
 			used[k] = int(used.get(k, 0)) + 1
 			return k
@@ -761,6 +766,22 @@ func _room_of(c: Vector2i) -> int:
 
 
 func _draw_gates() -> void:
+	var closed_tex := Sprites.tex("gate_closed")
+	var open_tex := Sprites.tex("gate_open")
+	if closed_tex != null and open_tex != null:
+		for g in gates:
+			var horiz: bool = g.cells[1].x != g.cells[0].x
+			for c: Vector2i in g.cells:
+				# Bars run across the corridor: rotate the tile for corridors running sideways.
+				var center := Vector2(c) * TILE + Vector2(TILE, TILE) / 2.0
+				draw_set_transform(center, 0.0 if horiz else PI / 2.0)
+				draw_texture(closed_tex if g.closed else open_tex, -Vector2(TILE, TILE) / 2.0)
+				draw_set_transform(Vector2.ZERO)
+			if g.closed:
+				var a: Vector2i = g.cells[0]
+				var span := Rect2(Vector2(a) * TILE, Vector2(TILE * 2, TILE) if horiz else Vector2(TILE, TILE * 2))
+				draw_rect(span, Color(0.9, 0.35, 0.3, 0.9), false, 1.0)
+		return
 	for g in gates:
 		var a: Vector2i = g.cells[0]
 		var b: Vector2i = g.cells[1]
@@ -873,9 +894,14 @@ func _draw_lava(c: Vector2i, o: Vector2) -> void:
 
 
 func _draw_decor() -> void:
+	var altar_tex := Sprites.tex("altar")
 	for a in altars:
 		var o := Vector2(a) * TILE
 		draw_arc(o + Vector2(TILE, TILE) / 2.0, float(Rooms.ALTAR.radius) * TILE, 0.0, TAU, 40, Color(0.7, 0.45, 1.0, 0.25), 1.0)
+		if altar_tex != null:
+			draw_texture(altar_tex, o + Vector2(0, -4))
+			draw_circle(o + Vector2(8, -1), 1.5, Color(HDR * 0.6, HDR * 0.35, HDR, 0.8 + 0.2 * sin(_time * 3.0)))
+			continue
 		draw_rect(Rect2(o + Vector2(2, 3), Vector2(12, 11)), Color(0.28, 0.22, 0.34))
 		draw_rect(Rect2(o + Vector2(2, 3), Vector2(12, 3)), Color(0.42, 0.34, 0.5))
 		var pulse := 0.8 + 0.2 * sin(_time * 3.0)

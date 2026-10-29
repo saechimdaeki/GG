@@ -8,13 +8,24 @@ static var save_path := "user://meta.cfg"
 const SOULS_PER_WAVE := 4
 const WIN_BONUS := 25
 
-## price = cost + step * current level. value = bonus per level.
+## Skill tree columns, left to right.
+const BRANCHES := {"lord": "마왕", "dungeon": "던전", "legion": "군단"}
+
+## price = cost + step * current level. value = bonus per level (a percent for monster_hp / monster_dmg).
+## branch + requires: a node opens once the node it requires has at least one level.
 const UPGRADES := {
-	"start_gold": {"name": "금고 상속", "desc": "시작 골드 +%d", "value": 30, "max": 5, "cost": 10, "step": 8},
-	"core_hp": {"name": "단단한 코어", "desc": "코어 HP +%d", "value": 4, "max": 5, "cost": 12, "step": 8},
-	"lord_hp": {"name": "마왕의 체력", "desc": "마왕 HP +%d", "value": 2, "max": 5, "cost": 12, "step": 10},
-	"lord_atk": {"name": "마왕의 힘", "desc": "근접 데미지 +%d", "value": 1, "max": 3, "cost": 20, "step": 15},
-	"fire_start": {"name": "화염 비전", "desc": "화염 함정 해금 상태로 시작", "value": 1, "max": 1, "cost": 30, "step": 0},
+	"lord_hp": {"branch": "lord", "requires": "", "name": "마왕의 체력", "desc": "마왕 HP +%d", "value": 2, "max": 5, "cost": 12, "step": 10},
+	"lord_atk": {"branch": "lord", "requires": "lord_hp", "name": "마왕의 힘", "desc": "근접 데미지 +%d", "value": 1, "max": 3, "cost": 20, "step": 15},
+	"dash_master": {"branch": "lord", "requires": "lord_atk", "name": "그림자 걸음", "desc": "대시 쿨다운 -20%", "value": 1, "max": 1, "cost": 35, "step": 0},
+	"second_skill": {"branch": "lord", "requires": "dash_master", "name": "금단의 서", "desc": "E 스킬 하나 들고 시작", "value": 1, "max": 1, "cost": 50, "step": 0},
+	"start_gold": {"branch": "dungeon", "requires": "", "name": "금고 상속", "desc": "시작 골드 +%d", "value": 30, "max": 5, "cost": 10, "step": 8},
+	"fire_start": {"branch": "dungeon", "requires": "start_gold", "name": "화염 비전", "desc": "화염 함정 해금 상태로 시작", "value": 1, "max": 1, "cost": 30, "step": 0},
+	"trap_master": {"branch": "dungeon", "requires": "fire_start", "name": "함정 장인", "desc": "함정 데미지 +%d", "value": 1, "max": 2, "cost": 30, "step": 20},
+	"war_chest": {"branch": "dungeon", "requires": "trap_master", "name": "전리품 금고", "desc": "웨이브 클리어 골드 +%d", "value": 10, "max": 3, "cost": 30, "step": 15},
+	"core_hp": {"branch": "legion", "requires": "", "name": "단단한 코어", "desc": "코어 HP +%d", "value": 4, "max": 5, "cost": 12, "step": 8},
+	"monster_hp": {"branch": "legion", "requires": "core_hp", "name": "강철 비늘", "desc": "몬스터 HP +%d%%", "value": 15, "max": 3, "cost": 20, "step": 12},
+	"monster_dmg": {"branch": "legion", "requires": "monster_hp", "name": "날카로운 발톱", "desc": "몬스터 공격 +%d%%", "value": 15, "max": 3, "cost": 25, "step": 15},
+	"upgrade_discount": {"branch": "legion", "requires": "monster_dmg", "name": "훈련 교관", "desc": "강화 비용 -30%", "value": 1, "max": 1, "cost": 45, "step": 0},
 }
 
 
@@ -46,6 +57,12 @@ static func bonus(data: Dictionary, id: String) -> int:
 	return int(data.levels.get(id, 0)) * int(UPGRADES[id].value)
 
 
+## True when the node's prerequisite has at least one level (roots are always open).
+static func unlocked(data: Dictionary, id: String) -> bool:
+	var req: String = UPGRADES[id].requires
+	return req == "" or int(data.levels.get(req, 0)) > 0
+
+
 ## Price of the next level, or -1 when maxed.
 static func price(data: Dictionary, id: String) -> int:
 	var up: Dictionary = UPGRADES[id]
@@ -56,7 +73,7 @@ static func price(data: Dictionary, id: String) -> int:
 ## Buys one level if affordable; saves. Returns true on success.
 static func buy(data: Dictionary, id: String) -> bool:
 	var p := price(data, id)
-	if p < 0 or data.souls < p:
+	if p < 0 or data.souls < p or not unlocked(data, id):
 		return false
 	data.souls -= p
 	data.levels[id] = int(data.levels.get(id, 0)) + 1

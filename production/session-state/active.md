@@ -212,3 +212,11 @@ Status 값: Ready → In Progress → Done. Done 일 때 스토리 파일의 AC 
 - 테스트/데모는 `RunSave.save_path`, `Meta.save_path` 를 바꾸고 `Story.enabled = false`
 - 체크 73 PASS + input 3. 증거: title.png, story-intro.png, gates-patterns.png
 - 알려진 것: 창 모드 종료 시 "resources still in use" 경고 1-2줄 (오디오 스트림, 게임 동작 영향 없음)
+
+### 2026-10-29 9차: 튜토리얼 + 소품 도트 + 스킬 트리 + 지역 3종 (유저: "2 3 5 진행")
+- **튜토리얼** `src/scripts/tutorial.gd`: 첫 판에만, 게임 상태로 진행 판정(함정→몬스터→철문→침입→처치→웨이브→상점/광산), 건너뛰기. 완료 시 `Settings.tutorial_done`
+- **도트 스프라이트** `tools/pixel_sprites.py` (ASCII 그리드 → PNG): imp, chest(미끼), mine, nest, altar, gate_closed/open, crown(진화). 이미지 생성 도구 없이 직접 그림
+- **스킬 트리** `Meta.BRANCHES` 마왕/던전/군단 × 4단계, `requires` 선행조건. 새 노드: 그림자 걸음(대시 -20%), 금단의 서(E 스킬), 함정 장인, 전리품 금고, 강철 비늘(몬스터 HP%), 날카로운 발톱, 훈련 교관(강화 -30%)
+  - UI `src/scripts/meta_tree.gd` (`MetaTree`) — 타이틀 영구 강화 + 게임오버 화면 공용
+- **지역** `Rooms.BIOMES`: 지하 감옥 / 화산 요새(용광로 위주, 용사 HP +15%, 영혼석 x1.3) / 망자의 묘역(납골당·수몰실, 엘리트 2배, 영혼석 x1.5). 새 게임 → 지역 선택. 세이브에 biome 저장
+- 체크 77 PASS + input 3. 증거: tutorial.png, props-sprites.png, meta-tree.png, biome-volcano.png, biome-necropolis.png

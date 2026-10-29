@@ -8,6 +8,7 @@ var _menu: VBoxContainer
 var _meta_panel: PanelContainer
 var _meta_box: VBoxContainer
 var _settings: SettingsPanel
+var _biome_panel: PanelContainer
 var _camera: Camera2D
 var _t: float = 0.0
 
@@ -67,6 +68,30 @@ func _ready() -> void:
 	_meta_box = VBoxContainer.new()
 	_meta_box.add_theme_constant_override("separation", 3)
 	_meta_panel.add_child(_meta_box)
+	_biome_panel = PanelContainer.new()
+	_biome_panel.visible = false
+	center.add_child(_biome_panel)
+	var bbox := VBoxContainer.new()
+	bbox.add_theme_constant_override("separation", 4)
+	_biome_panel.add_child(bbox)
+	bbox.add_child(_label("어디를 지킬까?", 13, Color(1.0, 0.85, 0.4)))
+	for key: String in Rooms.BIOMES:
+		var b := Button.new()
+		b.text = "%s\n%s" % [Rooms.BIOMES[key].name, Rooms.BIOMES[key].desc]
+		b.custom_minimum_size = Vector2(260, 34)
+		b.add_theme_font_size_override("font_size", 9)
+		b.focus_mode = Control.FOCUS_NONE
+		b.pressed.connect(func() -> void:
+			Audio.play("click")
+			_start(key))
+		bbox.add_child(b)
+	var bback := Button.new()
+	bback.text = "돌아가기"
+	bback.focus_mode = Control.FOCUS_NONE
+	bback.pressed.connect(func() -> void:
+		Audio.play("click")
+		_back())
+	bbox.add_child(bback)
 	_settings = SettingsPanel.new()
 	_settings.visible = false
 	_settings.closed.connect(_back)
@@ -103,7 +128,13 @@ func _button(text: String, action: Callable) -> void:
 
 
 func _new_game() -> void:
+	_show(_biome_panel)
+
+
+## Starts a fresh run in the chosen region (key of Rooms.BIOMES).
+func _start(biome: String) -> void:
 	RunSave.clear()
+	Game.next_biome = biome
 	get_tree().change_scene_to_file(GAME_SCENE)
 
 
@@ -116,6 +147,7 @@ func _show(panel: Control) -> void:
 	_menu.get_parent().visible = panel == null
 	_meta_panel.visible = panel == _meta_panel
 	_settings.visible = panel == _settings
+	_biome_panel.visible = panel == _biome_panel
 
 
 func _back() -> void:
@@ -134,21 +166,10 @@ func _open_meta() -> void:
 func _refresh_meta() -> void:
 	for c in _meta_box.get_children():
 		c.queue_free()
-	var data := Meta.load_data()
-	_meta_box.add_child(_label("영구 강화 — 보유 영혼석 %d" % int(data.souls), 12, Color(0.8, 0.65, 1.0)))
-	for id: String in Meta.UPGRADES:
-		var up: Dictionary = Meta.UPGRADES[id]
-		var p := Meta.price(data, id)
-		var desc: String = up.desc % Meta.bonus(data, id) if "%d" in up.desc else up.desc
-		var b := Button.new()
-		b.text = "%s Lv%d/%d  (%s)  %s" % [up.name, data.levels[id], up.max, desc, "MAX" if p < 0 else "%d영혼" % p]
-		b.disabled = p < 0 or int(data.souls) < p
-		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_font_size_override("font_size", 9)
-		b.pressed.connect(func() -> void:
-			Audio.play("coin" if Meta.buy(data, id) else "error")
-			_refresh_meta())
-		_meta_box.add_child(b)
+	var tree := MetaTree.new()
+	tree.data = Meta.load_data()
+	_meta_box.add_child(tree)
+	tree.refresh()
 	var back := Button.new()
 	back.text = "돌아가기"
 	back.focus_mode = Control.FOCUS_NONE

@@ -4,6 +4,9 @@ extends Node2D
 
 enum Phase { BUILD, RAID, REWARD, OVER }
 
+## Region for the next new run (set by the title screen); a continued run uses its saved one.
+static var next_biome: String = "dungeon"
+
 ## Build tools selected with keys 1-9 and 0, in this order.
 const TOOLS := ["wall", "spike", "fire", "slime", "goblin", "skeleton", "lure", "nest", "mine", "upgrade"]
 ## Camera zoom while building (whole map visible) and while raiding (follow the lord).
@@ -45,6 +48,10 @@ var core_max: int = Units.CORE_HP
 var meta: Dictionary = {}
 var _end_text: String = ""
 var _pause: PauseMenu
+## This run's region (key of Rooms.BIOMES).
+var biome: String = "dungeon"
+## Heroes killed this run (tutorial progress, stats).
+var kills: int = 0
 ## True when this run was loaded from a save (skip the intro).
 var _continued := false
 
@@ -59,6 +66,9 @@ func _ready() -> void:
 	grid = DungeonGrid.new()
 	var saved := RunSave.read() if RunSave.load_next else {}
 	RunSave.load_next = false
+	biome = String(saved.get("biome", next_biome))
+	grid.biome = biome
+	dark.color = Rooms.BIOMES[biome].modulate
 	if not saved.is_empty():
 		grid.seed_value = int(saved.seed)
 	grid.position = Vector2(0, 4)
@@ -79,7 +89,6 @@ func _ready() -> void:
 	_hud.restart_pressed.connect(_restart)
 	_hud.tool_clicked.connect(_select_tool)
 	_hud.shop_clicked.connect(buy)
-	_hud.meta_clicked.connect(buy_meta)
 	_hud.process_mode = Node.PROCESS_MODE_ALWAYS
 	_rewards = RewardScreen.new()
 	_rewards.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -91,6 +100,10 @@ func _ready() -> void:
 	if not saved.is_empty():
 		RunSave.restore(self, saved)
 		_continued = true
+	if Tutorial.pending() and not _continued:
+		var tut := Tutorial.new()
+		tut.setup(self)
+		add_child(tut)
 	_enter_build()
 
 
@@ -222,9 +235,9 @@ func _physics_process(delta: float) -> void:
 
 func _spawn_hero(kind: String, at: Vector2 = Vector2.INF) -> void:
 	var hero := Hero.new()
-	hero.setup(Units.HEROES[kind], float(Waves.WAVES[wave].hp_mult))
+	hero.setup(Units.HEROES[kind], float(Waves.WAVES[wave].hp_mult) * float(Rooms.BIOMES[biome].hero_hp))
 	hero.damage += int(Waves.WAVES[wave].get("dmg_bonus", 0))
-	if kind != "boss" and randf() < Units.ELITE_CHANCE_PER_WAVE * maxi(wave - 2, 0):
+	if kind != "boss" and randf() < Units.ELITE_CHANCE_PER_WAVE * maxi(wave - 2, 0) * float(Rooms.BIOMES[biome].elite):
 		hero.make_elite()
 	hero.grid = grid
 	if at == Vector2.INF:
@@ -239,6 +252,7 @@ func _spawn_hero(kind: String, at: Vector2 = Vector2.INF) -> void:
 
 func _on_hero_died(hero: Unit) -> void:
 	_alive_heroes -= 1
+	kills += 1
 	gold += int(hero.stats.gold)
 	if int(hero.stats.gold) > 0:
 		Fx.text(self, hero.global_position + Vector2(0, -8), "+%dG" % hero.stats.gold, Color(1, 0.85, 0.3))
@@ -277,7 +291,7 @@ func damage_core(amount: int) -> void:
 
 func _wave_cleared() -> void:
 	wave += 1
-	gold += Units.WAVE_CLEAR_GOLD
+	gold += wave_clear_gold()
 	if wave >= Waves.WAVES.size():
 		_end_run("승리! 용사 보스 격파")
 		return
@@ -285,7 +299,7 @@ func _wave_cleared() -> void:
 	for o: BuildObject in _object_cells.values():
 		o.end_raid()
 	var mined := _collect_mines()
-	_hud.toast("웨이브 클리어! +%dG%s" % [Units.WAVE_CLEAR_GOLD, "  광산 +%dG" % mined if mined > 0 else ""])
+	_hud.toast("웨이브 클리어! +%dG%s" % [wave_clear_gold(), "  광산 +%dG" % mined if mined > 0 else ""])
 	Audio.play("wave_clear")
 	Audio.music("music_build")
 	lord.combat_enabled = false
@@ -332,7 +346,7 @@ func _end_run(text: String) -> void:
 		node.set_physics_process(false)
 	for o: BuildObject in _object_cells.values():
 		o.end_raid()
-	var earned := Meta.souls_for(wave, wave >= Waves.WAVES.size())
+	var earned := roundi(Meta.souls_for(wave, wave >= Waves.WAVES.size()) * float(Rooms.BIOMES[biome].souls))
 	meta.souls += earned
 	Meta.save_data(meta)
 	_end_text = "%s\n%s\n영혼석 +%d" % [text, Story.VICTORY if wave >= Waves.WAVES.size() else Story.DEFEAT, earned]
@@ -349,18 +363,20 @@ func _apply_meta() -> void:
 	lord.melee_bonus += Meta.bonus(meta, "lord_atk")
 	if Meta.bonus(meta, "fire_start") > 0:
 		unlocked_traps.append("fire")
+	if Meta.bonus(meta, "dash_master") > 0:
+		lord.dash_cooldown *= 0.8
+	if Meta.bonus(meta, "second_skill") > 0:
+		var pool := Arsenal.SKILLS.keys().filter(func(k: String) -> bool: return not lord.skills.has(k))
+		lord.learn(pool[randi() % pool.size()])
+	grid.trap_bonus += Meta.bonus(meta, "trap_master")
+	var mhp := 1.0 + Meta.bonus(meta, "monster_hp") / 100.0
+	var mdmg := 1.0 + Meta.bonus(meta, "monster_dmg") / 100.0
+	for kind: String in Units.MONSTERS:
+		monster_mult[kind] = Vector2(mhp, mdmg)
 
 
 func _show_end() -> void:
-	var items: Array = []
-	for id: String in Meta.UPGRADES:
-		var up: Dictionary = Meta.UPGRADES[id]
-		var p := Meta.price(meta, id)
-		var desc: String = up.desc % Meta.bonus(meta, id) if "%d" in up.desc else up.desc
-		items.append({"id": id, "enabled": p >= 0 and meta.souls >= p,
-			"label": "%s Lv%d/%d  (%s)  %s" % [up.name, meta.levels[id], up.max, desc,
-				"MAX" if p < 0 else "%d영혼" % p]})
-	_hud.show_end("%s\n보유 영혼석 %d — 영구 강화는 다음 판부터" % [_end_text, meta.souls], items)
+	_hud.show_end("%s\n영구 강화는 다음 판부터 적용" % _end_text, meta)
 
 
 ## Buys a permanent upgrade on the end screen.
@@ -517,8 +533,14 @@ func toggle_gate(i: int) -> bool:
 	return true
 
 
+## Gold for clearing a wave (base + 전리품 금고 meta upgrade).
+func wave_clear_gold() -> int:
+	return Units.WAVE_CLEAR_GOLD + Meta.bonus(meta, "war_chest")
+
+
 func _upgrade_cost(c: Vector2i) -> int:
-	return Units.UPGRADE_COST * (_monster_cells[c] as Monster).level
+	var cost := Units.UPGRADE_COST * (_monster_cells[c] as Monster).level
+	return roundi(cost * 0.7) if Meta.bonus(meta, "upgrade_discount") > 0 else cost
 
 
 ## Why the selected tool can't be used on cell c, or "" if it can.
@@ -685,7 +707,7 @@ func _status() -> Dictionary:
 			"color": sk.get("color", Color.GRAY)})
 	var phase_text := ""
 	match phase:
-		Phase.BUILD: phase_text = "건설 단계 — [Enter] 침입 시작"
+		Phase.BUILD: phase_text = "%s · 건설 단계 — [Enter] 침입 시작" % Rooms.BIOMES[biome].name
 		Phase.RAID: phase_text = "남은 용사 %d" % (_alive_heroes + _spawn_queue.size())
 	return {
 		"hp": lord.health, "hp_max": lord.max_health,
