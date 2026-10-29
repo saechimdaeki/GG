@@ -41,7 +41,8 @@ var _caught := false
 var _shelf_panel: ShelfPanel
 var _upgrade_panel: UpgradePanel
 var _story_panel: StoryPanel
-var _ending_art: TextureRect
+## Full-screen scene picture behind the overlays (morning street, night shop, endings...).
+var _backdrop: TextureRect
 var _accuse_menu := false
 
 var _hud: Label
@@ -148,13 +149,13 @@ func _build_ui() -> void:
 	_loupe.visible = false
 	add_child(_loupe)
 
-	_ending_art = TextureRect.new()
-	_ending_art.position = Vector2.ZERO
-	_ending_art.size = Vector2(640, 360)
-	_ending_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_ending_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_ending_art.visible = false
-	add_child(_ending_art)
+	_backdrop = TextureRect.new()
+	_backdrop.position = Vector2.ZERO
+	_backdrop.size = Vector2(640, 360)
+	_backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_backdrop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_backdrop.visible = false
+	add_child(_backdrop)
 	_overlay = _panel(Rect2(90, 34, 460, 290))
 	_overlay_text = _label(_overlay, Vector2(18, 16), 10, INK)
 	_overlay_text.size = Vector2(424, 230)
@@ -173,6 +174,7 @@ func _build_ui() -> void:
 	add_child(_upgrade_panel)
 	_story_panel = StoryPanel.new()
 	_story_panel.visible = false
+	_story_panel.on_scene = _set_backdrop
 	add_child(_story_panel)
 
 
@@ -203,6 +205,7 @@ func _show_morning() -> void:
 	Audio.music("music_title")
 	Audio.play("page")
 	var lines := _run.start_day()
+	_set_backdrop("morning_street")
 	var beats := _run.beats_today()
 	_show_overlay("\n\n".join(lines), "📜 오늘의 손님" if not beats.is_empty() else "🏺 진열대 정리", func():
 		_overlay.visible = false
@@ -213,6 +216,7 @@ func _show_morning() -> void:
 
 func _open_shop() -> void:
 	Audio.music("music_day")
+	_set_backdrop("")
 	var tips := _run.open_shop()
 	if tips.is_empty():
 		_overlay.visible = false
@@ -228,6 +232,7 @@ func _show_night() -> void:
 	_visit = {}
 	var report := _run.end_day()
 	Audio.music("music_night")
+	_set_backdrop("night_shop")
 	if report.any(func(l): return l.begins_with("🕯 ") and not "게이지" in l):
 		Audio.play("curse")
 	if _run.ended == "madness":
@@ -250,6 +255,7 @@ func _after_shop() -> void:
 	# Baal speaks through the story panel so his portrait shows
 	var scene := {"npc": "baal", "text": "(문이 열리지 않았는데 그가 카운터 앞에 서 있다)\n\n" + "\n\n".join(lines),
 		"choices": [{"label": "📜 엔딩 보기" if _run.ended != "" else "🌙 잠들기 → 다음 날"}]}
+	_set_backdrop("baal_office")
 	_story_panel.play(_run, [scene], func():
 		if _run.ended != "":
 			_show_ending(_run.ended == "paid")
@@ -266,12 +272,21 @@ func _show_ending(_won: bool) -> void:
 	Audio.music("")
 	Audio.play("ending")
 	# ending picture (art/raw/scenes/ending_<id>.png) behind the text when it exists
-	var art := "res://assets/sprites/scenes/ending_%s.png" % e["id"]
-	if ResourceLoader.exists(art):
-		_ending_art.texture = load(art)
-		_ending_art.visible = true
-		_overlay.self_modulate = Color(1, 1, 1, 0.82)
+	_set_backdrop("ending_" + e["id"])
 	_show_overlay(text, "🏠 타이틀로", func(): get_tree().change_scene_to_file("res://src/title/title.tscn"))
+
+
+## Shows assets/sprites/scenes/<name>.png full-screen behind the panels; "" (or a
+## missing picture) clears it. Panels go slightly see-through while a picture shows.
+func _set_backdrop(name: String) -> void:
+	var path := "res://assets/sprites/scenes/%s.png" % name
+	var on := name != "" and ResourceLoader.exists(path)
+	_backdrop.visible = on
+	if on:
+		_backdrop.texture = load(path)
+	var a := 0.86 if on else 1.0
+	for panel in [_overlay, _story_panel, _shelf_panel, _upgrade_panel]:
+		panel.self_modulate = Color(1, 1, 1, a)
 
 
 func _show_overlay(text: String, button: String, action: Callable) -> void:

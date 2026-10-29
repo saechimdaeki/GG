@@ -51,7 +51,7 @@ const REPORT_GRUDGE := 3
 const PATRON_EVERY := 3
 const PATRON_RATE := 2.0
 
-## Morning scenes. Each: day, npc, text, optional "if" (all must hold), choices.
+## Morning scenes. Each: day, npc, optional scene (backdrop picture), text, optional "if", choices.
 ## A choice: label, reply (what the NPC says back), optional "if", effects.
 ## Effects: money, rep, suspicion, flag (set true), unflag, relic (add to vault),
 ## lose_relic (the Brotherhood gets it), sell_relics (sell N kept relics at "price" each, -1 = all).
@@ -74,12 +74,12 @@ const BEATS := [
 			{"label": "좋은 거래군", "reply": "찍찍찍! 현명하다. 물건이 곧 흘러들 것이다.", "effects": {"flag": "rat_partner", "suspicion": 10}},
 			{"label": "꺼져, 쥐새끼들", "reply": "...우리는 잊지 않는다. 찍.", "effects": {"flag": "rat_enemy", "rep": 3}},
 		]},
-	{"day": 8, "npc": "bishop", "text": "(바닥에 물이 고인다)\n가라앉은 별의 형제단의 주교, 오르무스라 하오. 이 가게 주인은 오래전부터 '그분의 조각'을 모아왔지.\n혹시 이빨, 비늘, 눈... 그런 걸 보거든 내게 파시오. 하나에 700골드를 드리리다.",
+	{"day": 8, "npc": "bishop", "scene": "harbor", "text": "(바닥에 물이 고인다)\n가라앉은 별의 형제단의 주교, 오르무스라 하오. 이 가게 주인은 오래전부터 '그분의 조각'을 모아왔지.\n혹시 이빨, 비늘, 눈... 그런 걸 보거든 내게 파시오. 하나에 700골드를 드리리다.",
 		"choices": [
 			{"label": "조각이 뭐요?", "reply": "깊은 곳에서 잠든 분, 흐르그의 몸이오. 일곱이 모이면... 그분이 깨어나시지."},
 			{"label": "흥미롭군", "reply": "언제든. 별이 바른 자리에 서기 전에.", "effects": {"flag": "bishop_met"}},
 		]},
-	{"day": 9, "npc": "pip", "text": "야야! 장부 마지막 장 봤어? 지하실 지도가 그려져 있어!\n...내려가 봤는데, 돌로 된 방에 받침대가 일곱 개야. 하나에 이게 놓여 있었어.\n(검고 거대한 이빨. 손을 대니 바닷소리가 들린다)",
+	{"day": 9, "npc": "pip", "scene": "vault", "text": "야야! 장부 마지막 장 봤어? 지하실 지도가 그려져 있어!\n...내려가 봤는데, 돌로 된 방에 받침대가 일곱 개야. 하나에 이게 놓여 있었어.\n(검고 거대한 이빨. 손을 대니 바닷소리가 들린다)",
 		"choices": [{"label": "금고에 다시 넣어둬", "reply": "응... 근데 이거, 밤마다 울어.", "effects": {"relic": "tooth"}}]},
 	{"day": 11, "npc": "amelia", "text": "실례합니다! 아멜리아예요, 대학에서 고대 유물을 연구해요.\n이 가게에 '흐르그의 조각'이 있다는 소문을 들었어요. 딱 하루만 연구하게 빌려주실 수 있나요?\n보답으로 다른 조각의 위치를 알려드릴게요!",
 		"if": {"relics_min": 1},
@@ -87,7 +87,7 @@ const BEATS := [
 			{"label": "빌려주지", "reply": "감사해요! ...이상해요, 만지니까 꿈에서 본 바다가 떠올라요. 다음 조각은 '눈알 많은 자'가 갖고 있어요.", "effects": {"flag": "amelia_trust", "rep": 4}},
 			{"label": "안 됩니다", "reply": "아... 알겠어요. 하지만 조심하세요. 그건 그냥 돌이 아니에요."},
 		]},
-	{"day": 12, "npc": "pip", "text": "익사한 선원이 왔어. 축축한 자루에서 비늘을 꺼내더라.\n방패만 한 검푸른 비늘이야. 300골드래. 안 사면... 주교한테 간대.",
+	{"day": 12, "npc": "pip", "scene": "harbor", "text": "익사한 선원이 왔어. 축축한 자루에서 비늘을 꺼내더라.\n방패만 한 검푸른 비늘이야. 300골드래. 안 사면... 주교한테 간대.",
 		"choices": [
 			{"label": "300골드에 산다", "reply": "금고에 넣었어. 받침대 두 개가 찼어...", "if": {"money_min": 300}, "effects": {"money": -300, "relic": "scale"}},
 			{"label": "돈이 없어 / 안 산다", "reply": "...주교가 기뻐하겠네.", "effects": {"lose_relic": "scale"}},
@@ -124,23 +124,23 @@ const BEATS := [
 			{"label": "250골드에 산다", "reply": "찍찍! 거래 성립.", "if": {"money_min": 250}, "effects": {"money": -250, "relic": "tentacle", "suspicion": 15}},
 			{"label": "필요 없다", "reply": "그럼 형제단 놈들한테 팔지. 찍.", "effects": {"lose_relic": "tentacle"}},
 		]},
-	{"day": 24, "npc": "herald", "text": "(가게 안의 모든 촛불이 동시에 꺼진다. 어둠 속에 별빛 같은 점들이 떠 있다)\n...너는 모으고 있구나. 왜? 가두기 위해? 깨우기 위해?\n선물을 주마. 그분의 심장이다. 무엇을 할지는 네가 정해라.",
+	{"day": 24, "npc": "herald", "scene": "ritual", "text": "(가게 안의 모든 촛불이 동시에 꺼진다. 어둠 속에 별빛 같은 점들이 떠 있다)\n...너는 모으고 있구나. 왜? 가두기 위해? 깨우기 위해?\n선물을 주마. 그분의 심장이다. 무엇을 할지는 네가 정해라.",
 		"choices": [
 			{"label": "금고에 봉인한다", "reply": "...가두는 자로구나. 너의 할아버지처럼.", "effects": {"relic": "heart"}},
 			{"label": "거절한다", "reply": "그렇다면 다른 손으로 가겠지.", "effects": {"lose_relic": "heart"}},
 		]},
-	{"day": 25, "npc": "bishop", "text": "주인장, 마지막 제안이오. 조각 하나에 1,000골드.\n별이 바른 자리에 서는 날이 사흘 남았소.",
+	{"day": 25, "npc": "bishop", "scene": "ritual", "text": "주인장, 마지막 제안이오. 조각 하나에 1,000골드.\n별이 바른 자리에 서는 날이 사흘 남았소.",
 		"if": {"relics_min": 1},
 		"choices": [
 			{"label": "전부 판다", "reply": "그분이 기뻐하시리라!", "effects": {"sell_relics": -1, "price": 1000}},
 			{"label": "팔지 않는다", "reply": "그렇다면... 우리 방식대로 하겠소.", "effects": {"flag": "bishop_angry"}},
 		]},
-	{"day": 26, "npc": "drowned", "species": true, "text": "(익사한 선원이 소라 껍데기를 내민다)\n...바다가 이걸 돌려주래. 귀에 대면 노래가 들려. 너무 아름다워서 무서워.\n그냥 가져가.",
+	{"day": 26, "npc": "drowned", "scene": "harbor", "species": true, "text": "(익사한 선원이 소라 껍데기를 내민다)\n...바다가 이걸 돌려주래. 귀에 대면 노래가 들려. 너무 아름다워서 무서워.\n그냥 가져가.",
 		"choices": [{"label": "받는다", "reply": "...고마워. 이제 잠이 오겠어.", "effects": {"relic": "voice"}}]},
-	{"day": 27, "npc": "elias", "text": "(카운터 너머로 초록빛 노인이 웃고 있다)\n...잘했구나, 얘야. 나는 사십 년 동안 그분의 조각을 이 가게에 가뒀단다.\n바알의 빚은 그 대가였지. 마지막 조각, 이름을 새긴 석판은 내가 갖고 있었다.\n네가 끝까지 지킨다면... 이걸 주마.",
+	{"day": 27, "npc": "elias", "scene": "vault", "text": "(카운터 너머로 초록빛 노인이 웃고 있다)\n...잘했구나, 얘야. 나는 사십 년 동안 그분의 조각을 이 가게에 가뒀단다.\n바알의 빚은 그 대가였지. 마지막 조각, 이름을 새긴 석판은 내가 갖고 있었다.\n네가 끝까지 지킨다면... 이걸 주마.",
 		"if": {"relics_min": 4},
 		"choices": [{"label": "할아버지...", "reply": "가게를 부탁한다. 그리고 바알에게 지지 마라.", "effects": {"relic": "name"}}]},
-	{"day": 27, "npc": "elias", "text": "(카운터 너머로 초록빛 노인이 슬프게 웃고 있다)\n...얘야, 조각이 너무 많이 흩어졌구나. 형제단이 내일 밤 의식을 치를 거다.\n나는 이 석판만큼은 지켜왔다. 하지만 혼자서는... 이제 늦었을지도 모르겠구나.",
+	{"day": 27, "npc": "elias", "scene": "vault", "text": "(카운터 너머로 초록빛 노인이 슬프게 웃고 있다)\n...얘야, 조각이 너무 많이 흩어졌구나. 형제단이 내일 밤 의식을 치를 거다.\n나는 이 석판만큼은 지켜왔다. 하지만 혼자서는... 이제 늦었을지도 모르겠구나.",
 		"if": {"not_relics_min": 4},
 		"choices": [{"label": "어떻게든 해볼게요", "reply": "...그래. 바알의 빚만은 꼭 갚거라."}]},
 ]

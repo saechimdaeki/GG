@@ -6,6 +6,8 @@ extends Panel
 const PORTRAIT_PATHS := ["res://assets/sprites/portraits/%s_neutral.png", "res://assets/sprites/portraits/%s.png"]
 
 var run: RunState
+## Called with a beat's "scene" (a picture name) when it has one.
+var on_scene: Callable
 var _beats: Array = []
 var _done: Callable
 var _portrait: TextureRect
@@ -69,6 +71,8 @@ func _next() -> void:
 		return
 	var b: Dictionary = _beats.pop_front()
 	Audio.play("page")
+	if b.has("scene") and on_scene.is_valid():
+		on_scene.call(b["scene"])
 	_show_speaker(b)
 	_text.text = b["text"]
 	_text.visible_ratio = 0.0
@@ -85,7 +89,15 @@ func _choose(c: Dictionary) -> void:
 	if not c.has("reply") and not c.has("effects"):
 		_next()
 		return
-	var summary := run.apply_effects(c.get("effects", {}))
+	var eff: Dictionary = c.get("effects", {})
+	var summary := run.apply_effects(eff)
+	# a relic just went into the vault: show the relic itself
+	if eff.has("relic"):
+		var art := "res://assets/sprites/items/relic_%s.png" % eff["relic"]
+		if ResourceLoader.exists(art):
+			_portrait.texture = load(art)
+			_fallback.visible = false
+			_initial.visible = false
 	_text.text = c.get("reply", "...") + ("\n\n" + summary if summary != "" else "")
 	_text.visible_ratio = 1.0
 	_clear()

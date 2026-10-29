@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-30
 **Branch:** `main`
-**Current task:** cursed-pawnshop M6 완성(코드 부분) — story-007-m6-polish.md
-**Next step:** 유저가 묶음 5(title_bg + ending 7장) 생성 → scene 변환. 유저 플레이 평가 → 밸런스
-**Blocked on:** 아트 묶음 5, 유저 플레이테스트
+**Current task:** cursed-pawnshop M1~M6 완료 — 장면 배경·조각 그림·엔딩 컷 연결
+**Next step:** 유저 플레이 평가 → 밸런스. 후보: 비금속 물건 12종(보석·유기물·문서)용 새 감정 방식
+**Blocked on:** 유저 플레이테스트
 **Files in progress:** none
-**Run result:** OBSERVED — 타이틀 화면·피프 팁 (cursed-pawnshop/production/qa/evidence/story-007-m6-polish/)
-**Open questions:** 배경 음악은 외부 음악 AI 필요
+**Run result:** OBSERVED — 아침 골목·금고 조각·봉인지기 엔딩 배경 (cursed-pawnshop/production/qa/evidence/story-007-m6-polish/scene-*.png)
+**Open questions:** 푸시 여부
 <!-- /CHECKPOINT -->
 
 ---
