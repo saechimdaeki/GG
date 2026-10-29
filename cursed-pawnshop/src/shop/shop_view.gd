@@ -64,7 +64,7 @@ func _ready() -> void:
 	if ResourceLoader.exists(BACKGROUND):
 		_background = load(BACKGROUND)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	theme = _make_theme()
+	theme = make_theme()
 	_build_ui()
 	if resume:
 		_run = RunState.load_save()
@@ -84,7 +84,8 @@ func _start_seed() -> int:
 
 # --- UI construction -------------------------------------------------------
 
-func _make_theme() -> Theme:
+## The shop's dark wood-and-gold UI theme (the title screen uses it too).
+static func make_theme() -> Theme:
 	var th := Theme.new()
 	th.set_stylebox("normal", "Button", _box(Color(0.2, 0.12, 0.1), Color(0.55, 0.38, 0.22)))
 	th.set_stylebox("hover", "Button", _box(Color(0.32, 0.19, 0.12), GOLD))
@@ -101,7 +102,7 @@ func _make_theme() -> Theme:
 	return th
 
 
-func _box(bg: Color, border: Color) -> StyleBoxFlat:
+static func _box(bg: Color, border: Color) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
 	s.border_color = border
@@ -176,6 +177,8 @@ func _build_ui() -> void:
 	_story_panel.visible = false
 	_story_panel.on_scene = _set_backdrop
 	add_child(_story_panel)
+	var pause := PauseMenu.new()
+	add_child(pause)
 
 
 func _label(parent: Node, pos: Vector2, font_size: int, color: Color) -> Label:
@@ -387,7 +390,7 @@ func _refresh_choices() -> void:
 				if _seen.has("weight") and not _confronted.has("weight"):
 					_add_choice("무게가 안 맞는데요?", _confront.bind("weight"))
 				if _seen.has("seam") and not _confronted.has("seam"):
-					_add_choice("도금이 벗겨졌네요?", _confront.bind("seam"))
+					_add_choice(ItemData.CATEGORY_CLUES[ItemGenerator.category(_visit["item"])]["accuse"], _confront.bind("seam"))
 				if _seen.has("scratch") and not _confronted.has("scratch"):
 					_add_choice("속이 다른 금속인데요?", _confront.bind("scratch"))
 				if _seen.has("candle") and not _confronted.has("cursed"):
@@ -653,7 +656,7 @@ func _inspect(m: Vector2) -> void:
 		_refresh_choices()
 	elif item["seam_pos"] != Vector2.INF and not _seen.has("seam") and u.distance_to(item["seam_pos"]) < ItemDrawer.SEAM_RADIUS * 2.2 * reach:
 		_seen["seam"] = true
-		_note("가장자리에 속 금속이 비침")
+		_note(ItemData.CATEGORY_CLUES[ItemGenerator.category(item)]["note"])
 		_refresh_choices()
 
 
@@ -794,7 +797,13 @@ func _draw_mat() -> void:
 	var volume: int = ItemData.KINDS[item["kind"]]["volume"]
 	var y := 240.0
 	draw_string(font, Vector2(316, y), "진품 기준", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.75, 0.65, 0.55))
-	for i in ItemData.GENUINE_MATERIALS.size():
+	var cat := ItemGenerator.category(item)
+	if cat != "metal":
+		# non-metal: one reference weight (or none for paper) and what to look for
+		var hint: String = {"gem": "%s %dg · 유리는 가볍고 기포가 있다", "organic": "%s %dg · 밀랍 모조품은 가볍고 이음새가 있다", "document": "%s · 무게로는 모름, 잉크 번짐을 찾아라"}[cat]
+		var kname: String = ItemData.KINDS[item["kind"]]["name"]
+		draw_string(font, Vector2(364, y), hint % ([kname, item["expected_weight"]] if cat != "document" else [kname]), HORIZONTAL_ALIGNMENT_LEFT, 268, 8, INK)
+	for i in (ItemData.GENUINE_MATERIALS.size() if cat == "metal" else 0):
 		var mat: Dictionary = ItemData.MATERIALS[ItemData.GENUINE_MATERIALS[i]]
 		var px := 364.0 + i * 90.0
 		draw_circle(Vector2(px, y - 3), 4, mat["color"])
@@ -839,7 +848,7 @@ func _pip_tip() -> String:
 	match _phase:
 		Phase.TALK:
 			if not _seen.has("mark"):
-				return "👻 피프: 돋보기로 물건을 훑다가 각인을 찾으면 클릭해!"
+				return "👻 피프: 돋보기로 훑다가 각인이나 수상한 곳을 찾으면 클릭해!"
 			if not _seen.has("weight"):
 				return "👻 피프: 저울에도 올려봐. 아래 기준표 무게랑 비교하는 거야"
 			if not _seen.has("candle") and _run.day >= 2:

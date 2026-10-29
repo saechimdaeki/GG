@@ -123,9 +123,21 @@ static func _draw_details(canvas: CanvasItem, item: Dictionary, center: Vector2,
 	if seam != Vector2.INF:
 		var at := center + seam * unit
 		var r := unit * SEAM_RADIUS
-		canvas.draw_circle(at, r, true_col.darkened(0.1))
-		canvas.draw_circle(at + Vector2(r * 0.7, r * 0.3), r * 0.6, true_col.darkened(0.1))
-		canvas.draw_arc(at, r, 0.0, TAU, 16, col.darkened(0.5), maxf(1.0, unit * 0.01))
+		match ItemGenerator.category(item):
+			"gem":  # air bubbles trapped in glass
+				for b in [Vector2(0, 0), Vector2(0.9, 0.5), Vector2(-0.6, 0.8), Vector2(0.4, -0.9)]:
+					canvas.draw_arc(at + b * r, r * (0.45 - b.length() * 0.1), 0.0, TAU, 12, Color(1, 1, 1, 0.75), maxf(1.0, unit * 0.008))
+			"organic":  # a wax join line
+				canvas.draw_line(at - Vector2(r * 1.4, r * 0.4), at + Vector2(r * 1.4, r * 0.4), Color(0.95, 0.88, 0.6, 0.9), maxf(1.5, unit * 0.02))
+				canvas.draw_line(at - Vector2(r * 1.4, r * 0.1), at + Vector2(r * 1.4, r * 0.7), Color(0.6, 0.5, 0.3, 0.6), maxf(1.0, unit * 0.01))
+			"document":  # smudged fresh ink
+				canvas.draw_circle(at, r, Color(0.08, 0.05, 0.1, 0.55))
+				canvas.draw_circle(at + Vector2(r * 0.8, r * 0.5), r * 0.6, Color(0.08, 0.05, 0.1, 0.4))
+				canvas.draw_line(at, at + Vector2(r * 1.8, r * 1.2), Color(0.08, 0.05, 0.1, 0.5), maxf(1.0, unit * 0.012))
+			_:  # metal: plating rubbed off
+				canvas.draw_circle(at, r, true_col.darkened(0.1))
+				canvas.draw_circle(at + Vector2(r * 0.7, r * 0.3), r * 0.6, true_col.darkened(0.1))
+				canvas.draw_arc(at, r, 0.0, TAU, 16, col.darkened(0.5), maxf(1.0, unit * 0.01))
 	if item["mark"] != "":
 		var at: Vector2 = center + (item["mark_pos"] as Vector2) * unit
 		var size: float = mark_size(item["kind"]) * unit

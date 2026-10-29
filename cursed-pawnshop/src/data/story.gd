@@ -53,8 +53,9 @@ const PATRON_RATE := 2.0
 
 ## Morning scenes. Each: day, npc, optional scene (backdrop picture), text, optional "if", choices.
 ## A choice: label, reply (what the NPC says back), optional "if", effects.
-## Effects: money, rep, suspicion, flag (set true), unflag, relic (add to vault),
-## lose_relic (the Brotherhood gets it), sell_relics (sell N kept relics at "price" each, -1 = all).
+## Effects: money, rep, suspicion, curse, sellers (today's seller count), flag (set true), unflag,
+## relic (add to vault), lose_relic (the Brotherhood gets one you never had), give_relic (hand over
+## N from the vault), lose_item (N random stock items vanish), sell_relics (N kept relics at "price", -1 = all).
 ## Conditions: flag, not_flag, relics_min, money_min.
 const BEATS := [
 	{"day": 1, "npc": "pip", "text": "안녕! 난 피프야. 영감님... 그러니까 네 할아버지가 사라진 지 한 달째야.\n남은 건 이 가게랑, 바알한테 진 빚 3,000골드. 매주 갚아야 해. 못 갚으면... 바알이 다 가져가.\n괴물 손님들 물건을 싸게 사서 비싸게 팔면 돼. 근데 가짜가 많으니까 꼭 돋보기로 살펴봐!",
@@ -69,6 +70,15 @@ const BEATS := [
 			{"label": "협조하겠소", "reply": "좋아. 수상한 놈은 '장물 아니오?'로 캐물어라. 맞으면 보상이다.", "effects": {"flag": "greta_ally", "rep": 5}},
 			{"label": "내 가게 일엔 상관 마시오", "reply": "...그래? 눈여겨보겠다.", "effects": {"suspicion": 15}},
 		]},
+	{"day": 5, "npc": "morg", "text": "흐흐흐... 오늘 아침 내 가게 앞에 줄 선 거 봤느냐? 네 손님들이란다.\n'모로 가게는 사기꾼'이라고 조금 속삭여줬을 뿐이지.",
+		"if": {"flag": "morg_rival"},
+		"choices": [
+			{"label": "...두고 보시오", "reply": "흐흐, 기대하마. (오늘 파는 손님 -2)", "effects": {"sellers": -2}},
+			{"label": "50골드 줄 테니 그만하시오", "reply": "현명하구나. 오늘은 조용히 있어주마.", "if": {"money_min": 50}, "effects": {"money": -50, "unflag": "morg_rival", "flag": "morg_friend"}},
+		]},
+	{"day": 5, "npc": "morg", "text": "약속대로 손님 하나 보내마. 내 가게엔 너무 무서운 놈이라서 말이지.\n...그리고 이건 개업 선물이다. 흐흐.",
+		"if": {"flag": "morg_friend"},
+		"choices": [{"label": "고맙소, 할멈", "reply": "다음에 술이나 한잔 사거라. (파는 손님 +1)", "effects": {"sellers": 1, "money": 60}}]},
 	{"day": 6, "npc": "rat_king", "text": "찍찍... 우리는 쥐왕이다. 수십의 입, 하나의 뜻.\n항구에서 '떨어진' 물건들이 많지. 네 가게로 흘려보내 주마. 싸게. 대신 입은 닫아라.",
 		"choices": [
 			{"label": "좋은 거래군", "reply": "찍찍찍! 현명하다. 물건이 곧 흘러들 것이다.", "effects": {"flag": "rat_partner", "suspicion": 10}},
@@ -92,6 +102,12 @@ const BEATS := [
 			{"label": "300골드에 산다", "reply": "금고에 넣었어. 받침대 두 개가 찼어...", "if": {"money_min": 300}, "effects": {"money": -300, "relic": "scale"}},
 			{"label": "돈이 없어 / 안 산다", "reply": "...주교가 기뻐하겠네.", "effects": {"lose_relic": "scale"}},
 		]},
+	{"day": 13, "npc": "rat_king", "text": "찍... 찍찍. (선반 뒤에서 수십 개의 붉은 눈이 빛난다)\n우리를 거절했지. 우리는 잊지 않는다고 했다.",
+		"if": {"flag": "rat_enemy"},
+		"choices": [
+			{"label": "쥐덫을 산다 (-40G)", "reply": "찍! ...이번엔 물러나주마.", "if": {"money_min": 40}, "effects": {"money": -40}},
+			{"label": "무시한다", "reply": "찍찍찍! (창고에서 물건 하나가 사라졌다)", "effects": {"lose_item": 1}},
+		]},
 	{"day": 15, "npc": "drachma", "text": "흐음, 이 골목에 진짜 감정사가 있다더니. 드라크마 백작이오.\n나는 진품만 모으지. 자네가 진열대에 진품을 올려두면, 내 하인이 가끔 두 배 값에 사 가겠소.\n대신 가짜를 섞으면... 우리 관계는 끝이오.",
 		"choices": [
 			{"label": "영광입니다, 백작님", "reply": "좋소. 실망시키지 마시오.", "effects": {"flag": "patron"}},
@@ -110,6 +126,12 @@ const BEATS := [
 	{"day": 18, "npc": "pip", "text": "눈알 군체가 왔다 갔대. 뭔가 큰 걸 갖고 있었는데, 형제단한테 팔았다나 봐.\n...아멜리아 말을 들었으면 우리가 받았을 텐데.",
 		"if": {"not_flag": "amelia_trust"},
 		"choices": [{"label": "아쉽군", "reply": "응...", "effects": {"lose_relic": "eye"}}]},
+	{"day": 19, "npc": "bishop", "text": "(밤사이 가게 문에 젖은 별 문양이 그려져 있다. 문양에서 바닷물이 흘러내린다)\n주인장, 거절은 들었소. 하지만 그분의 부름은 거절할 수 없지.",
+		"if": {"flag": "bishop_refused"},
+		"choices": [
+			{"label": "소금을 뿌려 지운다 (-50G)", "reply": "...소금이라. 오래 버티진 못할 거요.", "if": {"money_min": 50}, "effects": {"money": -50}},
+			{"label": "그냥 둔다", "reply": "그분이 이 가게를 기억하시리다. (저주 +25)", "effects": {"curse": 25}},
+		]},
 	{"day": 20, "npc": "greta", "text": "모로. 쥐왕의 물건이 네 가게에서 나왔다는 제보가 있다.\n...이번 한 번은 넘어가지. 하지만 다음엔 없다.",
 		"if": {"flag": "rat_partner"},
 		"choices": [
@@ -137,6 +159,12 @@ const BEATS := [
 		]},
 	{"day": 26, "npc": "drowned", "scene": "harbor", "species": true, "text": "(익사한 선원이 소라 껍데기를 내민다)\n...바다가 이걸 돌려주래. 귀에 대면 노래가 들려. 너무 아름다워서 무서워.\n그냥 가져가.",
 		"choices": [{"label": "받는다", "reply": "...고마워. 이제 잠이 오겠어.", "effects": {"relic": "voice"}}]},
+	{"day": 28, "npc": "bishop", "scene": "vault", "text": "(새벽, 지하 금고 문이 열려 있다. 젖은 로브들이 받침대를 둘러싸고 있다)\n주인장. 마지막으로 정중하게 청하오. 조각을 내놓으시오.",
+		"if": {"flag": "bishop_angry", "relics_min": 1},
+		"choices": [
+			{"label": "맞서 싸운다 (-150G)", "reply": "(촛대와 시금석을 휘둘렀다. 형제단이 바닷물을 남기고 물러났다)", "if": {"money_min": 150}, "effects": {"money": -150, "rep": 5}},
+			{"label": "조각 하나를 내준다", "reply": "...현명하오. 나머지도 곧 그분께 돌아가리다.", "effects": {"give_relic": 1}},
+		]},
 	{"day": 27, "npc": "elias", "scene": "vault", "text": "(카운터 너머로 초록빛 노인이 웃고 있다)\n...잘했구나, 얘야. 나는 사십 년 동안 그분의 조각을 이 가게에 가뒀단다.\n바알의 빚은 그 대가였지. 마지막 조각, 이름을 새긴 석판은 내가 갖고 있었다.\n네가 끝까지 지킨다면... 이걸 주마.",
 		"if": {"relics_min": 4},
 		"choices": [{"label": "할아버지...", "reply": "가게를 부탁한다. 그리고 바알에게 지지 마라.", "effects": {"relic": "name"}}]},

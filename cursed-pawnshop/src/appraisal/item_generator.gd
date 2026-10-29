@@ -22,7 +22,8 @@ static func generate(seed_value: int, truth: int = -1, kind: String = "") -> Dic
 	if kind == "":
 		kind = ItemData.KINDS.keys()[rng.randi() % ItemData.KINDS.size()]
 
-	var claimed: String = ItemData.GENUINE_MATERIALS[rng.randi() % ItemData.GENUINE_MATERIALS.size()]
+	# metal kinds claim a random metal; other kinds always claim their own genuine material
+	var claimed: String = ItemData.KINDS[kind].get("material", ItemData.GENUINE_MATERIALS[rng.randi() % ItemData.GENUINE_MATERIALS.size()])
 	var claimed_mat: Dictionary = ItemData.MATERIALS[claimed]
 	var volume: int = ItemData.KINDS[kind]["volume"]
 	var expected := int(round(volume * float(claimed_mat["density"])))
@@ -70,6 +71,11 @@ static func has_clue(item: Dictionary, kind: String) -> bool:
 	return kind in item["clues"]
 
 
+## "metal", "gem", "organic" or "document".
+static func category(item: Dictionary) -> String:
+	return ItemData.KINDS[item["kind"]].get("category", "metal")
+
+
 ## One line per clue, for the reveal after a deal.
 static func clue_lines(item: Dictionary) -> Array:
 	var claimed_mat: Dictionary = ItemData.MATERIALS[item["claimed_material"]]
@@ -83,7 +89,7 @@ static func clue_lines(item: Dictionary) -> Array:
 			"blur":
 				lines.append("각인이 두 겹으로 번짐 — 찍지 않고 흉내냄")
 			"seam":
-				lines.append("가장자리 도금이 벗겨짐")
+				lines.append(ItemData.CATEGORY_CLUES[category(item)]["line"])
 	return lines
 
 
@@ -105,12 +111,14 @@ static func _pick_weighted(rng: RandomNumberGenerator, weights: Dictionary, ids:
 
 ## One clue, sometimes two (never both kinds of mark clue).
 static func _add_clues(item: Dictionary, rng: RandomNumberGenerator) -> void:
-	var ids: Array = ItemData.FAKE_CLUES.keys()
+	# kinds without marks (gems, organics, documents) only carry the clues they list
+	var ids: Array = ItemData.KINDS[item["kind"]].get("clues", ItemData.FAKE_CLUES.keys())
 	var first: String = ids[_pick_weighted(rng, ItemData.FAKE_CLUES, ids)]
 	item["clues"].append(first)
 	if rng.randf() < ItemData.SECOND_CLUE_CHANCE:
 		var rest := ids.filter(func(c): return c != first and not (c in ["mark", "blur"] and first in ["mark", "blur"]))
-		item["clues"].append(rest[rng.randi() % rest.size()])
+		if not rest.is_empty():  # a kind with a single clue type gets just that one
+			item["clues"].append(rest[rng.randi() % rest.size()])
 
 	var claimed_mat: Dictionary = ItemData.MATERIALS[item["claimed_material"]]
 	for c in item["clues"]:

@@ -12,6 +12,22 @@ const MATERIALS := {
 	"tin": {"name": "주석", "density": 1.2, "color": Color(0.66, 0.68, 0.72), "mark": "", "fakes": [], "value": 9},
 	"lead": {"name": "납", "density": 2.4, "color": Color(0.45, 0.47, 0.53), "mark": "", "fakes": [], "value": 8},
 	"iron": {"name": "무쇠", "density": 1.2, "color": Color(0.35, 0.33, 0.35), "mark": "", "fakes": [], "value": 6},
+	# non-metal stock: white "color" = sprites keep their own colors (no metal tint)
+	"gemstone": {"name": "천연", "density": 2.2, "color": Color.WHITE, "mark": "", "fakes": ["glass"], "value": 260},
+	"glass": {"name": "유리", "density": 1.6, "color": Color(0.95, 0.97, 1.0), "mark": "", "fakes": [], "value": 12},
+	"relic_bone": {"name": "진품", "density": 1.1, "color": Color.WHITE, "mark": "", "fakes": ["wax"], "value": 150},
+	"wax": {"name": "밀랍", "density": 0.95, "color": Color(1.0, 0.97, 0.9), "mark": "", "fakes": [], "value": 10},
+	"parchment": {"name": "원본", "density": 0.5, "color": Color.WHITE, "mark": "", "fakes": ["forgery"], "value": 140},
+	"forgery": {"name": "위조", "density": 0.5, "color": Color(1.0, 0.98, 0.95), "mark": "", "fakes": [], "value": 8},
+}
+
+## Non-metal categories: what the seam clue looks like and how it reads.
+## note = loupe click, accuse = the confront button, line = the reveal after a deal.
+const CATEGORY_CLUES := {
+	"metal": {"note": "가장자리에 속 금속이 비침", "accuse": "도금이 벗겨졌네요?", "line": "가장자리 도금이 벗겨짐"},
+	"gem": {"note": "안쪽에 작은 기포가 보인다", "accuse": "유리에 기포가 있네요?", "line": "속에 기포 — 천연석엔 없음"},
+	"organic": {"note": "밀랍을 이어붙인 자국이 있다", "accuse": "밀랍으로 붙인 자국이네요?", "line": "밀랍 이음새 — 모조품"},
+	"document": {"note": "잉크가 번져 있다 — 최근에 쓴 글씨", "accuse": "잉크가 아직 번지는데요?", "line": "잉크 번짐 — 최근 위조"},
 }
 
 ## Materials a genuine item can be made of (the ones that have a mark).
@@ -47,6 +63,31 @@ const KINDS := {
 		"mark_area": Rect2(-0.3, 0.45, 0.6, 0.3), "edges": [Vector2(-0.45, 0.85), Vector2(0.45, 0.85), Vector2(-0.35, -0.5)]},
 	"thorn_crown": {"name": "방울 가시관", "volume": 70, "lore": ["(가시 끝의 방울이 바람도 없이 딸랑인다)", "(가시 하나가 손가락을 노린다)"],
 		"mark_area": Rect2(-0.5, 0.15, 1.0, 0.2), "edges": [Vector2(-0.8, 0.25), Vector2(0.8, 0.25), Vector2(0.0, 0.4)]},
+	# non-metal kinds: category, the genuine material they claim, which fake clues they can carry
+	"blood_ruby": {"name": "피눈물 루비", "volume": 30, "category": "gem", "material": "gemstone", "clues": ["weight", "seam"],
+		"lore": ["(루비 안에서 붉은 액체가 천천히 소용돌이친다)", "(손바닥에 올리니 따뜻하다. 심장처럼)"], "edges": [Vector2(-0.2, 0.0), Vector2(0.15, 0.2), Vector2(0.0, -0.25)]},
+	"star_opal": {"name": "별이 갇힌 오팔", "volume": 30, "category": "gem", "material": "gemstone", "clues": ["weight", "seam"],
+		"lore": ["(오팔 속 별 하나가 유난히 밝게 깜빡인다)", "(들여다보면 끝없이 깊다)"], "edges": [Vector2(-0.25, 0.1), Vector2(0.2, -0.1), Vector2(0.05, 0.3)]},
+	"pearl_necklace": {"name": "인어 진주 목걸이", "volume": 40, "category": "gem", "material": "gemstone", "clues": ["weight", "seam"],
+		"lore": ["(가운데 진주 속에 작은 얼굴이 있다)", "(귀에 대면 파도 소리가 난다)"], "edges": [Vector2(0.0, 0.0), Vector2(-0.5, -0.3), Vector2(0.5, -0.3)]},
+	"hand_of_glory": {"name": "영광의 손", "volume": 80, "category": "organic", "material": "relic_bone", "clues": ["weight", "seam"],
+		"lore": ["(말라붙은 손가락 끝의 초가 저절로 켜졌다 꺼진다)", "(손이 아주 조금, 움켜쥐려 한다)"], "edges": [Vector2(-0.2, 0.2), Vector2(0.2, 0.0), Vector2(0.0, 0.45)]},
+	"skull_cup": {"name": "해골 술잔", "volume": 90, "category": "organic", "material": "relic_bone", "clues": ["weight", "seam"],
+		"lore": ["(술잔 안쪽에 아직 무언가가 고여 있다)", "(룬 문자가 손끝에서 미지근하다)"], "edges": [Vector2(-0.4, 0.1), Vector2(0.4, 0.1), Vector2(0.0, 0.4)]},
+	"eye_jar": {"name": "유리병 속 눈알", "volume": 70, "category": "organic", "material": "relic_bone", "clues": ["weight", "seam"],
+		"lore": ["(병 속 눈알이 당신이 움직이는 대로 따라 돈다)", "(초록 액체에서 거품이 하나 올라왔다)"], "edges": [Vector2(-0.2, 0.2), Vector2(0.2, 0.3), Vector2(0.0, 0.0)]},
+	"scale_mirror": {"name": "인어 비늘 거울", "volume": 60, "category": "organic", "material": "relic_bone", "clues": ["weight", "seam"],
+		"lore": ["(거울에 내 얼굴이 아니라 검은 물이 비친다)", "(비늘 테두리가 아직 축축하다)"], "edges": [Vector2(-0.25, -0.35), Vector2(0.25, -0.35), Vector2(0.0, 0.5)]},
+	"bone_flute": {"name": "뼈 피리", "volume": 40, "category": "organic", "material": "relic_bone", "clues": ["weight", "seam"],
+		"lore": ["(아무도 불지 않았는데 낮은 음이 새어 나온다)", "(구멍 하나가 다른 구멍보다 크다)"], "edges": [Vector2(-0.3, 0.3), Vector2(0.0, 0.0), Vector2(0.3, -0.3)]},
+	"grimoire": {"name": "눈 달린 마도서", "volume": 90, "category": "document", "material": "parchment", "clues": ["seam"],
+		"lore": ["(표지의 눈이 당신을 읽는다)", "(책장이 저절로 넘어가다 멈춘다)"], "edges": [Vector2(-0.3, 0.3), Vector2(0.25, -0.3), Vector2(0.0, 0.1)]},
+	"blood_contract": {"name": "피의 계약서", "volume": 40, "category": "document", "material": "parchment", "clues": ["seam"],
+		"lore": ["(서명이 아직 마르지 않았다)", "(계약서 구석에 바알의 인장이 보인다... 아니, 비슷할 뿐인가)"], "edges": [Vector2(-0.25, 0.2), Vector2(0.2, -0.2), Vector2(0.0, 0.35)]},
+	"ship_log": {"name": "침몰선 항해 일지", "volume": 70, "category": "document", "material": "parchment", "clues": ["seam"],
+		"lore": ["(마지막 장에 '그것이 배 밑에 있다'라고 적혀 있다)", "(책장 사이에서 모래가 쏟아진다)"], "edges": [Vector2(-0.3, 0.1), Vector2(0.3, 0.1), Vector2(0.0, -0.3)]},
+	"map_fragment": {"name": "소용돌이 지도 조각", "volume": 30, "category": "document", "material": "parchment", "clues": ["seam"],
+		"lore": ["(지도의 소용돌이가 손가락 아래서 도는 것 같다)", "(좌표 하나가 지워져 있다)"], "edges": [Vector2(-0.3, -0.2), Vector2(0.3, 0.2), Vector2(0.0, 0.0)]},
 	"key": {"name": "눈알 열쇠", "volume": 45, "lore": ["(열쇠 머리의 눈이 문을 찾듯 두리번거린다)", "(이 열쇠에 맞는 문은 가게 지하에 있을 것 같다)"],
 		"mark_area": Rect2(-0.08, -0.1, 0.16, 0.45), "edges": [Vector2(-0.12, 0.1), Vector2(0.12, 0.3), Vector2(0.0, 0.85)]},
 }

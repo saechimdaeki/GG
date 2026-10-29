@@ -202,6 +202,15 @@ func apply_effects(eff: Dictionary) -> String:
 	money += eff.get("money", 0)
 	rep += eff.get("rep", 0)
 	suspicion = maxi(0, suspicion + eff.get("suspicion", 0))
+	curse = maxi(0, curse + eff.get("curse", 0))
+	_sellers_today += eff.get("sellers", 0)
+	for i in mini(eff.get("lose_item", 0), inventory.size()):
+		var gone: Dictionary = inventory.pop_at(_rng.randi() % inventory.size())
+		notes.append("📦 %s이(가) 사라졌다" % item_name(gone["item"], true))
+	for i in mini(eff.get("give_relic", 0), relics.size()):
+		var r: String = relics.pop_back()
+		relics_lost += 1
+		notes.append("🔮 %s을(를) 빼앗겼다 (%d/7)" % [StoryData.RELICS[r], relics.size()])
 	if eff.has("flag"):
 		flags[eff["flag"]] = true
 	if eff.has("unflag"):
@@ -504,7 +513,7 @@ func market_value(item: Dictionary) -> int:
 
 ## What a buyer who trusts the claim thinks it is worth today.
 func believed_value(item: Dictionary) -> int:
-	return int(round(item["claimed_value"] * float(prices[item["claimed_material"]])))
+	return int(round(item["claimed_value"] * float(prices.get(item["claimed_material"], 1.0))))
 
 
 ## Night report: today's trades and the stockroom. Advances the day.

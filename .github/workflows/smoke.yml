@@ -1,6 +1,6 @@
 name: smoke
 
-# One job per game folder; add a matrix entry when a new game joins the repo.
+# One matrix entry per game folder; add one when a new game joins the repo.
 
 on:
   push:
@@ -11,9 +11,17 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10  # a script error can leave godot hanging instead of exiting
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - game: demon-lord-is-busy
+            script: res://tests/smoke/story_001_check.gd
+          - game: cursed-pawnshop
+            script: res://tests/smoke/run_check.gd
     defaults:
       run:
-        working-directory: demon-lord-is-busy
+        working-directory: ${{ matrix.game }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Godot 4.7.2
@@ -27,6 +35,6 @@ jobs:
         # godot exits 0 when a script fails to parse, so also require PASS lines and no SCRIPT ERROR.
         run: |
           set -o pipefail
-          godot --headless --path . -s res://tests/smoke/story_001_check.gd 2>&1 | tee smoke.log
+          godot --headless --path . -s ${{ matrix.script }} 2>&1 | tee smoke.log
           grep -q '^PASS' smoke.log
           ! grep -qE '^FAIL|SCRIPT ERROR' smoke.log

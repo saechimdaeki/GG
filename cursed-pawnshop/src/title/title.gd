@@ -17,6 +17,8 @@ var _t := 0.0
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	theme = ShopView.make_theme()
+	PauseMenu.apply_saved()
 	for p in [ART_BG, FALLBACK_BG]:
 		if ResourceLoader.exists(p):
 			_bg = load(p)
@@ -25,8 +27,8 @@ func _ready() -> void:
 	Audio.ambience("ambience")
 
 	var box := VBoxContainer.new()
-	box.position = Vector2(240, 214)
-	box.size = Vector2(160, 120)
+	box.position = Vector2(240, 196)
+	box.size = Vector2(160, 140)
 	box.add_theme_constant_override("separation", 6)
 	add_child(box)
 	if RunState.has_save():
@@ -34,7 +36,11 @@ func _ready() -> void:
 		if saved:
 			box.add_child(_button("🕯 이어하기 (%d일째)" % saved.day, func(): _start(true)))
 	box.add_child(_button("새로 시작", func(): _start(false)))
+	var settings := PauseMenu.new()
+	settings.in_game = false
+	box.add_child(_button("⚙ 설정", func(): settings.open()))
 	box.add_child(_button("종료", func(): get_tree().quit()))
+	add_child(settings)
 
 
 func _button(text: String, action: Callable) -> Button:

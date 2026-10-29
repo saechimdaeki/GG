@@ -127,7 +127,9 @@ static func greet(v: Dictionary) -> String:
 	var kind: Dictionary = ItemData.KINDS[v["item"]["kind"]]
 	var lore: Array = kind["lore"]
 	var hot: String = " " + CustomerData.LINES["stolen_hint"][v["line_seed"] % CustomerData.LINES["stolen_hint"].size()] if v["item"].get("stolen", false) else ""
-	return line + " " + CustomerData.LINES["claim"] % [ItemData.MATERIALS[v["item"]["claimed_material"]]["name"], kind["name"]] \
+	var claim: String = CustomerData.LINES["claim"] % [ItemData.MATERIALS[v["item"]["claimed_material"]]["name"], kind["name"]] \
+		if ItemGenerator.category(v["item"]) == "metal" else CustomerData.LINES["claim_other"] % kind["name"]
+	return line + " " + claim \
 		+ hot + "\n" + lore[v["line_seed"] % lore.size()]
 
 
