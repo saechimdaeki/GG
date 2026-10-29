@@ -42,7 +42,7 @@ godot
 - 화면 증거: `production/qa/evidence/story-00N-*/`
 - **사람 플레이테스트는 아직** — 밸런스(흥정 수치·빚 금액)는 첫 평가 후 조정 예정
 
-**아트**: 묶음 1~5 완료. **묶음 6 컷신 11장 대기**(없으면 기존 배경으로 대체). 프롬프트는 `art/PROMPTS.md`.
+**아트**: 묶음 1~6 전부 완료(GPT/Grok) — 초상화 34, 물건 34, 배경·엔딩·컷신 32. 프롬프트는 `art/PROMPTS.md`.
 
 **음악**: 타이틀·아침 / 낮 영업 / 밤·바알 세 곡 + 합성 빗소리 레이어. 곡 바꾸려면 `assets/audio/music_title|music_day|music_night` 를 같은 이름의 .ogg/.mp3/.wav로 교체.
 
