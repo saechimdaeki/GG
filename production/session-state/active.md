@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-29
 **Branch:** `main`
-**Current task:** cursed-pawnshop M2 장사 — cursed-pawnshop/production/epics/cursed-pawnshop/story-003-m2-trade.md
-**Next step:** 유저 플레이 피드백 → M3(주간 빚·상점 업그레이드·도구). 유저는 아트 묶음 3·4(금속) 생성 중
-**Blocked on:** 유저 플레이테스트
-**Files in progress:** cursed-pawnshop/src/data/market.gd, src/shop/{run_state,shelf_panel,shop_view,customer,haggle}.gd
-**Run result:** OBSERVED — 진열대 정리·판매·밤 도매 (cursed-pawnshop/production/qa/evidence/story-003-m2-trade/)
-**Open questions:** 커밋 여부
+**Current task:** cursed-pawnshop M3 빚과 성장 완료 — story-004-m3-debt-growth.md
+**Next step:** M4 이야기(NPC 아크·사건·평판·경비대). 유저는 아트 생성 중, 플레이 평가는 나중에 한 번에
+**Blocked on:** nothing
+**Files in progress:** none
+**Run result:** OBSERVED — 상점·바알 방문·빚 청산 엔딩 (cursed-pawnshop/production/qa/evidence/story-004-m3-debt-growth/)
+**Open questions:** 밸런스는 봇 기준(현명한 봇 4/5 승, 대충 봇 1/2 간신히) — 유저 플레이로 재조정
 <!-- /CHECKPOINT -->
 
 ---

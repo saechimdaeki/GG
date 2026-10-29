@@ -56,7 +56,7 @@ func _rebuild() -> void:
 		_title.text = "🌙 창고 — 도매상은 시세의 %d%%에 바로 사 간다.   소지금 %dG" % [int(MarketData.WHOLESALE * 100), run.money]
 	else:
 		_title.text = "🏺 진열대 정리 — 진열 %d/%d칸. 가격표가 손님과의 흥정 시작가가 된다.\n%s" % [
-			run.shelf().size(), MarketData.SHELF_SLOTS, run.price_line()]
+			run.shelf().size(), run.shelf_slots(), run.price_line()]
 	if run.inventory.is_empty():
 		_rows.add_child(_text("창고가 비어 있다. 오늘 손님에게서 물건을 사들이자.", 10, Color(0.7, 0.6, 0.5)))
 		return

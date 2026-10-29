@@ -12,6 +12,15 @@ var prices := {"gold": 1.0, "silver": 1.0, "bronze": 1.0}
 var inventory: Array = []
 ## Scheduled events: {day, type: "revenge" | "gift", member: index}.
 var pending: Array = []
+## Upgrade id -> level bought (see ProgressionData.UPGRADES).
+var upgrades := {}
+## Index into ProgressionData.DEBT_SCHEDULE of the next payment, and unpaid carry-over.
+var debt_week := 0
+var carry := 0
+## "" while playing, "paid" (debt cleared) or "foreclose" (lost the shop).
+var ended := ""
+## True on the night a payment is due (set by end_day, cleared by pay_debt).
+var payday := false
 
 var _rng := RandomNumberGenerator.new()
 ## Today's visitors: {member: index, role: "sell" | "buy"}.
@@ -40,7 +49,7 @@ func start_day() -> Array:
 		prices[metal] = clampf(p, MarketData.PRICE_RANGE.x, MarketData.PRICE_RANGE.y)
 	var lines := ["— %d일째 아침 —" % day, news["text"], price_line(old)]
 
-	_sellers_today = CustomerData.DAY_CUSTOMERS
+	_sellers_today = CustomerData.DAY_CUSTOMERS + level("sign")
 	_tippers = []
 	for e in pending.filter(func(ev): return ev["day"] <= day):
 		pending.erase(e)
@@ -50,6 +59,9 @@ func start_day() -> Array:
 			m["grudge"] = 0
 			var id: String = EventData.REVENGE.keys()[_rng.randi() % EventData.REVENGE.size()]
 			var r: Dictionary = EventData.REVENGE[id]
+			if id == "rob" and level("guard") > 0:
+				lines.append("🛡 밤사이 %s%s 금고를 노렸지만 경비 고블린이 쫓아냈다!" % [m["name"], josa_ga(m["name"])])
+				continue
 			var n := 0
 			if r.has("money_ratio"):
 				n = int(money * float(r["money_ratio"]))
@@ -123,7 +135,7 @@ func finish_visit(v: Dictionary, bought: bool, price: int) -> String:
 		money -= price
 		var entry := {"item": v["item"], "paid": price, "seller": m["name"],
 			"tag": maxi(5, Customer.snap5(market_value(v["item"]) * MarketData.DEFAULT_TAG)),
-			"shelved": shelf().size() < MarketData.SHELF_SLOTS}
+			"shelved": shelf().size() < shelf_slots()}
 		inventory.append(entry)
 		_bought_today.append(entry)
 		if not v["insulted"] and not v["wrong_accused"]:
@@ -141,19 +153,23 @@ func finish_visit(v: Dictionary, bought: bool, price: int) -> String:
 func finish_sale(v: Dictionary, sold: bool, price: int, caught: bool = false) -> String:
 	var m: Dictionary = v["member"]
 	var entry: Dictionary = v["entry"]
-	var fake: bool = entry["item"]["truth"] == ItemGenerator.Truth.FAKE
 	if caught:
 		m["grudge"] += MarketData.GRUDGE_CAUGHT_FAKE
 	elif sold:
 		money += price
 		inventory.erase(entry)
 		_sold_today.append({"entry": entry, "price": price, "buyer": m["name"]})
-		if fake:
+		if is_scam(entry["item"], price):
 			# ponytail: they find out later; the grudge waits silently for revenge
 			m["grudge"] += MarketData.GRUDGE_SOLD_FAKE
 		elif not v["insulted"]:
 			m["affection"] += CustomerData.AFFECTION_DEAL
 	return _settle(v)
+
+
+## Selling a fake for far more than it is really worth.
+func is_scam(item: Dictionary, price: int) -> bool:
+	return item["truth"] == ItemGenerator.Truth.FAKE and price > market_value(item) * MarketData.SCAM_RATIO
 
 
 ## Sells a stockroom entry to the night wholesaler. Returns the gold received.
@@ -166,8 +182,86 @@ func wholesale(entry: Dictionary) -> int:
 
 ## Puts an entry on the shelf (if there is room) or takes it off. Returns its new state.
 func set_shelved(entry: Dictionary, on: bool) -> bool:
-	entry["shelved"] = on and (entry["shelved"] or shelf().size() < MarketData.SHELF_SLOTS)
+	entry["shelved"] = on and (entry["shelved"] or shelf().size() < shelf_slots())
 	return entry["shelved"]
+
+
+func shelf_slots() -> int:
+	return ProgressionData.SHELF_SLOTS_BASE + level("shelf")
+
+
+## Level bought of an upgrade (0 = not bought).
+func level(id: String) -> int:
+	return upgrades.get(id, 0)
+
+
+## Price of the next level, or -1 when maxed.
+func upgrade_price(id: String) -> int:
+	var prices: Array = ProgressionData.UPGRADES[id]["prices"]
+	return prices[level(id)] if level(id) < prices.size() else -1
+
+
+## Buys the next level if affordable. Returns true on success.
+func buy_upgrade(id: String) -> bool:
+	var price := upgrade_price(id)
+	if price < 0 or money < price:
+		return false
+	money -= price
+	upgrades[id] = level(id) + 1
+	return true
+
+
+## Gold due at the next payday (this week's share plus any carry-over).
+func debt_due() -> int:
+	return ProgressionData.DEBT_SCHEDULE[debt_week] + carry if debt_week < ProgressionData.DEBT_SCHEDULE.size() else 0
+
+
+## Days until the next payday (0 = tonight).
+func days_to_payday() -> int:
+	return (ProgressionData.WEEK_DAYS - day % ProgressionData.WEEK_DAYS) % ProgressionData.WEEK_DAYS
+
+
+## Baal collects: gold first, then the most valuable stock, then the rest rolls
+## over with interest — or, in the last week, he takes the shop. Returns report lines.
+func pay_debt() -> Array:
+	payday = false
+	var due := debt_due()
+	var lines := []
+	var from_gold := mini(money, due)
+	money -= from_gold
+	var short := due - from_gold
+	if short > 0:
+		var by_value := inventory.duplicate()
+		by_value.sort_custom(func(a, b): return market_value(a["item"]) > market_value(b["item"]))
+		var taken := []
+		for e in by_value:
+			if short <= 0:
+				break
+			short -= int(round(market_value(e["item"]) * ProgressionData.SEIZE_RATE))
+			inventory.erase(e)
+			taken.append(item_name(e["item"], true))
+		if not taken.is_empty():
+			lines.append(ProgressionData.BAAL_LINES["seized"] % ", ".join(taken))
+		if short < 0:
+			money += -short  # change back from the last seized item
+			short = 0
+	debt_week += 1
+	var last := debt_week >= ProgressionData.DEBT_SCHEDULE.size()
+	if short > 0:
+		if last:
+			ended = "foreclose"
+			lines.append(ProgressionData.BAAL_LINES["foreclose"])
+			return lines
+		carry = int(round(short * (1.0 + ProgressionData.SHORTFALL_INTEREST)))
+		lines.append(ProgressionData.BAAL_LINES["short"] % [short, carry])
+		return lines
+	carry = 0
+	if last:
+		ended = "paid"
+		lines.append(ProgressionData.BAAL_LINES["final_paid"])
+	else:
+		lines.append(ProgressionData.BAAL_LINES["paid"] % [due, debt_due()])
+	return lines
 
 
 func shelf() -> Array:
@@ -207,8 +301,19 @@ func end_day() -> Array:
 	var grudges := roster.filter(func(m): return m["grudge"] > 0 and not m["event_pending"])
 	if not grudges.is_empty():
 		lines.append("앙심을 품은 괴물: " + ", ".join(grudges.map(func(m): return m["name"])))
+	payday = days_to_payday() == 0 and ended == ""
+	if payday:
+		lines.append("⚠ 오늘 밤 바알이 온다. 갚을 돈: %dG" % debt_due())
 	day += 1
 	return lines
+
+
+## "상환 D-3 · 600G" for the HUD.
+func debt_line() -> String:
+	if ended != "":
+		return ""
+	var d := days_to_payday()
+	return "바알 상환 %s · %dG" % ["오늘 밤" if d == 0 else "D-%d" % d, debt_due()]
 
 
 ## "시세 금 ×1.20▲ · 은 ×0.90▼ · 청동 ×1.00" (arrows vs [param old] when given).
@@ -242,7 +347,8 @@ func _settle(v: Dictionary) -> String:
 	var m: Dictionary = v["member"]
 	if v["insulted"]:
 		m["grudge"] += CustomerData.GRUDGE_INSULT
-	if v["walked_out"]:
+	# a buyer leaving over price is just business; a seller driven off is not
+	if v["walked_out"] and v["role"] == "sell":
 		m["grudge"] += CustomerData.GRUDGE_WALKOUT
 	if m["event_pending"]:
 		return ""

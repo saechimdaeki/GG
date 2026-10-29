@@ -4,7 +4,7 @@
 
 - 기획서: [`design/game-brief.md`](design/game-brief.md)
 - 스토리: [`production/epics/cursed-pawnshop/`](production/epics/cursed-pawnshop/EPIC.md) (5개)
-- 상태: M2(장사) 플레이 가능 — 매입 + 진열대·가격표 + 사는 손님 + 시세 + 밤 도매. 원한/선물 이벤트
+- 상태: M3(빚과 성장)까지 플레이 가능 — 매입·판매·시세·주간 빚 상환(바알)·밤 상점 업그레이드·감정 도구·엔딩 2종
 
 ## 실행 (Godot 4.7.2 필요)
 

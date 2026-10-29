@@ -4,7 +4,7 @@ class_name CustomerData
 
 const ROSTER_SIZE := 12
 const DAY_CUSTOMERS := 5
-const START_MONEY := 300
+const START_MONEY := 400
 
 ## Species id -> display name, skin color, name pool, one-line look (for the art prompts).
 const SPECIES := {

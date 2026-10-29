@@ -1,0 +1,9 @@
+Reviewed-Content-Hash: src/data/progression.gd 39d7a606017a0b4c38bbc28d139f485bf22d71ec
+Reviewed-Content-Hash: src/data/market.gd df9be6d6b0ee87db0bad6c33921c5308799eebde
+Reviewed-Content-Hash: src/data/items.gd 682753d4e973e769f1cbe95db384d5d2d7161637
+Reviewed-Content-Hash: src/data/customers.gd c9cead1c1a969f93c509545567383a02671a3fd9
+Reviewed-Content-Hash: src/shop/run_state.gd 499c0922eaadc05e5a955776b5b6e259c54aef53
+Reviewed-Content-Hash: src/shop/upgrade_panel.gd f3e775842c00d7ce82723a03c6e3d6cb913de38e
+Reviewed-Content-Hash: src/shop/shop_view.gd 21fbfde8808c4b44acbadefe5a9626f12718d0cc
+Reviewed-Content-Hash: src/shop/shelf_panel.gd d2a425b5e305ea0f005db8fc5385b87aa8fb5cc2
+Reviewed-Content-Hash: src/appraisal/item_generator.gd 224dfc97b371138f79810ec9e1f4398d2fde9433

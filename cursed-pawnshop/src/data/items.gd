@@ -5,13 +5,13 @@ class_name ItemData
 ## Material id -> display name, density (grams per volume unit), color, the mark (각인)
 ## a genuine piece carries, the materials that pass for it, and value (gold per 60 volume).
 const MATERIALS := {
-	"gold": {"name": "금", "density": 3.0, "color": Color(1.0, 0.8, 0.28), "mark": "sun", "fakes": ["brass", "lead"], "value": 100},
-	"silver": {"name": "은", "density": 2.0, "color": Color(0.8, 0.85, 0.92), "mark": "moon", "fakes": ["tin", "lead"], "value": 50},
-	"bronze": {"name": "청동", "density": 1.5, "color": Color(0.78, 0.5, 0.28), "mark": "flame", "fakes": ["iron", "brass"], "value": 25},
-	"brass": {"name": "황동", "density": 2.7, "color": Color(0.88, 0.72, 0.3), "mark": "", "fakes": [], "value": 10},
-	"tin": {"name": "주석", "density": 1.2, "color": Color(0.66, 0.68, 0.72), "mark": "", "fakes": [], "value": 6},
-	"lead": {"name": "납", "density": 2.4, "color": Color(0.45, 0.47, 0.53), "mark": "", "fakes": [], "value": 5},
-	"iron": {"name": "무쇠", "density": 1.2, "color": Color(0.35, 0.33, 0.35), "mark": "", "fakes": [], "value": 4},
+	"gold": {"name": "금", "density": 3.0, "color": Color(1.0, 0.8, 0.28), "mark": "sun", "fakes": ["brass", "lead"], "value": 150},
+	"silver": {"name": "은", "density": 2.0, "color": Color(0.8, 0.85, 0.92), "mark": "moon", "fakes": ["tin", "lead"], "value": 75},
+	"bronze": {"name": "청동", "density": 1.5, "color": Color(0.78, 0.5, 0.28), "mark": "flame", "fakes": ["iron", "brass"], "value": 40},
+	"brass": {"name": "황동", "density": 2.7, "color": Color(0.88, 0.72, 0.3), "mark": "", "fakes": [], "value": 15},
+	"tin": {"name": "주석", "density": 1.2, "color": Color(0.66, 0.68, 0.72), "mark": "", "fakes": [], "value": 9},
+	"lead": {"name": "납", "density": 2.4, "color": Color(0.45, 0.47, 0.53), "mark": "", "fakes": [], "value": 8},
+	"iron": {"name": "무쇠", "density": 1.2, "color": Color(0.35, 0.33, 0.35), "mark": "", "fakes": [], "value": 6},
 }
 
 ## Materials a genuine item can be made of (the ones that have a mark).

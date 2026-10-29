@@ -52,10 +52,14 @@ static func generate(seed_value: int, truth: int = -1, kind: String = "") -> Dic
 
 
 ## True when the item carries a clue the player can confront the seller with.
-## [param kind] is "mark" (wrong or blurred mark), "weight" or "seam".
+## [param kind] is "mark" (wrong or blurred mark), "weight", "seam", or "scratch"
+## (touchstone: any fake shows another metal underneath).
 static func has_clue(item: Dictionary, kind: String) -> bool:
-	if kind == "mark":
-		return "mark" in item["clues"] or "blur" in item["clues"]
+	match kind:
+		"mark":
+			return "mark" in item["clues"] or "blur" in item["clues"]
+		"scratch":
+			return item["truth"] == Truth.FAKE
 	return kind in item["clues"]
 
 

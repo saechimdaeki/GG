@@ -36,6 +36,7 @@ var _ask_price := 0
 var _sale_price := 0
 var _caught := false
 var _shelf_panel: ShelfPanel
+var _upgrade_panel: UpgradePanel
 
 var _hud: Label
 var _speaker: Label
@@ -149,6 +150,9 @@ func _build_ui() -> void:
 	_shelf_panel = ShelfPanel.new()
 	_shelf_panel.visible = false
 	add_child(_shelf_panel)
+	_upgrade_panel = UpgradePanel.new()
+	_upgrade_panel.visible = false
+	add_child(_upgrade_panel)
 
 
 func _label(parent: Node, pos: Vector2, font_size: int, color: Color) -> Label:
@@ -196,7 +200,34 @@ func _show_night() -> void:
 	_visit = {}
 	_show_overlay("\n\n".join(_run.end_day()), "📦 창고 · 도매상", func():
 		_overlay.visible = false
-		_shelf_panel.open(_run, true, "🌙 잠들기 → 다음 날", _show_morning))
+		_shelf_panel.open(_run, true, "🛠 밤의 상점", func():
+			_upgrade_panel.open(_run, "💀 바알을 맞는다" if _run.payday else "🌙 잠들기 → 다음 날", _after_shop)))
+
+
+## After the night shop: Baal on payday, then sleep — or an ending.
+func _after_shop() -> void:
+	if not _run.payday:
+		_show_morning()
+		return
+	var lines := _run.pay_debt()
+	_update_hud()
+	match _run.ended:
+		"paid":
+			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "📜 엔딩 보기", func(): _show_ending(true))
+		"foreclose":
+			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "📜 엔딩 보기", func(): _show_ending(false))
+		_:
+			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "🌙 잠들기 → 다음 날", _show_morning)
+
+
+func _show_ending(won: bool) -> void:
+	var text: String
+	if won:
+		text = "— 엔딩: 빚 청산 —\n\n%d일 만에 할아버지의 빚 3,000G를 모두 갚았다.\n소지금 %dG · 창고 %d개 · 상점 업그레이드 %d개\n\n그런데 장부 마지막 장에 할아버지의 글씨가 남아 있다.\n\"조각은 일곱 개다. 절대 팔지 마라.\"\n\n(1부 끝 — 이야기는 M4에서 이어집니다)" % [
+			_run.day - 1, _run.money, _run.inventory.size(), _run.upgrades.size()]
+	else:
+		text = "— 엔딩: 차압 —\n\n바알은 가게의 열쇠를, 그리고 당신의 그림자를 가져갔다.\n모로 전당포의 간판이 내려졌다.\n\n%d일째 밤." % (_run.day - 1)
+	_show_overlay(text, "🔄 처음부터", func(): get_tree().reload_current_scene())
 
 
 func _show_overlay(text: String, button: String, action: Callable) -> void:
@@ -256,7 +287,7 @@ func _say(text: String) -> void:
 
 
 func _update_hud() -> void:
-	_hud.text = "%d일째   소지금 %dG   남은 손님 %d\n%s" % [_run.day, _run.money, _run.visitors_left(), _run.price_line()]
+	_hud.text = "%d일째   소지금 %dG   남은 손님 %d   %s\n%s" % [_run.day, _run.money, _run.visitors_left(), _run.debt_line(), _run.price_line()]
 
 
 # --- Choices ---------------------------------------------------------------
@@ -290,6 +321,10 @@ func _refresh_choices() -> void:
 				_add_choice("무게가 안 맞는데요?", _confront.bind("weight"))
 			if _seen.has("seam") and not _confronted.has("seam"):
 				_add_choice("도금이 벗겨졌네요?", _confront.bind("seam"))
+			if _run.level("touchstone") > 0 and not _seen.has("scratch"):
+				_add_choice("🪨 시금석에 긁기", _scratch)
+			if _seen.has("scratch") and not _confronted.has("scratch") and ItemGenerator.has_clue(_visit["item"], "scratch"):
+				_add_choice("속이 다른 금속인데요?", _confront.bind("scratch"))
 			_add_choice("💰 가격 얘기하죠", _start_haggle)
 			_add_choice("안 사요", _turn_away)
 		Phase.HAGGLE:
@@ -329,6 +364,21 @@ func _ask(question: String) -> void:
 func _confront(kind: String) -> void:
 	_confronted[kind] = true
 	_say(Customer.confront(_visit, ItemGenerator.has_clue(_visit["item"], kind)))
+	_after_line()
+
+
+## Touchstone: scratch the item to see the metal under the surface. The seller hates it.
+func _scratch() -> void:
+	_seen["scratch"] = true
+	_visit["patience"] -= ProgressionData.TOUCHSTONE_PATIENCE
+	var fake := ItemGenerator.has_clue(_visit["item"], "scratch")
+	_note("시금석: " + ("긁힌 자리 아래 다른 금속이 보인다!" if fake else "속까지 같은 금속"))
+	_say("어이! 내 물건에 뭐 하는 거야?!" + (" ...!" if fake and Customer.is_lying(_visit) else ""))
+	if _visit["patience"] <= 0:
+		_visit["walked_out"] = true
+		_visit["mood"] = "angry"
+	else:
+		_visit["mood"] = "annoyed"
 	_after_line()
 
 
@@ -402,7 +452,7 @@ func _update_sale() -> void:
 
 ## The buyer inspects first: a sharp-eyed one may catch a fake right here.
 func _submit_sale() -> void:
-	if _visit["spots_fake"]:
+	if _visit["spots_fake"] and _run.is_scam(_visit["item"], _ask_price):
 		var caught: Array = CustomerData.LINES["buy_caught"]
 		_visit["mood"] = "angry"
 		_say(caught[_visit["line_seed"] % caught.size()])
@@ -447,7 +497,12 @@ func _on_weigh() -> void:
 		_seen["weight"] = true
 		_note("무게 %dg" % _visit["item"]["weight"])
 		_refresh_choices()
-	_weight_label.text = "%d g" % _visit["item"]["weight"]
+	var item: Dictionary = _visit["item"]
+	_weight_label.text = "%d g" % item["weight"]
+	if _run.level("scale") > 0:
+		# precision scale: deviation from the claimed metal's true weight
+		var off: float = (float(item["weight"]) / item["expected_weight"] - 1.0) * 100.0
+		_weight_label.text += "  (%+.1f%%)" % off
 
 
 func _note(line: String) -> void:
@@ -471,11 +526,12 @@ func _inspect(m: Vector2) -> void:
 	_ping_t = 0.4
 	var item: Dictionary = _visit["item"]
 	var u := (m - ITEM_CENTER) / ITEM_UNIT
-	if item["mark"] != "" and not _seen.has("mark") and u.distance_to(item["mark_pos"]) < ItemDrawer.MARK_SIZE[item["kind"]] * 1.6:
+	var reach := ProgressionData.LENS_CLICK_BONUS if _run.level("lens") > 0 else 1.0
+	if item["mark"] != "" and not _seen.has("mark") and u.distance_to(item["mark_pos"]) < ItemDrawer.MARK_SIZE[item["kind"]] * 1.6 * reach:
 		_seen["mark"] = true
 		_note("각인: %s%s" % [ItemData.MARKS[item["mark"]], " (두 겹으로 번짐)" if item["mark_blurred"] else ""])
 		_refresh_choices()
-	elif item["seam_pos"] != Vector2.INF and not _seen.has("seam") and u.distance_to(item["seam_pos"]) < ItemDrawer.SEAM_RADIUS * 2.2:
+	elif item["seam_pos"] != Vector2.INF and not _seen.has("seam") and u.distance_to(item["seam_pos"]) < ItemDrawer.SEAM_RADIUS * 2.2 * reach:
 		_seen["seam"] = true
 		_note("가장자리에 속 금속이 비침")
 		_refresh_choices()
@@ -488,6 +544,7 @@ func _process(delta: float) -> void:
 	var looking := (_phase == Phase.TALK or _phase == Phase.HAGGLE) and MAT_RECT.has_point(m)
 	_notes_label.visible = _phase != Phase.RESULT
 	_loupe.visible = looking
+	_loupe.size = Vector2.ONE * (ProgressionData.LENS_LOUPE_SIZE if _run.level("lens") > 0 else LOUPE_SIZE)
 	if looking:
 		_loupe.position = m - _loupe.size * 0.5
 		_loupe.item = _visit["item"]
@@ -576,16 +633,19 @@ func _draw_shelf() -> void:
 	var font := ThemeDB.fallback_font
 	var wanted: Dictionary = _visit.get("entry", {})
 	var shelf := _run.shelf()
-	for i in MarketData.SHELF_SLOTS:
-		var at := Vector2(96 + i * 54, 222)
-		draw_rect(Rect2(at - Vector2(22, 14), Vector2(44, 34)), Color(0.15, 0.08, 0.06, 0.8))
+	var slots := _run.shelf_slots()
+	var step := minf(54.0, 232.0 / slots)
+	var half := step * 0.42
+	for i in slots:
+		var at := Vector2(74 + step * (i + 0.5), 222)
+		draw_rect(Rect2(at - Vector2(half, 14), Vector2(half * 2, 34)), Color(0.15, 0.08, 0.06, 0.8))
 		if i >= shelf.size():
 			continue
 		var e: Dictionary = shelf[i]
 		if e == wanted:
-			draw_rect(Rect2(at - Vector2(23, 15), Vector2(46, 36)), GOLD, false, 2)
-		ItemDrawer.draw(self, e["item"], at - Vector2(0, 2), 12, false)
-		draw_string(font, at + Vector2(-20, 18), "%dG" % e["tag"], HORIZONTAL_ALIGNMENT_CENTER, 40, 8, GOLD)
+			draw_rect(Rect2(at - Vector2(half + 1, 15), Vector2(half * 2 + 2, 36)), GOLD, false, 2)
+		ItemDrawer.draw(self, e["item"], at - Vector2(0, 2), minf(12.0, half * 0.6), false)
+		draw_string(font, at + Vector2(-half, 18), "%dG" % e["tag"], HORIZONTAL_ALIGNMENT_CENTER, half * 2, 8, GOLD)
 
 
 func _draw_mat() -> void:
@@ -630,8 +690,8 @@ func _draw_mat() -> void:
 				lines.append("✘ 가짜를 들켰다! 손님이 앙심을 품었다")
 			elif _bought:
 				lines.append("✔ %dG에 팔았다 (산 값 %d → %+dG)" % [_sale_price, paid, _sale_price - paid])
-				if fake:
-					lines.append("…속은 손님은 언젠가 알아챌 것이다")
+				if _run.is_scam(item, _sale_price):
+					lines.append("…가짜를 비싸게 팔았다. 속은 손님은 언젠가 알아챌 것이다")
 			else:
 				lines.append("✘ 안 팔렸다")
 		else:
