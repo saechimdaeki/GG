@@ -37,6 +37,8 @@ var _sale_price := 0
 var _caught := false
 var _shelf_panel: ShelfPanel
 var _upgrade_panel: UpgradePanel
+var _story_panel: StoryPanel
+var _accuse_menu := false
 
 var _hud: Label
 var _speaker: Label
@@ -153,6 +155,9 @@ func _build_ui() -> void:
 	_upgrade_panel = UpgradePanel.new()
 	_upgrade_panel.visible = false
 	add_child(_upgrade_panel)
+	_story_panel = StoryPanel.new()
+	_story_panel.visible = false
+	add_child(_story_panel)
 
 
 func _label(parent: Node, pos: Vector2, font_size: int, color: Color) -> Label:
@@ -179,9 +184,12 @@ func _show_morning() -> void:
 	_phase = Phase.MORNING
 	_visit = {}
 	var lines := _run.start_day()
-	_show_overlay("\n\n".join(lines), "🏺 진열대 정리", func():
+	var beats := _run.beats_today()
+	_show_overlay("\n\n".join(lines), "📜 오늘의 손님" if not beats.is_empty() else "🏺 진열대 정리", func():
 		_overlay.visible = false
-		_shelf_panel.open(_run, false, "🔔 가게 문 열기", _open_shop))
+		_story_panel.play(_run, beats, func():
+			_update_hud()
+			_shelf_panel.open(_run, false, "🔔 가게 문 열기", _open_shop)))
 
 
 func _open_shop() -> void:
@@ -220,13 +228,11 @@ func _after_shop() -> void:
 			_show_overlay("💀 바알의 방문\n\n" + "\n\n".join(lines), "🌙 잠들기 → 다음 날", _show_morning)
 
 
-func _show_ending(won: bool) -> void:
-	var text: String
-	if won:
-		text = "— 엔딩: 빚 청산 —\n\n%d일 만에 할아버지의 빚 3,000G를 모두 갚았다.\n소지금 %dG · 창고 %d개 · 상점 업그레이드 %d개\n\n그런데 장부 마지막 장에 할아버지의 글씨가 남아 있다.\n\"조각은 일곱 개다. 절대 팔지 마라.\"\n\n(1부 끝 — 이야기는 M4에서 이어집니다)" % [
-			_run.day - 1, _run.money, _run.inventory.size(), _run.upgrades.size()]
-	else:
-		text = "— 엔딩: 차압 —\n\n바알은 가게의 열쇠를, 그리고 당신의 그림자를 가져갔다.\n모로 전당포의 간판이 내려졌다.\n\n%d일째 밤." % (_run.day - 1)
+func _show_ending(_won: bool) -> void:
+	var e := _run.ending()
+	var text := "— 엔딩: %s —\n\n%s\n\n%d일 · 소지금 %dG · 명성 %d · 의심 %d\n조각: 금고 %d · 판매 %d · 빼앗김 %d · 장물 거래 %d" % [
+		e["title"], e["text"], _run.day - 1, _run.money, _run.rep, _run.suspicion,
+		_run.relics.size(), _run.relics_sold, _run.relics_lost, _run.stolen_deals]
 	_show_overlay(text, "🔄 처음부터", func(): get_tree().reload_current_scene())
 
 
@@ -251,6 +257,7 @@ func _next_customer() -> void:
 		return
 	_seen = {}
 	_confronted = {}
+	_accuse_menu = false
 	_notes = []
 	_bought = false
 	_notes_label.text = ""
@@ -287,7 +294,8 @@ func _say(text: String) -> void:
 
 
 func _update_hud() -> void:
-	_hud.text = "%d일째   소지금 %dG   남은 손님 %d   %s\n%s" % [_run.day, _run.money, _run.visitors_left(), _run.debt_line(), _run.price_line()]
+	_hud.text = "%d일째   소지금 %dG   남은 손님 %d   %s\n%s   명성 %d · 의심 %d · 조각 %d/7" % [
+		_run.day, _run.money, _run.visitors_left(), _run.debt_line(), _run.price_line(), _run.rep, _run.suspicion, _run.relics.size()]
 
 
 # --- Choices ---------------------------------------------------------------
@@ -313,20 +321,31 @@ func _refresh_choices() -> void:
 	match _phase:
 		Phase.TALK:
 			_choices.columns = 2
-			_add_choice("어디서 났어요?", _ask.bind("origin"))
-			_add_choice("왜 파세요?", _ask.bind("reason"))
-			if _seen.has("mark") and not _confronted.has("mark"):
-				_add_choice("각인이 이상한데요?", _confront.bind("mark"))
-			if _seen.has("weight") and not _confronted.has("weight"):
-				_add_choice("무게가 안 맞는데요?", _confront.bind("weight"))
-			if _seen.has("seam") and not _confronted.has("seam"):
-				_add_choice("도금이 벗겨졌네요?", _confront.bind("seam"))
-			if _run.level("touchstone") > 0 and not _seen.has("scratch"):
-				_add_choice("🪨 시금석에 긁기", _scratch)
-			if _seen.has("scratch") and not _confronted.has("scratch") and ItemGenerator.has_clue(_visit["item"], "scratch"):
-				_add_choice("속이 다른 금속인데요?", _confront.bind("scratch"))
-			_add_choice("💰 가격 얘기하죠", _start_haggle)
-			_add_choice("안 사요", _turn_away)
+			if _accuse_menu:
+				# confronting: one button per clue found, plus the stolen-goods question
+				if _seen.has("mark") and not _confronted.has("mark"):
+					_add_choice("각인이 이상한데요?", _confront.bind("mark"))
+				if _seen.has("weight") and not _confronted.has("weight"):
+					_add_choice("무게가 안 맞는데요?", _confront.bind("weight"))
+				if _seen.has("seam") and not _confronted.has("seam"):
+					_add_choice("도금이 벗겨졌네요?", _confront.bind("seam"))
+				if _seen.has("scratch") and not _confronted.has("scratch"):
+					_add_choice("속이 다른 금속인데요?", _confront.bind("scratch"))
+				if not _confronted.has("stolen"):
+					_add_choice("🚨 장물 아니오?", _report)
+				_add_choice("◀ 뒤로", func():
+					_accuse_menu = false
+					_refresh_choices())
+			else:
+				_add_choice("어디서 났어요?", _ask.bind("origin"))
+				_add_choice("왜 파세요?", _ask.bind("reason"))
+				_add_choice("🔍 추궁하기 ▸", func():
+					_accuse_menu = true
+					_refresh_choices())
+				if _run.level("touchstone") > 0 and not _seen.has("scratch"):
+					_add_choice("🪨 시금석에 긁기", _scratch)
+				_add_choice("💰 가격 얘기하죠", _start_haggle)
+				_add_choice("안 사요", _turn_away)
 		Phase.HAGGLE:
 			_choices.columns = 3
 			_choices.position.y = 40
@@ -361,8 +380,25 @@ func _ask(question: String) -> void:
 	_after_line()
 
 
+## "This is stolen, isn't it?" Right: the seller flees cursing you, the watch pays a
+## reward. Wrong: an insulted seller, like any false accusation.
+func _report() -> void:
+	_confronted["stolen"] = true
+	_accuse_menu = false
+	if not ItemGenerator.has_clue(_visit["item"], "stolen"):
+		_say(Customer.confront(_visit, false))
+		_after_line()
+		return
+	_visit["reported"] = true
+	_visit["mood"] = "angry"
+	var lines: Array = CustomerData.LINES["reported"]
+	_say(lines[_visit["line_seed"] % lines.size()] + "\n(경비대 보상 +%dG)" % StoryData.REPORT_REWARD)
+	_finish(false, 0)
+
+
 func _confront(kind: String) -> void:
 	_confronted[kind] = true
+	_accuse_menu = false
 	_say(Customer.confront(_visit, ItemGenerator.has_clue(_visit["item"], kind)))
 	_after_line()
 

@@ -14,7 +14,7 @@
 | 001 | 물건 생성기 + 돋보기·저울 감정 | Logic | Done (M1 에 흡수) | N/A |
 | 002 | M1 하루 순환: 손님·대화·감정·추궁·흥정·원한·밤 정산 | Integration | Done (플레이테스트 중) | N/A |
 | 003 | M2 장사: 진열대·사는 손님·시세 | Integration | Done (플레이테스트 대기) | N/A |
-| 004 | M3 빚과 성장: 주간 상환·상점·도구 | Integration | In Progress | N/A |
-| — | M4 이야기: 단골 아크·사건·평판·경비대 | — | Planned | N/A |
+| 004 | M3 빚과 성장: 주간 상환·상점·도구 | Integration | Done (플레이테스트 대기) | N/A |
+| 005 | M4 이야기: NPC 사건·조각·평판·장물·엔딩 6종 | Integration | In Progress (NPC 초상화 대기) | N/A |
 | — | M5 저주: 저주품·촛불·세공·게이지 | — | Planned | N/A |
 | — | M6 완성: 도트 아트·사운드·저장·엔딩 | — | Planned | N/A |

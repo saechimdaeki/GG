@@ -60,6 +60,8 @@ static func has_clue(item: Dictionary, kind: String) -> bool:
 			return "mark" in item["clues"] or "blur" in item["clues"]
 		"scratch":
 			return item["truth"] == Truth.FAKE
+		"stolen":
+			return item.get("stolen", false)
 	return kind in item["clues"]
 
 

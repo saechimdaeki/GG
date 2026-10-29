@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-29
 **Branch:** `main`
-**Current task:** cursed-pawnshop M3 빚과 성장 완료 — story-004-m3-debt-growth.md
-**Next step:** M4 이야기(NPC 아크·사건·평판·경비대). 유저는 아트 생성 중, 플레이 평가는 나중에 한 번에
-**Blocked on:** nothing
+**Current task:** cursed-pawnshop M4 이야기 — story-005-m4-story.md
+**Next step:** NPC 초상화(묶음 2) 들어오면 도트화. 그다음 M5(저주품·촛불·세공)
+**Blocked on:** 아트 묶음 2
 **Files in progress:** none
-**Run result:** OBSERVED — 상점·바알 방문·빚 청산 엔딩 (cursed-pawnshop/production/qa/evidence/story-004-m3-debt-growth/)
-**Open questions:** 밸런스는 봇 기준(현명한 봇 4/5 승, 대충 봇 1/2 간신히) — 유저 플레이로 재조정
+**Run result:** OBSERVED — 스토리 장면·선택 결과·추궁 메뉴·봉인지기 엔딩 (cursed-pawnshop/production/qa/evidence/story-005-m4-story/)
+**Open questions:** 밸런스는 유저 플레이 후 한 번에
 <!-- /CHECKPOINT -->
 
 ---

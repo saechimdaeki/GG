@@ -29,14 +29,17 @@ static func make_roster(rng: RandomNumberGenerator) -> Array:
 
 ## A selling visit: the member, their item, the price talk and their mood.
 ## [param prices] = today's metal multipliers (RunState.prices); sellers know the market.
-static func start_visit(member: Dictionary, seed_value: int, prices: Dictionary = {}) -> Dictionary:
+## [param stolen_chance] = chance the item is stolen goods (cheap, but the watch is looking).
+static func start_visit(member: Dictionary, seed_value: int, prices: Dictionary = {}, stolen_chance := 0.0) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var p: Dictionary = CustomerData.PERSONALITIES[member["personality"]]
 	var truth := ItemGenerator.Truth.FAKE if rng.randf() < float(p["fake_chance"]) else ItemGenerator.Truth.GENUINE
 	var item := ItemGenerator.generate(rng.randi(), truth)
 	var market: float = prices.get(item["claimed_material"], 1.0)
-	var ask := maxi(5, snap5(item["claimed_value"] * market * float(p["markup"])))
+	item["stolen"] = rng.randf() < stolen_chance
+	var discount: float = StoryData.STOLEN_DISCOUNT if item["stolen"] else 1.0
+	var ask := maxi(5, snap5(item["claimed_value"] * market * float(p["markup"]) * discount))
 	return {
 		"role": "sell",
 		"member": member,
@@ -115,8 +118,9 @@ static func greet(v: Dictionary) -> String:
 		line = _pick(CustomerData.LINES["greet"][m["personality"]], v, 0)
 	var kind: Dictionary = ItemData.KINDS[v["item"]["kind"]]
 	var lore: Array = kind["lore"]
+	var hot: String = " " + CustomerData.LINES["stolen_hint"][v["line_seed"] % CustomerData.LINES["stolen_hint"].size()] if v["item"].get("stolen", false) else ""
 	return line + " " + CustomerData.LINES["claim"] % [ItemData.MATERIALS[v["item"]["claimed_material"]]["name"], kind["name"]] \
-		+ "\n" + lore[v["line_seed"] % lore.size()]
+		+ hot + "\n" + lore[v["line_seed"] % lore.size()]
 
 
 ## Answer to "origin" or "reason". Liars change their story each time and get nervous.

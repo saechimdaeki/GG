@@ -21,6 +21,15 @@ var carry := 0
 var ended := ""
 ## True on the night a payment is due (set by end_day, cleared by pay_debt).
 var payday := false
+## Story state (see StoryData): flags set by choices, reputation, guard suspicion,
+## relics kept in the vault, relics sold / lost to the Brotherhood, stolen goods bought.
+var flags := {}
+var rep := 0
+var suspicion := 0
+var relics: Array = []
+var relics_sold := 0
+var relics_lost := 0
+var stolen_deals := 0
 
 var _rng := RandomNumberGenerator.new()
 ## Today's visitors: {member: index, role: "sell" | "buy"}.
@@ -81,7 +90,110 @@ func start_day() -> Array:
 				_tippers.append(m)
 	_bought_today = []
 	_sold_today = []
+	lines.append_array(_story_morning())
 	return lines
+
+
+## Guard raids, the patron's purchase, suspicion decay.
+func _story_morning() -> Array:
+	var lines := []
+	suspicion = maxi(0, suspicion - StoryData.SUSPICION_DECAY)
+	if suspicion >= StoryData.RAID_AT:
+		var hot := inventory.filter(func(e): return e["item"].get("stolen", false))
+		for e in hot:
+			inventory.erase(e)
+		var fine := mini(money, StoryData.RAID_FINE)
+		money -= fine
+		suspicion = StoryData.RAID_RESET
+		rep -= 5
+		lines.append("🚨 경비대 단속! 장물 %d개 압수, 벌금 -%dG" % [hot.size(), fine])
+	if flags.get("patron", false) and day % StoryData.PATRON_EVERY == 0:
+		var shelved := shelf()
+		if shelved.any(func(e): return e["item"]["truth"] == ItemGenerator.Truth.FAKE):
+			flags.erase("patron")
+			rep -= 5
+			lines.append("🧛 드라크마 백작의 하인이 진열대를 보고 혀를 찼다. \"가짜를 섞다니. 백작님과의 관계는 끝이오.\"")
+		elif not shelved.is_empty():
+			shelved.sort_custom(func(a, b): return market_value(a["item"]) > market_value(b["item"]))
+			var e: Dictionary = shelved[0]
+			var gold := int(round(market_value(e["item"]) * StoryData.PATRON_RATE))
+			money += gold
+			inventory.erase(e)
+			lines.append("🧛 드라크마 백작의 하인이 %s을(를) %dG에 사 갔다." % [item_name(e["item"], true), gold])
+	return lines
+
+
+## Today's story scenes whose conditions hold.
+func beats_today() -> Array:
+	return StoryData.BEATS.filter(func(b): return b["day"] == day and check(b.get("if", {})))
+
+
+## True when every condition in [param cond] holds (see StoryData.BEATS / ENDINGS).
+func check(cond: Dictionary) -> bool:
+	for k in cond:
+		var v = cond[k]
+		var ok: bool
+		match k:
+			"flag": ok = flags.get(v, false)
+			"not_flag": ok = not flags.get(v, false)
+			"relics_min": ok = relics.size() >= v
+			"not_relics_min": ok = relics.size() < v
+			"money_min": ok = money >= v
+			"relics_sold_min": ok = relics_sold >= v
+			"stolen_min": ok = stolen_deals >= v
+			"suspicion_max": ok = suspicion <= v
+			"rep_min": ok = rep >= v
+			_: ok = false
+		if not ok:
+			return false
+	return true
+
+
+## Applies a story choice's effects. Returns a short summary ("" when silent).
+func apply_effects(eff: Dictionary) -> String:
+	var notes := []
+	money += eff.get("money", 0)
+	rep += eff.get("rep", 0)
+	suspicion = maxi(0, suspicion + eff.get("suspicion", 0))
+	if eff.has("flag"):
+		flags[eff["flag"]] = true
+	if eff.has("unflag"):
+		flags.erase(eff["unflag"])
+	if eff.has("relic"):
+		relics.append(eff["relic"])
+		notes.append("🔮 %s을(를) 금고에 넣었다 (%d/7)" % [StoryData.RELICS[eff["relic"]], relics.size()])
+	if eff.has("lose_relic"):
+		relics_lost += 1
+		notes.append("🔮 %s이(가) 형제단에게 넘어갔다" % StoryData.RELICS[eff["lose_relic"]])
+	if eff.has("sell_relics"):
+		var n: int = relics.size() if eff["sell_relics"] < 0 else mini(eff["sell_relics"], relics.size())
+		for i in n:
+			relics.pop_back()
+		relics_sold += n
+		money += n * int(eff["price"])
+		notes.append("🔮 조각 %d개를 팔았다 +%dG" % [n, n * int(eff["price"])])
+	if eff.get("money", 0) != 0:
+		notes.append("%+dG" % eff["money"])
+	return "  ".join(notes)
+
+
+## The ending once the debt is settled (or the shop is lost).
+func ending() -> Dictionary:
+	if ended == "foreclose":
+		return StoryData.FORECLOSE
+	for e in StoryData.ENDINGS:
+		if check(e["if"]):
+			return e
+	return StoryData.ENDINGS[-1]
+
+
+## Chance today's seller brings stolen goods.
+func stolen_chance(member: Dictionary) -> float:
+	var c: float = StoryData.STOLEN_CHANCE.get(member["personality"], 0.05)
+	c += StoryData.STOLEN_SPECIES_BONUS.get(member["species"], 0.0)
+	if flags.get("rat_partner", false):
+		c += StoryData.STOLEN_PARTNER_BONUS
+	return c
 
 
 ## Picks today's sellers and buyers (buyers only as many as the shelf can feed).
@@ -89,8 +201,8 @@ func start_day() -> Array:
 func open_shop() -> Array:
 	var order := range(roster.size())
 	_shuffle(order)
-	var sellers := maxi(1, _sellers_today)
-	var buyers := mini(MarketData.BUYERS_PER_DAY, shelf().size())
+	var sellers := maxi(1, _sellers_today - (1 if rep <= StoryData.REP_LOW else 0))
+	var buyers := mini(MarketData.BUYERS_PER_DAY + (1 if rep >= StoryData.REP_HIGH else 0), shelf().size())
 	_queue = []
 	for i in mini(order.size(), sellers + buyers):
 		_queue.append({"member": order[i], "role": "sell" if i < sellers else "buy"})
@@ -118,7 +230,7 @@ func next_visit() -> Dictionary:
 		var member: Dictionary = roster[q["member"]]
 		var v: Dictionary
 		if q["role"] == "sell":
-			v = Customer.start_visit(member, _rng.randi(), prices)
+			v = Customer.start_visit(member, _rng.randi(), prices, stolen_chance(member))
 		else:
 			v = Customer.start_buy_visit(member, _rng.randi(), shelf(), believed_value)
 			if v.is_empty():
@@ -142,8 +254,19 @@ func finish_visit(v: Dictionary, bought: bool, price: int) -> String:
 			m["affection"] += CustomerData.AFFECTION_DEAL
 		if price >= v["first_ask"] * CustomerData.FAIR_DEAL_RATIO:
 			m["affection"] += CustomerData.AFFECTION_FAIR_DEAL
-	if v["exposed"] and not Customer.is_lying(v):
-		m["affection"] += CustomerData.AFFECTION_HONEST_EXPOSE
+			rep += StoryData.REP_FAIR_DEAL
+		if v["item"].get("stolen", false):
+			suspicion += StoryData.SUSPICION_PER_STOLEN
+			stolen_deals += 1
+	if v["exposed"]:
+		if Customer.is_lying(v):
+			rep += StoryData.REP_EXPOSE_LIAR
+		else:
+			m["affection"] += CustomerData.AFFECTION_HONEST_EXPOSE
+	if v.get("reported", false):
+		rep += StoryData.REP_REPORT_STOLEN
+		money += StoryData.REPORT_REWARD
+		m["grudge"] += StoryData.REPORT_GRUDGE
 	if v["wrong_accused"]:
 		m["grudge"] += CustomerData.GRUDGE_WRONG_ACCUSE
 	return _settle(v)
@@ -155,6 +278,7 @@ func finish_sale(v: Dictionary, sold: bool, price: int, caught: bool = false) ->
 	var entry: Dictionary = v["entry"]
 	if caught:
 		m["grudge"] += MarketData.GRUDGE_CAUGHT_FAKE
+		rep += StoryData.REP_CAUGHT
 	elif sold:
 		money += price
 		inventory.erase(entry)
@@ -162,6 +286,7 @@ func finish_sale(v: Dictionary, sold: bool, price: int, caught: bool = false) ->
 		if is_scam(entry["item"], price):
 			# ponytail: they find out later; the grudge waits silently for revenge
 			m["grudge"] += MarketData.GRUDGE_SOLD_FAKE
+			rep += StoryData.REP_SCAM
 		elif not v["insulted"]:
 			m["affection"] += CustomerData.AFFECTION_DEAL
 	return _settle(v)
