@@ -1,0 +1,9 @@
+Reviewed-Content-Hash: src/data/curses.gd 6498b2fc7162c904c3c06c11b893670979d47e7c
+Reviewed-Content-Hash: src/data/story.gd b2dbfcb8ad28736e84c93fae47162c2d3d452833
+Reviewed-Content-Hash: src/data/progression.gd d3338e1676858dc5de9702a077028221c1fa0d2f
+Reviewed-Content-Hash: src/data/customers.gd df1a3c031f3c630c314fc10b91f59784e81761eb
+Reviewed-Content-Hash: src/appraisal/item_generator.gd f7b0f8fd94682f7b9baa696233d8952d94119c50
+Reviewed-Content-Hash: src/shop/customer.gd 565576e735d7bc8ba6d32b57c3434a004fef553c
+Reviewed-Content-Hash: src/shop/run_state.gd d91e90b97a78ca449fb8fb9b45e0fc9c7f0153d5
+Reviewed-Content-Hash: src/shop/shelf_panel.gd 40a2e96c6a0f4e070240c331425f527235ce194c
+Reviewed-Content-Hash: src/shop/shop_view.gd 217bc40a985371835d3c47f039f125063c93ddff

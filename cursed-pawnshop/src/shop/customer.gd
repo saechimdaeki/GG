@@ -34,7 +34,11 @@ static func start_visit(member: Dictionary, seed_value: int, prices: Dictionary 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var p: Dictionary = CustomerData.PERSONALITIES[member["personality"]]
-	var truth := ItemGenerator.Truth.FAKE if rng.randf() < float(p["fake_chance"]) else ItemGenerator.Truth.GENUINE
+	var truth := ItemGenerator.Truth.GENUINE
+	if rng.randf() < float(CurseData.SELLER_CHANCE.get(member["personality"], 0.0)):
+		truth = ItemGenerator.Truth.CURSED
+	elif rng.randf() < float(p["fake_chance"]):
+		truth = ItemGenerator.Truth.FAKE
 	var item := ItemGenerator.generate(rng.randi(), truth)
 	var market: float = prices.get(item["claimed_material"], 1.0)
 	item["stolen"] = rng.randf() < stolen_chance
@@ -71,6 +75,9 @@ static func start_buy_visit(member: Dictionary, seed_value: int, shelf: Array, b
 	var entry: Dictionary = shelf[rng.randi() % shelf.size()]
 	var budget := float(believed.call(entry["item"])) * float(b["budget"])
 	var fake: bool = entry["item"]["truth"] == ItemGenerator.Truth.FAKE
+	var collector: bool = member["species"] in CurseData.COLLECTORS
+	if collector and entry["item"]["truth"] == ItemGenerator.Truth.CURSED:
+		budget *= CurseData.COLLECTOR_MULT
 	return {
 		"role": "buy",
 		"member": member,
@@ -80,6 +87,7 @@ static func start_buy_visit(member: Dictionary, seed_value: int, shelf: Array, b
 		"offer": maxi(5, snap5_down(budget * float(b["first"]))),
 		"patience": b["patience"],
 		"spots_fake": fake and rng.randf() < float(b["detect"]),
+		"collector": collector,
 		"mood": "angry" if member["grudge"] > 0 else "neutral",
 		"line_seed": rng.randi() % 1000,
 		"nervous": 0,
@@ -147,6 +155,12 @@ static func confront(v: Dictionary, valid: bool) -> String:
 		if v["exposed"]:
 			return "알았다니까요... %d골드요." % v["ask"]
 		v["exposed"] = true
+		if v["item"]["truth"] == ItemGenerator.Truth.CURSED:
+			# they knew; now they just want rid of it
+			v["ask"] = maxi(5, snap5(v["item"]["value"] * CurseData.EXPOSED_ASK))
+			v["floor"] = v["ask"] * 0.8
+			v["mood"] = "nervous"
+			return _pick(CustomerData.LINES["cursed_exposed"], v, 0) % v["ask"]
 		v["ask"] = maxi(5, snap5(v["item"]["value"] * CustomerData.EXPOSED_ASK))
 		v["floor"] = v["item"]["value"] * CustomerData.EXPOSED_FLOOR
 		v["mood"] = "sad" if not is_lying(v) else "annoyed"

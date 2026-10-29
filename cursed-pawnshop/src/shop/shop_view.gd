@@ -206,7 +206,11 @@ func _open_shop() -> void:
 func _show_night() -> void:
 	_phase = Phase.NIGHT
 	_visit = {}
-	_show_overlay("\n\n".join(_run.end_day()), "📦 창고 · 도매상", func():
+	var report := _run.end_day()
+	if _run.ended == "madness":
+		_show_overlay("\n\n".join(report), "📜 엔딩 보기", func(): _show_ending(false))
+		return
+	_show_overlay("\n\n".join(report), "📦 창고 · 도매상", func():
 		_overlay.visible = false
 		_shelf_panel.open(_run, true, "🛠 밤의 상점", func():
 			_upgrade_panel.open(_run, "💀 바알을 맞는다" if _run.payday else "🌙 잠들기 → 다음 날", _after_shop)))
@@ -277,7 +281,10 @@ func _next_customer() -> void:
 			_phase = Phase.SELL
 			_ask_price = _visit["entry"]["tag"]
 			var greet: Array = CustomerData.LINES["buy_greet"]
-			_say(greet[_visit["line_seed"] % greet.size()] % RunState.item_name(_visit["item"], true)
+			var opener := ""
+			if _visit.get("collector", false) and _visit["item"]["truth"] == ItemGenerator.Truth.CURSED:
+				opener = CustomerData.LINES["collector_greet"][0] + "\n"
+			_say(opener + greet[_visit["line_seed"] % greet.size()] % RunState.item_name(_visit["item"], true)
 				+ " " + CustomerData.LINES["buy_offer"] % _visit["offer"])
 		else:
 			_phase = Phase.TALK
@@ -295,8 +302,8 @@ func _say(text: String) -> void:
 
 
 func _update_hud() -> void:
-	_hud.text = "%d일째   소지금 %dG   남은 손님 %d   %s\n%s   명성 %d · 의심 %d · 조각 %d/7" % [
-		_run.day, _run.money, _run.visitors_left(), _run.debt_line(), _run.price_line(), _run.rep, _run.suspicion, _run.relics.size()]
+	_hud.text = "%d일째   소지금 %dG   남은 손님 %d   %s\n%s   명성 %d · 의심 %d · 저주 %d · 조각 %d/7" % [
+		_run.day, _run.money, _run.visitors_left(), _run.debt_line(), _run.price_line(), _run.rep, _run.suspicion, _run.curse, _run.relics.size()]
 
 
 # --- Choices ---------------------------------------------------------------
@@ -332,6 +339,8 @@ func _refresh_choices() -> void:
 					_add_choice("도금이 벗겨졌네요?", _confront.bind("seam"))
 				if _seen.has("scratch") and not _confronted.has("scratch"):
 					_add_choice("속이 다른 금속인데요?", _confront.bind("scratch"))
+				if _seen.has("candle") and not _confronted.has("cursed"):
+					_add_choice("저주받은 물건이잖소?", _confront.bind("cursed"))
 				if not _confronted.has("stolen"):
 					_add_choice("🚨 장물 아니오?", _report)
 				_add_choice("◀ 뒤로", func():
@@ -343,6 +352,8 @@ func _refresh_choices() -> void:
 				_add_choice("🔍 추궁하기 ▸", func():
 					_accuse_menu = true
 					_refresh_choices())
+				if not _seen.has("candle"):
+					_add_choice("🕯 촛불 비추기", _candle)
 				if _run.level("touchstone") > 0 and not _seen.has("scratch"):
 					_add_choice("🪨 시금석에 긁기", _scratch)
 				_add_choice("💰 가격 얘기하죠", _start_haggle)
@@ -417,6 +428,20 @@ func _scratch() -> void:
 	else:
 		_visit["mood"] = "annoyed"
 	_after_line()
+
+
+## Candle: a cursed item turns the flame violet. Weight and marks can't show a curse.
+func _candle() -> void:
+	_seen["candle"] = true
+	var cursed := ItemGenerator.has_clue(_visit["item"], "cursed")
+	if cursed:
+		_note("촛불: 보랏빛으로 일렁인다 — %s" % CurseData.CURSES[_visit["item"]["curse"]]["name"])
+		_visit["mood"] = "nervous"
+		_say("(촛불이 보랏빛으로 일렁이자 손님이 움찔한다)")
+	else:
+		_note("촛불: 변화 없음")
+		_say("뭘 그렇게 비춰보는 거요?")
+	_refresh_choices()
 
 
 func _after_line() -> void:
@@ -697,6 +722,11 @@ func _draw_mat() -> void:
 	draw_set_transform(ITEM_CENTER + Vector2(0, ITEM_UNIT * 0.95), 0.0, Vector2(1, 0.25))
 	draw_circle(Vector2.ZERO, ITEM_UNIT * 0.8, Color(0, 0, 0, 0.35))
 	draw_set_transform(Vector2.ZERO)
+	if _seen.has("candle") and item["truth"] == ItemGenerator.Truth.CURSED:
+		# violet aura once the candle has shown the curse
+		var pulse := 0.5 + 0.5 * sin(_t * 3.0)
+		for i in 4:
+			draw_circle(ITEM_CENTER, ITEM_UNIT * (1.25 - i * 0.12) + pulse * 4.0, Color(0.6, 0.2, 0.9, 0.06 + i * 0.02))
 	ItemDrawer.draw(self, item, ITEM_CENTER, ITEM_UNIT, false)
 	draw_string(font, MAT_RECT.position + Vector2(6, MAT_RECT.size.y - 6), "돋보기로 살피고 수상한 곳 클릭 · 진품 무게 오차 ±2%", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.7, 0.55, 0.45))
 
@@ -717,7 +747,10 @@ func _draw_mat() -> void:
 	if _phase == Phase.RESULT:
 		draw_rect(MAT_RECT.grow(-2), Color(0.05, 0.02, 0.03, 0.82))
 		var fake: bool = item["truth"] == ItemGenerator.Truth.FAKE
+		var cursed: bool = item["truth"] == ItemGenerator.Truth.CURSED
 		var title := ("가짜! 실은 %s" % RunState.item_name(item, false)) if fake else "진품 %s" % RunState.item_name(item, true)
+		if cursed:
+			title = "저주품! %s" % CurseData.CURSES[item["curse"]]["name"]
 		draw_string(font, MAT_RECT.position + Vector2(14, 26), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.45, 0.4) if fake else Color(0.55, 1, 0.6))
 		var lines := ItemGenerator.clue_lines(item)
 		lines.append("오늘 시세 가치 %dG" % _run.market_value(item))
@@ -729,6 +762,8 @@ func _draw_mat() -> void:
 				lines.append("✔ %dG에 팔았다 (산 값 %d → %+dG)" % [_sale_price, paid, _sale_price - paid])
 				if _run.is_scam(item, _sale_price):
 					lines.append("…가짜를 비싸게 팔았다. 속은 손님은 언젠가 알아챌 것이다")
+				elif item["truth"] == ItemGenerator.Truth.CURSED:
+					lines.append("수집가가 기뻐하며 품에 안았다" if _visit.get("collector", false) else "…저주가 손님을 따라갔다. 그는 누가 팔았는지 알 것이다")
 			else:
 				lines.append("✘ 안 팔렸다")
 		else:

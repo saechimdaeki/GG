@@ -45,6 +45,9 @@ static func generate(seed_value: int, truth: int = -1, kind: String = "") -> Dic
 		item["true_material"] = fakes[rng.randi() % fakes.size()]
 		_add_clues(item, rng)
 
+	if truth == Truth.CURSED:
+		item["curse"] = CurseData.CURSES.keys()[rng.randi() % CurseData.CURSES.size()]
+
 	item["value"] = _value(item["true_material"], volume)
 	item["claimed_value"] = _value(claimed, volume)
 	item["flaws"] = _make_flaws(rng)
@@ -62,6 +65,8 @@ static func has_clue(item: Dictionary, kind: String) -> bool:
 			return item["truth"] == Truth.FAKE
 		"stolen":
 			return item.get("stolen", false)
+		"cursed":
+			return item["truth"] == Truth.CURSED
 	return kind in item["clues"]
 
 

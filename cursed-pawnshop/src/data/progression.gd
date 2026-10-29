@@ -18,6 +18,7 @@ const UPGRADES := {
 	"touchstone": {"name": "시금석", "desc": "물건을 긁어 속 금속 확인 (손님이 싫어함)", "prices": [220]},
 	"guard": {"name": "경비 고블린", "desc": "복수로 금고가 털리는 걸 막음", "prices": [200]},
 	"sign": {"name": "새 간판", "desc": "파는 손님 하루 +1", "prices": [180, 320]},
+	"salt": {"name": "정화 소금", "desc": "저주 게이지 -30 (살 때마다)", "prices": [80, 80, 80, 80, 80, 80, 80, 80]},
 }
 
 const SHELF_SLOTS_BASE := 4

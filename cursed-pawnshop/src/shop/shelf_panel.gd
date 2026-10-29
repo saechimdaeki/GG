@@ -67,12 +67,24 @@ func _rebuild() -> void:
 func _row(e: Dictionary) -> Control:
 	var item: Dictionary = e["item"]
 	var fake: bool = item["truth"] == ItemGenerator.Truth.FAKE
+	var cursed: bool = item["truth"] == ItemGenerator.Truth.CURSED
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 4)
-	var name := _text("%s%s" % [RunState.item_name(item, true), "  (가짜: %s)" % ItemData.MATERIALS[item["true_material"]]["name"] if fake else ""],
-		9, Color(1, 0.55, 0.5) if fake else Color(0.93, 0.88, 0.8))
+	var label := ""
+	var color := Color(0.93, 0.88, 0.8)
+	if fake:
+		label = "  (가짜: %s)" % ItemData.MATERIALS[item["true_material"]]["name"]
+		color = Color(1, 0.55, 0.5)
+	elif cursed:
+		label = "  (%s)" % CurseData.CURSES[item["curse"]]["name"]
+		color = Color(0.78, 0.55, 1.0)
+	var name := _text(RunState.item_name(item, true) + label, 9, color)
 	name.custom_minimum_size = Vector2(200, 0)
 	row.add_child(name)
+	if cursed:
+		row.add_child(_button("정화 -%dG" % CurseData.PURIFY_COST, func():
+			run.purify(e)
+			_rebuild()))
 	var info := _text("산 값 %d · 시세 %dG" % [e["paid"], run.market_value(item)], 9, Color(0.75, 0.68, 0.6))
 	info.custom_minimum_size = Vector2(118, 0)
 	row.add_child(info)

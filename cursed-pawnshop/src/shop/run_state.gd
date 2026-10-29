@@ -30,6 +30,9 @@ var relics: Array = []
 var relics_sold := 0
 var relics_lost := 0
 var stolen_deals := 0
+## Curse gauge (0..CurseData.GAUGE_MAX). At the top: the madness ending.
+var curse := 0
+var _scared_tomorrow := 0
 
 var _rng := RandomNumberGenerator.new()
 ## Today's visitors: {member: index, role: "sell" | "buy"}.
@@ -58,7 +61,8 @@ func start_day() -> Array:
 		prices[metal] = clampf(p, MarketData.PRICE_RANGE.x, MarketData.PRICE_RANGE.y)
 	var lines := ["— %d일째 아침 —" % day, news["text"], price_line(old)]
 
-	_sellers_today = CustomerData.DAY_CUSTOMERS + level("sign")
+	_sellers_today = CustomerData.DAY_CUSTOMERS + level("sign") - _scared_tomorrow
+	_scared_tomorrow = 0
 	_tippers = []
 	for e in pending.filter(func(ev): return ev["day"] <= day):
 		pending.erase(e)
@@ -181,6 +185,8 @@ func apply_effects(eff: Dictionary) -> String:
 func ending() -> Dictionary:
 	if ended == "foreclose":
 		return StoryData.FORECLOSE
+	if ended == "madness":
+		return StoryData.MADNESS
 	for e in StoryData.ENDINGS:
 		if check(e["if"]):
 			return e
@@ -287,6 +293,10 @@ func finish_sale(v: Dictionary, sold: bool, price: int, caught: bool = false) ->
 			# ponytail: they find out later; the grudge waits silently for revenge
 			m["grudge"] += MarketData.GRUDGE_SOLD_FAKE
 			rep += StoryData.REP_SCAM
+		elif entry["item"]["truth"] == ItemGenerator.Truth.CURSED and not v.get("collector", false):
+			# the curse goes home with them; they will know who sold it
+			m["grudge"] += CurseData.GRUDGE_SOLD_CURSED
+			rep += CurseData.REP_SOLD_CURSED
 		elif not v["insulted"]:
 			m["affection"] += CustomerData.AFFECTION_DEAL
 	return _settle(v)
@@ -333,8 +343,59 @@ func buy_upgrade(id: String) -> bool:
 		return false
 	money -= price
 	upgrades[id] = level(id) + 1
+	if id == "salt":
+		curse = maxi(0, curse + CurseData.SALT_GAUGE)
 	return true
 
+
+## Removes an entry's curse for gold. Returns true on success.
+func purify(entry: Dictionary) -> bool:
+	if entry["item"]["truth"] != ItemGenerator.Truth.CURSED or money < CurseData.PURIFY_COST:
+		return false
+	money -= CurseData.PURIFY_COST
+	entry["item"]["truth"] = ItemGenerator.Truth.GENUINE
+	entry["item"].erase("curse")
+	curse = maxi(0, curse + CurseData.PURIFY_GAUGE)
+	return true
+
+
+## Each cursed item in stock feeds the gauge and may fire its curse.
+## At the top of the gauge the run ends in madness.
+func _curse_night() -> Array:
+	var lines := []
+	curse = maxi(0, curse - CurseData.GAUGE_DECAY)
+	for e in inventory.duplicate():
+		var item: Dictionary = e["item"]
+		if item["truth"] != ItemGenerator.Truth.CURSED or not inventory.has(e):
+			continue
+		curse += CurseData.GAUGE_PER_ITEM
+		if _rng.randf() >= CurseData.EVENT_CHANCE:
+			continue
+		var c: Dictionary = CurseData.CURSES[item["curse"]]
+		var fmt := {"item": item_name(item, true), "n": 0, "victim": ""}
+		match item["curse"]:
+			"whisper":
+				rep += CurseData.WHISPER_REP
+				curse += CurseData.WHISPER_GAUGE
+			"hunger":
+				var others := inventory.filter(func(o): return o != e)
+				if others.is_empty():
+					continue
+				var victim: Dictionary = others[_rng.randi() % others.size()]
+				inventory.erase(victim)
+				fmt["victim"] = item_name(victim["item"], true)
+			"bleed":
+				fmt["n"] = int(money * CurseData.BLEED_RATIO)
+				money -= fmt["n"]
+			"gaze":
+				_scared_tomorrow += 1
+		lines.append(c["event"].format(fmt))
+	if curse >= CurseData.GAUGE_MAX:
+		ended = "madness"
+		lines.append("🕯 저주 게이지가 가득 찼다. 금고 속의 속삭임이 당신의 목소리로 바뀌었다...")
+	elif curse > 0:
+		lines.append("🕯 저주 게이지 %d/%d" % [curse, CurseData.GAUGE_MAX])
+	return lines
 
 ## Gold due at the next payday (this week's share plus any carry-over).
 func debt_due() -> int:
@@ -426,6 +487,7 @@ func end_day() -> Array:
 	var grudges := roster.filter(func(m): return m["grudge"] > 0 and not m["event_pending"])
 	if not grudges.is_empty():
 		lines.append("앙심을 품은 괴물: " + ", ".join(grudges.map(func(m): return m["name"])))
+	lines.append_array(_curse_night())
 	payday = days_to_payday() == 0 and ended == ""
 	if payday:
 		lines.append("⚠ 오늘 밤 바알이 온다. 갚을 돈: %dG" % debt_due())
