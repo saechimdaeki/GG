@@ -1,0 +1,6 @@
+Reviewed-Content-Hash: src/data/items.gd 4c2cee71a335f907d44a0aa52224072d836bb97c
+Reviewed-Content-Hash: src/appraisal/item_generator.gd 8fd9e3d84be1fde039e75b6de35b1cdfdc270c2e
+Reviewed-Content-Hash: src/appraisal/item_drawer.gd 9a3e2282bdf3a95175f21086e0e118fd0f69d3fc
+Reviewed-Content-Hash: src/appraisal/appraisal_view.gd 8c9a5f64b46cb89f07b907d072db399cfd02f1e8
+Reviewed-Content-Hash: src/appraisal/appraisal_view.tscn 3f6063cbc8668b6da2c7979d5d8d256f9fab47bf
+Reviewed-Content-Hash: project.godot 139e19b11ca96d548a5ef9007fa30b3dd7f9269d

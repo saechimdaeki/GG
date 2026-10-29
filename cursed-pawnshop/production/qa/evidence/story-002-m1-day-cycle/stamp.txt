@@ -1,0 +1,10 @@
+Reviewed-Content-Hash: src/data/items.gd 0870ab030e949be885a43983783af782382d44d7
+Reviewed-Content-Hash: src/data/customers.gd e19c6819405b50b11d8ad2609e18f98c2856b667
+Reviewed-Content-Hash: src/data/events.gd a937ce51b3734a707482944d793694830b709ff7
+Reviewed-Content-Hash: src/appraisal/item_generator.gd 05401cd74673cedd95d9302a792b881915fa6b31
+Reviewed-Content-Hash: src/appraisal/item_drawer.gd 54cef3bb687e1d9cd18e185e5349fee6a8ad2ba6
+Reviewed-Content-Hash: src/shop/customer.gd ab0b6f69852fb7b05e85f231fc548409ba763df7
+Reviewed-Content-Hash: src/shop/haggle.gd 20dd9e251617c06693cd0e17d15bcd8da10495e5
+Reviewed-Content-Hash: src/shop/run_state.gd 8d615dfe1817d3f19b0a0af9f44300ac7f208678
+Reviewed-Content-Hash: src/shop/customer_drawer.gd 65106b9ab64a70bff83eb370d4666402989bdce9
+Reviewed-Content-Hash: src/shop/shop_view.gd c311df40d1d5edc1bfc17fbaff3571c226bbfc88
