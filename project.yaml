@@ -55,7 +55,7 @@ naming:
   scenes: snake_case
 
 commands:
-  build: "godot --headless --path . --export-release macOS build/macos/DemonLordIsBusy.zip"  # needs Godot 4.7.2 export templates (Editor > Manage Export Templates)
-  test: "godot --headless --path . -s res://tests/smoke/story_001_check.gd"  # custom smoke suite (78 checks, CI: .github/workflows/smoke.yml); gdUnit4 not installed
-  run: "godot --path . --windowed --resolution 1280x720"
-  smoke: "godot --headless --quit-after 5"
+  build: "godot --headless --path demon-lord-is-busy --export-release macOS build/macos/DemonLordIsBusy.zip"  # needs Godot 4.7.2 export templates (Editor > Manage Export Templates)
+  test: "godot --headless --path demon-lord-is-busy -s res://tests/smoke/story_001_check.gd"  # custom smoke suite (87 checks, CI: .github/workflows/smoke.yml); gdUnit4 not installed
+  run: "godot --path demon-lord-is-busy --windowed --resolution 1280x720"
+  smoke: "godot --headless --path demon-lord-is-busy --quit-after 5"

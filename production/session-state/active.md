@@ -9,7 +9,7 @@ Task: 유저 플레이테스트 대기
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-29
 **Branch:** `main`
-**Current task:** 기능 구현 끝, 스튜디오 기록 정리함 (stage=Production, game-brief 갱신)
+**Current task:** 재미 개편(함정 콤보·걷어차기·카드 등급·대화/튜토리얼) 완료, 커밋 전
 **Next step:** 유저가 한 판 끝까지 플레이 → 피드백으로 `src/data/*.gd` 밸런스 조정
 **Blocked on:** 유저 플레이테스트 피드백
 **Files in progress:** none
@@ -19,6 +19,7 @@ Task: 유저 플레이테스트 대기
 > Claude Code / Codex 누구든 이 파일을 먼저 읽고 이어서 작업. 작업할 때마다 갱신.
 
 ## 프로젝트
+- **2026-10-29: 게임은 `demon-lord-is-busy/` 폴더로 이동** (레포에 게임 여러 개 넣을 예정). 아래 기록의 `godot --path .`, `tools/…`, `src/…` 는 전부 이 폴더 기준. 실행·진행 요약은 `demon-lord-is-busy/README.md`
 - 게임: **마왕님은 바쁘다** — 던전 짓기 + 몬스터 키우기 + 마왕 직접 전투(하데스식) 2D 로그라이크
 - 기획: `design/game-brief.md` (유일한 기획서, workflow: minimal)
 - 엔진: Godot 4.7.2, GDScript (`project.godot` at repo root). `godot` CLI on PATH (macOS)
@@ -245,3 +246,16 @@ Status 값: Ready → In Progress → Done. Done 일 때 스토리 파일의 AC 
 - export_presets.cfg (macOS, Windows) 추가 + ETC2/ASTC 활성화. 실제 빌드는 export 템플릿(4.7.2) 설치 필요 — 유저 결정
 - CI: `.github/workflows/smoke.yml` (푸시마다 스모크 78개)
 - 체크 78 PASS
+
+### 2026-10-29 11차: 재미 개편 (유저: "재미없다, 리서치해서 제대로")
+- 용사: 코어에 들어가 사라지지 않고 앞에 서서 1.6초마다 때림 (`Units.CORE_ATTACK_*`, core_damage 하향)
+- 몬스터: 죽으면 6초 뒤 제자리 부활 (`Units.MONSTER_RESPAWN_TIME`, `Monster._die/_revive`). 소환수는 그냥 사라짐
+- 철문: 건설 중 하늘색 깜빡임 + "철문" 라벨. 튜토리얼 철문 단계가 침입 시작 시 막히던 버그 수정
+- 용사 입구: 건설 중 큰 빨간 원 + "용사 입구!", 침입 중 화면 밖 용사 방향 화살표 (`edge_arrows.gd`)
+- A 함정 콤보: 스프링/끈끈이/기름 추가, 화염=불붙음. 기름+불 폭발, 용암 다이브, 벽꽝, 볼링, 함정 착지 → `Game.on_combo` (COMBO xN, 골드)
+- C 걷어차기 [F] (`DemonLord.kick`, `Units.KICK`), HUD F 슬롯
+- B 보상 카드 등급(일반/희귀/전설) + 규칙 변경 perk (`Rewards.ALL` perk:true → `Game.perks`, `Game.has_perk`)
+- 대화: 초상화 + 타자기 + ▼ (`dialog_box.gd`), 튜토리얼: 임프 미션 카드 + 맵 위 화살표 (`tutorial.gd`)
+- 툴바 13칸 2줄 버튼. 사운드 kick/explosion/combo/card_rare 추가
+- 체크 87 PASS. 증거: dialog-portrait.png, tutorial-pointer-toolbar.png, raid-traps-cards.png, core-attack.png
+- 남은 것: 유저 플레이 피드백 (콤보가 실제로 재밌는지, 난이도)
