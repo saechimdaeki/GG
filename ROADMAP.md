@@ -6,7 +6,7 @@
 ```bash
 godot --path .
 ```
-테스트: `godot --headless --path . -s tests/smoke/story_001_check.gd` (77 PASS 여야 함)
+테스트: `godot --headless --path . -s tests/smoke/story_001_check.gd` (78 PASS 여야 함, GitHub Actions 에서도 자동 실행)
 
 ## 지금 상태 (2026-10-28)
 - MVP 스토리 001~007 코드 완료 → **유저 플레이 확인 대기**

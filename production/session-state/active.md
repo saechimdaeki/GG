@@ -1,5 +1,21 @@
 # Active Session State — 진행상황 (handoff)
 
+<!-- STATUS -->
+Epic: demon-lord-is-busy
+Feature: MVP + 확장 (메타 트리, 진화, 광산, 지역 3종, 튜토리얼)
+Task: 유저 플레이테스트 대기
+<!-- /STATUS -->
+
+<!-- CHECKPOINT -->
+**Updated:** 2026-10-29
+**Branch:** `main`
+**Current task:** 기능 구현 끝, 스튜디오 기록 정리함 (stage=Production, game-brief 갱신)
+**Next step:** 유저가 한 판 끝까지 플레이 → 피드백으로 `src/data/*.gd` 밸런스 조정
+**Blocked on:** 유저 플레이테스트 피드백
+**Files in progress:** none
+**Open questions:** 배포(export) 여부 — 유저 미정
+<!-- /CHECKPOINT -->
+
 > Claude Code / Codex 누구든 이 파일을 먼저 읽고 이어서 작업. 작업할 때마다 갱신.
 
 ## 프로젝트
@@ -220,3 +236,12 @@ Status 값: Ready → In Progress → Done. Done 일 때 스토리 파일의 AC 
   - UI `src/scripts/meta_tree.gd` (`MetaTree`) — 타이틀 영구 강화 + 게임오버 화면 공용
 - **지역** `Rooms.BIOMES`: 지하 감옥 / 화산 요새(용광로 위주, 용사 HP +15%, 영혼석 x1.3) / 망자의 묘역(납골당·수몰실, 엘리트 2배, 영혼석 x1.5). 새 게임 → 지역 선택. 세이브에 biome 저장
 - 체크 77 PASS + input 3. 증거: tutorial.png, props-sprites.png, meta-tree.png, biome-volcano.png, biome-necropolis.png
+
+### 2026-10-29 10차: 스튜디오 정리 + 버그 수정 (커밋 전)
+- stage Concept → Production, game-brief 에 MVP 이후 기능 반영, CHECKPOINT 블록 추가
+- **버그:** 슬라임 둥지가 레이드마다 매 프레임 SCRIPT ERROR (`_spawned.filter` 타입 람다가 해제된 슬라임에서 실패, 결과도 Array[Monster] 에 대입 불가) → 죽은 소환수가 안 지워져 둥지가 스폰 멈춤. `assign()` + Variant 파라미터로 수정, 회귀 체크 추가(수정 전 FAIL 확인)
+- 처치 수(`kills`)가 집계만 되고 안 쓰임 → 런 종료 화면에 표시 + 세이브에 포함
+- 웨이브 5/10 × 지역 3종 헤드리스 레이드: 에러 0
+- export_presets.cfg (macOS, Windows) 추가 + ETC2/ASTC 활성화. 실제 빌드는 export 템플릿(4.7.2) 설치 필요 — 유저 결정
+- CI: `.github/workflows/smoke.yml` (푸시마다 스모크 78개)
+- 체크 78 PASS

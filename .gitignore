@@ -70,7 +70,7 @@ dist/
 # Keep this un-ignore, or run `godot --headless --import` once after cloning.
 !**/.godot/global_script_class_cache.cfg
 *.translation
-export_presets.cfg
+# export_presets.cfg is tracked: Godot 4 keeps signing secrets in .godot/export_credentials.cfg
 # Uncomment if using Godot:
 # *.import
 
@@ -180,3 +180,10 @@ $RECYCLE.BIN/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# Local tool indexes
+.codegraph/
+.cursor/
+
+# Export output
+build/

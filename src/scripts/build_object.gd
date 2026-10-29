@@ -44,7 +44,8 @@ func _physics_process(delta: float) -> void:
 	queue_redraw()
 	if kind != "nest" or not active:
 		return
-	_spawned = _spawned.filter(func(m: Monster) -> bool: return is_instance_valid(m))
+	# Untyped param: a freed summon cannot be cast to Monster. assign() keeps the typed array.
+	_spawned.assign(_spawned.filter(func(m: Variant) -> bool: return is_instance_valid(m)))
 	_clock += delta
 	if _clock < float(data.spawn_every) or _spawned.size() >= int(data.max_alive):
 		return

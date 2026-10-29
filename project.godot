@@ -25,3 +25,5 @@ renderer/rendering_method="forward_plus"
 viewport/hdr_2d=true
 ; ponytail: pixel art needs nearest filtering, otherwise 16x16 sprites blur
 textures/canvas_textures/default_texture_filter=0
+; Apple Silicon (arm64/universal) macOS export requires ETC2/ASTC
+textures/vram_compression/import_etc2_astc=true

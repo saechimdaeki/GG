@@ -349,7 +349,7 @@ func _end_run(text: String) -> void:
 	var earned := roundi(Meta.souls_for(wave, wave >= Waves.WAVES.size()) * float(Rooms.BIOMES[biome].souls))
 	meta.souls += earned
 	Meta.save_data(meta)
-	_end_text = "%s\n%s\n영혼석 +%d" % [text, Story.VICTORY if wave >= Waves.WAVES.size() else Story.DEFEAT, earned]
+	_end_text = "%s\n%s\n용사 처치 %d · 영혼석 +%d" % [text, Story.VICTORY if wave >= Waves.WAVES.size() else Story.DEFEAT, kills, earned]
 	_show_end()
 
 

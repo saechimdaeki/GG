@@ -8,7 +8,7 @@ framework:
   last_upgraded: 2026-10-19
 
 project:
-  stage: Concept
+  stage: Production
 
 # NOTE: this template ships with no `modes:` block, and the six knobs below must
 # never be added to one.
@@ -55,7 +55,7 @@ naming:
   scenes: snake_case
 
 commands:
-  build: "[TO BE CONFIGURED]"  # no export preset yet; set via /settings once export_presets.cfg exists
-  test: "godot --headless -s -d --remote-debug tcp://127.0.0.1:0 res://addons/gdUnit4/bin/GdUnitCmdTool.gd -a res://tests --ignoreHeadlessMode"
+  build: "godot --headless --path . --export-release macOS build/macos/DemonLordIsBusy.zip"  # needs Godot 4.7.2 export templates (Editor > Manage Export Templates)
+  test: "godot --headless --path . -s res://tests/smoke/story_001_check.gd"  # custom smoke suite (78 checks, CI: .github/workflows/smoke.yml); gdUnit4 not installed
   run: "godot --path . --windowed --resolution 1280x720"
   smoke: "godot --headless --quit-after 5"

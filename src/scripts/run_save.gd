@@ -38,7 +38,7 @@ static func save(game: Game) -> void:
 		gates.append(bool(gate.closed))
 	var cfg := ConfigFile.new()
 	var run := {
-		"seed": g.seed_value, "biome": game.biome, "wave": game.wave, "gold": game.gold,
+		"seed": g.seed_value, "biome": game.biome, "wave": game.wave, "gold": game.gold, "kills": game.kills,
 		"core_hp": game.core_hp, "core_max": game.core_max,
 		"unlocked_traps": game.unlocked_traps, "monster_mult": game.monster_mult,
 		"bought": game.bought(), "lord_level": game.lord_level, "lord_xp": game.lord_xp,
@@ -69,6 +69,7 @@ static func restore(game: Game, data: Dictionary) -> void:
 	var g := game.grid
 	game.wave = int(data.wave)
 	game.gold = int(data.gold)
+	game.kills = int(data.get("kills", 0))
 	game.core_hp = int(data.core_hp)
 	game.core_max = int(data.core_max)
 	game.unlocked_traps.assign(data.unlocked_traps)

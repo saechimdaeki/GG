@@ -111,6 +111,16 @@ func _initialize() -> void:
 	# raid
 	game.start_raid()
 	_check("004 raid starts", game.phase == Game.Phase.RAID)
+	var nest: BuildObject = game.object_cells().values().filter(func(o: BuildObject) -> bool: return o.kind == "nest")[0]
+	nest._clock = 999.0
+	for i in 3:
+		await physics_frame
+	var spawned_one := not nest._spawned.is_empty()
+	if spawned_one:
+		nest._spawned[0].free()
+	for i in 2:
+		await physics_frame
+	_check("nest spawns and forgets dead summons", spawned_one and nest._spawned.is_empty())
 	for i in 3:
 		await physics_frame
 	var hero := get_first_node_in_group("heroes") as Hero
@@ -315,6 +325,7 @@ func _initialize() -> void:
 
 	# Save / continue: the rebuilt run matches (map, walls, monsters, gold, wave).
 	game.phase = Game.Phase.BUILD
+	game.kills = 7
 	RunSave.save(game)
 	_check("save: file written", RunSave.exists())
 	RunSave.load_next = true
@@ -329,7 +340,7 @@ func _initialize() -> void:
 	_check("save: map and built walls restored", same_walls)
 	_check("save: gold / wave / monsters / traps restored",
 		g4.wave == game.wave and g4.monster_cells().size() == game.monster_cells().size()
-		and g4.grid.traps.size() == grid.traps.size() and g4.lord.weapon_id == lord.weapon_id)
+		and g4.grid.traps.size() == grid.traps.size() and g4.lord.weapon_id == lord.weapon_id and g4.kills == 7)
 	g4.free()
 	RunSave.clear()
 	game.phase = Game.Phase.RAID
