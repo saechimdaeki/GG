@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-10-30
 **Branch:** `main`
-**Current task:** cursed-pawnshop M5 저주 완료 — story-006-m5-curse.md
-**Next step:** M6 완성(사운드·저장/이어하기·타이틀·튜토리얼·엔딩 컷). 유저 플레이 평가 대기
-**Blocked on:** nothing
+**Current task:** cursed-pawnshop M6 완성(코드 부분) — story-007-m6-polish.md
+**Next step:** 유저가 묶음 5(title_bg + ending 7장) 생성 → scene 변환. 유저 플레이 평가 → 밸런스
+**Blocked on:** 아트 묶음 5, 유저 플레이테스트
 **Files in progress:** none
-**Run result:** OBSERVED — 촛불 오라·밤 저주 사건·정화 버튼 (cursed-pawnshop/production/qa/evidence/story-006-m5-curse/)
-**Open questions:** 푸시 여부
+**Run result:** OBSERVED — 타이틀 화면·피프 팁 (cursed-pawnshop/production/qa/evidence/story-007-m6-polish/)
+**Open questions:** 배경 음악은 외부 음악 AI 필요
 <!-- /CHECKPOINT -->
 
 ---

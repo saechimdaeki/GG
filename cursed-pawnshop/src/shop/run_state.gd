@@ -44,9 +44,52 @@ var _bought_today: Array = []
 var _sold_today: Array = []
 
 
+const SAVE_PATH := "user://save.dat"
+## Everything a morning save needs. Visits in progress are never saved: the game
+## saves only at the start of a day.
+const SAVED := ["day", "money", "roster", "prices", "inventory", "pending", "upgrades", "debt_week",
+	"carry", "ended", "flags", "rep", "suspicion", "relics", "relics_sold", "relics_lost",
+	"stolen_deals", "curse", "_scared_tomorrow"]
+
+
 func _init(seed_value: int) -> void:
 	_rng.seed = seed_value
 	roster = Customer.make_roster(_rng)
+
+
+## Writes the run to SAVE_PATH (binary Variant, keeps Vector2 / Color as they are).
+func save() -> void:
+	var data := {"rng_seed": _rng.seed, "rng_state": _rng.state}
+	for k in SAVED:
+		data[k] = get(k)
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f:
+		f.store_var(data)
+
+
+static func has_save() -> bool:
+	return FileAccess.file_exists(SAVE_PATH)
+
+
+static func delete_save() -> void:
+	if has_save():
+		DirAccess.remove_absolute(SAVE_PATH)
+
+
+## The saved run, or null when there is none or it can't be read.
+static func load_save() -> RunState:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return null
+	var data = f.get_var()
+	if typeof(data) != TYPE_DICTIONARY or not data.has("day"):
+		return null
+	var run := RunState.new(data["rng_seed"])
+	for k in SAVED:
+		if data.has(k):
+			run.set(k, data[k])
+	run._rng.state = data["rng_state"]
+	return run
 
 
 ## Moves prices, applies today's events. Returns the morning report lines.

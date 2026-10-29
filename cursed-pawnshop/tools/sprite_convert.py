@@ -1,6 +1,7 @@
 """Turn AI-generated art on a magenta background into game sprites.
 
     python3 tools/sprite_convert.py IN_DIR OUT_DIR HEIGHT
+    python3 tools/sprite_convert.py IN_DIR OUT_DIR scene   # backgrounds: no keying, cover 640x360
 
 Per image: every magenta-ish pixel becomes transparent (also enclosed gaps and
 anti-aliased fringe, which a corner flood fill misses), crop to the subject, shrink
@@ -39,9 +40,25 @@ def shrink(im: Image.Image, height: int) -> Image.Image:
     return Image.fromarray(np.clip(small, 0, 255).astype(np.uint8))
 
 
+def cover(im: Image.Image, w: int = 640, h: int = 360) -> Image.Image:
+    """Scale to cover w x h and center-crop: full-screen scenes."""
+    im = im.convert("RGB")
+    k = max(w / im.width, h / im.height)
+    im = im.resize((round(im.width * k), round(im.height * k)), Image.BOX)
+    x, y = (im.width - w) // 2, (im.height - h) // 2
+    return im.crop((x, y, x + w, y + h))
+
+
 def main() -> None:
-    src, out, height = Path(sys.argv[1]), Path(sys.argv[2]), int(sys.argv[3])
+    src, out = Path(sys.argv[1]), Path(sys.argv[2])
     out.mkdir(parents=True, exist_ok=True)
+    if sys.argv[3] == "scene":
+        for f in sorted(src.glob("*.png")):
+            if f.stem != "shop_bg":  # the shop wall has its own crop in the game README
+                cover(Image.open(f)).save(out / f.name)
+        print(f"scenes -> {out}")
+        return
+    height = int(sys.argv[3])
     sprites = []
     for f in sorted(src.glob("*.png")):
         sprite = shrink(key_magenta(Image.open(f)), height)

@@ -22,7 +22,7 @@
 | 2 | 메인 NPC 10명 (표정 4종 한 장) | 10 | M3~M4 스토리 |
 | 3 | 추가 손님 16종 | 16 | 다음 업데이트 (손님 다양화) |
 | 4 | 추가 물건 25종 (금속·보석·유기물·문서·조각) | 25 | M3~M5 감정 도구 해금 |
-| 5 | 배경·이벤트 컷 9장 | 9 | 아침/밤·이벤트·엔딩 |
+| 5 | 타이틀·배경·엔딩 컷 14장 | 14 | 타이틀 1 + 엔딩 7 바로, 나머지는 이후 이벤트 |
 
 ---
 
@@ -188,7 +188,11 @@ with four expressions from left to right: neutral, smiling, angry, shocked.
 
 ---
 
-## 묶음 5 — 배경·이벤트 컷 9장 (스타일 C)
+## 묶음 5 — 타이틀·배경·엔딩 컷 (스타일 C, Grok은 16:9)
+
+**지금 바로 게임에 들어가는 것:** `title_bg` + `ending_*` 7장. 저장 위치 `art/raw/scenes/`, 변환은
+`python3 tools/sprite_convert.py art/raw/scenes assets/sprites/scenes scene`.
+배경은 마젠타 필요 없음. 그림 안에 글자 넣지 말기 (한글 제목은 게임이 그림).
 | 파일명 | 프롬프트 |
 |---|---|
 | `morning_street.png` | The foggy cobblestone alley outside the pawnshop at dawn: crooked leaning buildings, the shop's sign "a hanging brass three-ball pawnbroker sign" creaking, gulls, a lighthouse with a dead light far away, puddles. |
@@ -197,6 +201,11 @@ with four expressions from left to right: neutral, smiling, angry, shocked.
 | `vault.png` | A secret vault under the pawnshop: round stone room with seven empty pedestals in a circle, chains and seals on the walls, violet light leaking from cracks in the floor. |
 | `harbor.png` | The cursed harbor at night: black water, rotting piers, a sunken ship mast sticking out, deep ones' eyes glinting in the water, huge full moon behind fog. |
 | `ritual.png` | A cult ritual on a sea cliff: hooded figures in a circle, a stone altar with violet glowing relics, a giant shadow rising from the stormy sea below, stars in a strange alignment. |
+| `title_bg.png` | Title screen key art: the crooked facade of an old occult pawnshop at night in a foggy harbor alley, a hanging brass three-ball pawnbroker sign, warm candlelight glowing through the dusty window with silhouettes of strange idols, a huge pale moon behind fog, tentacle shapes faintly visible in the sea mist above the rooftops. Leave the upper-middle area darker and calm (the game draws the title text there). No text. |
 | `ending_keeper.png` | Ending scene: the pawnshop at sunrise, fog clearing for the first time, the shopkeeper's silhouette opening the door, a ghostly old man smiling beside them. |
 | `ending_awaken.png` | Ending scene: the whole harbor town sinking as a colossal tentacled god rises from the sea, tiny pawnshop sign floating in the water. |
-| `ending_seized.png` | Ending scene: the demon loan shark standing in the empty pawnshop holding a glowing soul in a jar, the shop's sign torn down. |
+| `ending_foreclose.png` | Ending scene: the demon loan shark standing in the empty pawnshop holding a glowing soul in a jar, the shop's sign torn down. |
+| `ending_rat_lord.png` | Ending scene: a throne made of stolen goods in a sewer hall, hundreds of rats bowing, the shopkeeper's silhouette seated on top with a tiny tin crown, coins everywhere. |
+| `ending_master.png` | Ending scene: a vampire count's grand candlelit ballroom, monsters in fine clothes lining up with treasures, the shopkeeper at a velvet table holding up a brass loupe, everyone watching in awe. |
+| `ending_cleared.png` | Ending scene: the pawnshop counter at dawn, a stamped "paid" contract and an empty money pouch, a demon's burnt handprint on the paper, outside the window the fog still lingers. |
+| `ending_madness.png` | Ending scene: the pawnshop shelf at night, among cursed idols a framed portrait of the shopkeeper whose eyes glow violet, whispering mouths drawn on every object around it. |

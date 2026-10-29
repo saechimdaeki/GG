@@ -68,6 +68,7 @@ func _next() -> void:
 		_done.call()
 		return
 	var b: Dictionary = _beats.pop_front()
+	Audio.play("page")
 	_show_speaker(b)
 	_text.text = b["text"]
 	_text.visible_ratio = 0.0

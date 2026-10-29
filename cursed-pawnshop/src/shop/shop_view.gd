@@ -19,6 +19,9 @@ const BACKGROUND := "res://assets/sprites/shop_bg.png"
 
 enum Phase { MORNING, ENTER, TALK, HAGGLE, SELL, RESULT, NIGHT }
 
+## Set by the title screen: load the morning save instead of starting fresh.
+static var resume := false
+
 var _run: RunState
 var _phase := Phase.MORNING
 var _visit := {}
@@ -38,6 +41,7 @@ var _caught := false
 var _shelf_panel: ShelfPanel
 var _upgrade_panel: UpgradePanel
 var _story_panel: StoryPanel
+var _ending_art: TextureRect
 var _accuse_menu := false
 
 var _hud: Label
@@ -61,7 +65,12 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	theme = _make_theme()
 	_build_ui()
-	_run = RunState.new(_start_seed())
+	if resume:
+		_run = RunState.load_save()
+	if _run == null:
+		_run = RunState.new(_start_seed())
+	resume = false
+	Audio.music("ambience")
 	_show_morning()
 
 
@@ -139,6 +148,13 @@ func _build_ui() -> void:
 	_loupe.visible = false
 	add_child(_loupe)
 
+	_ending_art = TextureRect.new()
+	_ending_art.position = Vector2.ZERO
+	_ending_art.size = Vector2(640, 360)
+	_ending_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ending_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_ending_art.visible = false
+	add_child(_ending_art)
 	_overlay = _panel(Rect2(90, 34, 460, 290))
 	_overlay_text = _label(_overlay, Vector2(18, 16), 10, INK)
 	_overlay_text.size = Vector2(424, 230)
@@ -183,6 +199,8 @@ func _panel(rect: Rect2) -> Panel:
 func _show_morning() -> void:
 	_phase = Phase.MORNING
 	_visit = {}
+	_run.save()  # morning save: continuing replays this morning exactly
+	Audio.play("page")
 	var lines := _run.start_day()
 	var beats := _run.beats_today()
 	_show_overlay("\n\n".join(lines), "📜 오늘의 손님" if not beats.is_empty() else "🏺 진열대 정리", func():
@@ -207,6 +225,8 @@ func _show_night() -> void:
 	_phase = Phase.NIGHT
 	_visit = {}
 	var report := _run.end_day()
+	if report.any(func(l): return l.begins_with("🕯 ") and not "게이지" in l):
+		Audio.play("curse")
 	if _run.ended == "madness":
 		_show_overlay("\n\n".join(report), "📜 엔딩 보기", func(): _show_ending(false))
 		return
@@ -223,6 +243,7 @@ func _after_shop() -> void:
 		return
 	var lines := _run.pay_debt()
 	_update_hud()
+	Audio.play("baal")
 	# Baal speaks through the story panel so his portrait shows
 	var scene := {"npc": "baal", "text": "(문이 열리지 않았는데 그가 카운터 앞에 서 있다)\n\n" + "\n\n".join(lines),
 		"choices": [{"label": "📜 엔딩 보기" if _run.ended != "" else "🌙 잠들기 → 다음 날"}]}
@@ -238,7 +259,16 @@ func _show_ending(_won: bool) -> void:
 	var text := "— 엔딩: %s —\n\n%s\n\n%d일 · 소지금 %dG · 명성 %d · 의심 %d\n조각: 금고 %d · 판매 %d · 빼앗김 %d · 장물 거래 %d" % [
 		e["title"], e["text"], _run.day - 1, _run.money, _run.rep, _run.suspicion,
 		_run.relics.size(), _run.relics_sold, _run.relics_lost, _run.stolen_deals]
-	_show_overlay(text, "🔄 처음부터", func(): get_tree().reload_current_scene())
+	RunState.delete_save()
+	Audio.music("")
+	Audio.play("ending")
+	# ending picture (art/raw/scenes/ending_<id>.png) behind the text when it exists
+	var art := "res://assets/sprites/scenes/ending_%s.png" % e["id"]
+	if ResourceLoader.exists(art):
+		_ending_art.texture = load(art)
+		_ending_art.visible = true
+		_overlay.self_modulate = Color(1, 1, 1, 0.82)
+	_show_overlay(text, "🏠 타이틀로", func(): get_tree().change_scene_to_file("res://src/title/title.tscn"))
 
 
 func _show_overlay(text: String, button: String, action: Callable) -> void:
@@ -271,6 +301,7 @@ func _next_customer() -> void:
 	_clear_choices()
 	_speaker.text = ""
 	_text.text = "(문 종소리가 울린다)"
+	Audio.play("bell")
 	_cust_x = -120.0
 	var tw := create_tween()
 	tw.tween_property(self, "_cust_x", CUSTOMER_AT.x, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -318,7 +349,9 @@ func _add_choice(text: String, action: Callable) -> void:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(97 if _choices.columns == 2 else 63, 21)
-	b.pressed.connect(action)
+	b.pressed.connect(func():
+		Audio.play("click")
+		action.call())
 	_choices.add_child(b)
 
 
@@ -411,13 +444,16 @@ func _report() -> void:
 func _confront(kind: String) -> void:
 	_confronted[kind] = true
 	_accuse_menu = false
-	_say(Customer.confront(_visit, ItemGenerator.has_clue(_visit["item"], kind)))
+	var valid := ItemGenerator.has_clue(_visit["item"], kind)
+	Audio.play("coin" if valid else "angry")
+	_say(Customer.confront(_visit, valid))
 	_after_line()
 
 
 ## Touchstone: scratch the item to see the metal under the surface. The seller hates it.
 func _scratch() -> void:
 	_seen["scratch"] = true
+	Audio.play("scratch")
 	_visit["patience"] -= ProgressionData.TOUCHSTONE_PATIENCE
 	var fake := ItemGenerator.has_clue(_visit["item"], "scratch")
 	_note("시금석: " + ("긁힌 자리 아래 다른 금속이 보인다!" if fake else "속까지 같은 금속"))
@@ -434,6 +470,7 @@ func _scratch() -> void:
 func _candle() -> void:
 	_seen["candle"] = true
 	var cursed := ItemGenerator.has_clue(_visit["item"], "cursed")
+	Audio.play("curse" if cursed else "candle")
 	if cursed:
 		_note("촛불: 보랏빛으로 일렁인다 — %s" % CurseData.CURSES[_visit["item"]["curse"]]["name"])
 		_visit["mood"] = "nervous"
@@ -492,6 +529,7 @@ func _turn_away() -> void:
 
 func _finish(bought: bool, price: int) -> void:
 	_bought = bought
+	Audio.play("deal" if bought else ("angry" if _visit["walked_out"] or _visit.get("reported", false) else "click"))
 	var parting := _run.finish_visit(_visit, bought, price)
 	if parting != "":
 		var said := _text.text
@@ -533,6 +571,7 @@ func _submit_sale() -> void:
 
 func _finish_sale(sold: bool, price: int, caught: bool = false) -> void:
 	_bought = sold
+	Audio.play("coin" if sold else ("angry" if caught or _visit["walked_out"] else "click"))
 	_sale_price = price
 	_caught = caught
 	var parting := _run.finish_sale(_visit, sold, price, caught)
@@ -560,6 +599,7 @@ func _on_weigh() -> void:
 		_note("무게 %dg" % _visit["item"]["weight"])
 		_refresh_choices()
 	var item: Dictionary = _visit["item"]
+	Audio.play("weigh")
 	_weight_label.text = "%d g" % item["weight"]
 	if _run.level("scale") > 0:
 		# precision scale: deviation from the claimed metal's true weight
@@ -728,7 +768,9 @@ func _draw_mat() -> void:
 		for i in 4:
 			draw_circle(ITEM_CENTER, ITEM_UNIT * (1.25 - i * 0.12) + pulse * 4.0, Color(0.6, 0.2, 0.9, 0.06 + i * 0.02))
 	ItemDrawer.draw(self, item, ITEM_CENTER, ITEM_UNIT, false)
-	draw_string(font, MAT_RECT.position + Vector2(6, MAT_RECT.size.y - 6), "돋보기로 살피고 수상한 곳 클릭 · 진품 무게 오차 ±2%", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.7, 0.55, 0.45))
+	var tip := _pip_tip()
+	draw_string(font, MAT_RECT.position + Vector2(6, MAT_RECT.size.y - 6), tip if tip != "" else "돋보기로 살피고 수상한 곳 클릭 · 진품 무게 오차 ±2%",
+		HORIZONTAL_ALIGNMENT_LEFT, MAT_RECT.size.x - 12, 8, Color(0.7, 0.85, 1.0) if tip != "" else Color(0.7, 0.55, 0.45))
 
 	# reference strip under the scale: true weight and mark of each material
 	var volume: int = ItemData.KINDS[item["kind"]]["volume"]
@@ -770,6 +812,26 @@ func _draw_mat() -> void:
 			lines.append("✔ 창고로 (진열대 칸이 있으면 바로 진열)" if _bought else "✘ 안 샀음")
 		for i in lines.size():
 			draw_string(font, MAT_RECT.position + Vector2(14, 48 + i * 15), lines[i], HORIZONTAL_ALIGNMENT_LEFT, 290, 9, INK)
+
+
+## Pip's coaching line for the first days, by what the player has (not) done yet.
+func _pip_tip() -> String:
+	if _run.day > 3 or _visit.is_empty():
+		return ""
+	match _phase:
+		Phase.TALK:
+			if not _seen.has("mark"):
+				return "👻 피프: 돋보기로 물건을 훑다가 각인을 찾으면 클릭해!"
+			if not _seen.has("weight"):
+				return "👻 피프: 저울에도 올려봐. 아래 기준표 무게랑 비교하는 거야"
+			if not _seen.has("candle") and _run.day >= 2:
+				return "👻 피프: 촛불도 비춰봐. 저주는 저울로 안 보여!"
+			return "👻 피프: 이상하면 '추궁하기'로 따져. 틀리면 손님이 화내니 조심!"
+		Phase.HAGGLE:
+			return "👻 피프: 호가보다 낮게 불러. 너무 낮으면 모욕이야!"
+		Phase.SELL:
+			return "👻 피프: 비싸게 부르고 손님이 올라오길 기다려. 진짜 가치는 창고 패널에 있어"
+	return ""
 
 
 func _draw_vignette() -> void:
