@@ -8,6 +8,8 @@ const ART_BG := "res://assets/sprites/scenes/title_bg.png"
 
 const FALLBACK_BG := "res://assets/sprites/shop_bg.png"
 const GOLD := Color(0.95, 0.78, 0.4)
+## CC BY 4.0 requires this credit in the game. The other tracks are CC0.
+const CREDITS := "Music: \"Night on the Docks - Sax\" Kevin MacLeod (incompetech.com), CC BY 4.0 · \"I swear I saw it\" yd · \"Post Apocalyptic Wastelands\" Juhani Junkala (CC0)"
 
 var _bg: Texture2D
 var _t := 0.0
@@ -19,7 +21,8 @@ func _ready() -> void:
 		if ResourceLoader.exists(p):
 			_bg = load(p)
 			break
-	Audio.music("ambience")
+	Audio.music("music_title")
+	Audio.ambience("ambience")
 
 	var box := VBoxContainer.new()
 	box.position = Vector2(240, 214)
@@ -86,4 +89,5 @@ func _draw() -> void:
 		draw_string(font, Vector2(0, 110) + o, "저주받은 전당포", HORIZONTAL_ALIGNMENT_CENTER, 640, 44,
 			Color(0, 0, 0, 0.8) if o != Vector2.ZERO else Color(0.85, 0.6, 1.0))
 	draw_string(font, Vector2(0, 140), "괴물 손님의 물건을 감정하고, 28일 안에 빚을 갚아라", HORIZONTAL_ALIGNMENT_CENTER, 640, 11, GOLD)
-	draw_string(ThemeDB.fallback_font, Vector2(8, 352), "v0.5 · M1~M5", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.5, 0.45, 0.45))
+	draw_string(ThemeDB.fallback_font, Vector2(8, 352), "v0.6", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(0.5, 0.45, 0.45))
+	draw_string(ThemeDB.fallback_font, Vector2(0, 352), CREDITS, HORIZONTAL_ALIGNMENT_RIGHT, 632, 7, Color(0.55, 0.5, 0.5))

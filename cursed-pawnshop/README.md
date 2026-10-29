@@ -26,7 +26,7 @@ godot
 | M3 빚과 성장 | 바알 주간 상환(250/500/900/1350), 압류·이자·차압, 밤의 상점 업그레이드 6종(진열대·정밀 저울·확대경·시금석·경비 고블린·간판) | ✅ |
 | M4 이야기 | 28일 스토리 장면 20개(NPC 10명), 흐르그의 조각 7개, 명성·의심·장물·경비대 단속, 백작 후원, 엔딩 6종 | ✅ |
 | M5 저주 | 저주품(촛불로만 보임)·저주 수집가(2.5배)·밤의 저주 사건 4종·저주 게이지·정화·광기 엔딩 | ✅ |
-| M6 완성 | 타이틀·아침 자동 저장/이어하기·효과음 12종+빗소리·피프 팁 ✅ / 엔딩 컷·타이틀 그림·배경 음악 ⏳ | 🔶 |
+| M6 완성 | 타이틀·아침 자동 저장/이어하기·효과음 12종+빗소리·배경 음악 3곡·피프 팁 ✅ / 엔딩 컷·타이틀 그림 ⏳ | 🔶 |
 
 **콘텐츠 현황**
 - 손님 24종 (전부 도트 초상화), 손님 명부 18명, 성격 4종(정직·급함·깐깐함·사기꾼)
@@ -42,7 +42,15 @@ godot
 
 **아트 대기**: 묶음 5의 `title_bg` + 엔딩 컷 7장(`ending_keeper/awaken/foreclose/rat_lord/master/cleared/madness`)이 들어오면 바로 쓰임. 물건 묶음 4 나머지는 선택. 프롬프트는 `art/PROMPTS.md`.
 
-**음악**: 지금은 합성 빗소리 앰비언스. 제대로 된 곡은 GPT/Grok으로 못 만들어서, 음악 AI(Suno 등)로 만든 wav를 `assets/audio/ambience.wav`에 덮어쓰면 됨.
+**음악**: 타이틀·아침 / 낮 영업 / 밤·바알 세 곡 + 합성 빗소리 레이어. 곡 바꾸려면 `assets/audio/music_title|music_day|music_night` 를 같은 이름의 .ogg/.mp3/.wav로 교체.
+
+## 크레딧
+
+- 음악 "Night on the Docks - Sax" — Kevin MacLeod (incompetech.com), Licensed under Creative Commons: By Attribution 4.0 — https://creativecommons.org/licenses/by/4.0/
+- 음악 "I swear I saw it" — yd (OpenGameArt.org), CC0
+- 음악 "Post Apocalyptic Wastelands [Loop Ready]" — Juhani Junkala / SubspaceAudio (OpenGameArt.org), CC0
+- 효과음·빗소리 — `tools/gen_audio.py` 로 합성
+- 그림 — GPT / Grok 생성 원본(`art/raw/`)을 `tools/sprite_convert.py` 로 도트화
 
 ## 아트 넣기
 

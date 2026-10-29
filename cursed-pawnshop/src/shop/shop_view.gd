@@ -70,7 +70,7 @@ func _ready() -> void:
 	if _run == null:
 		_run = RunState.new(_start_seed())
 	resume = false
-	Audio.music("ambience")
+	Audio.ambience("ambience")
 	_show_morning()
 
 
@@ -200,6 +200,7 @@ func _show_morning() -> void:
 	_phase = Phase.MORNING
 	_visit = {}
 	_run.save()  # morning save: continuing replays this morning exactly
+	Audio.music("music_title")
 	Audio.play("page")
 	var lines := _run.start_day()
 	var beats := _run.beats_today()
@@ -211,6 +212,7 @@ func _show_morning() -> void:
 
 
 func _open_shop() -> void:
+	Audio.music("music_day")
 	var tips := _run.open_shop()
 	if tips.is_empty():
 		_overlay.visible = false
@@ -225,6 +227,7 @@ func _show_night() -> void:
 	_phase = Phase.NIGHT
 	_visit = {}
 	var report := _run.end_day()
+	Audio.music("music_night")
 	if report.any(func(l): return l.begins_with("🕯 ") and not "게이지" in l):
 		Audio.play("curse")
 	if _run.ended == "madness":

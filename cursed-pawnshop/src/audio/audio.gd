@@ -1,22 +1,40 @@
 class_name Audio
-## Sound effects and music from res://assets/audio (made by tools/gen_audio.py).
+## Sound effects (tools/gen_audio.py), music tracks (see README credits) and the rain
+## ambience layer, all from res://assets/audio (.wav, .ogg or .mp3).
 ## Static helper: lazily adds its players under the tree root, so any script can call
 ## Audio.play("hit") without wiring. Buses "Music" and "SFX" carry the volume settings.
 
 const POOL := 12
+## Music sits under the effects and the rain under the music, so the mix never clips.
+const MUSIC_DB := -6.0
 
 static var _pool: Array[AudioStreamPlayer] = []
 static var _next: int = 0
 static var _music: AudioStreamPlayer
 static var _music_name: String = ""
+static var _amb: AudioStreamPlayer
+static var _amb_name: String = ""
 static var _cache: Dictionary = {}
 
 
 static func _stream(name: String) -> AudioStream:
 	if not _cache.has(name):
-		var path := "res://assets/audio/%s.wav" % name
-		_cache[name] = load(path) if ResourceLoader.exists(path) else null
+		_cache[name] = null
+		for ext in ["wav", "ogg", "mp3"]:
+			var path := "res://assets/audio/%s.%s" % [name, ext]
+			if ResourceLoader.exists(path):
+				_cache[name] = load(path)
+				break
 	return _cache[name]
+
+
+## Makes any supported stream loop.
+static func _loop(s: AudioStream) -> void:
+	if s is AudioStreamWAV:
+		s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		s.loop_end = s.data.size() / 2  # 16-bit mono frames
+	elif s is AudioStreamOggVorbis or s is AudioStreamMP3:
+		s.loop = true
 
 
 static func _ready_players() -> bool:
@@ -39,7 +57,9 @@ static func _ready_players() -> bool:
 		_cache.clear()
 		_pool.clear()
 		_music = null
-		_music_name = "")
+		_music_name = ""
+		_amb = null
+		_amb_name = "")
 	for i in POOL:
 		var p := AudioStreamPlayer.new()
 		p.bus = "SFX"
@@ -48,6 +68,9 @@ static func _ready_players() -> bool:
 	_music = AudioStreamPlayer.new()
 	_music.bus = "Music"
 	holder.add_child(_music)
+	_amb = AudioStreamPlayer.new()
+	_amb.bus = "Music"
+	holder.add_child(_amb)
 	tree.root.add_child.call_deferred(holder)
 	return true
 
@@ -72,14 +95,29 @@ static func music(name: String) -> void:
 	if not _ready_players() or name == _music_name:
 		return
 	_music_name = name
-	var s := _stream(name) as AudioStreamWAV
+	var s := _stream(name)
 	if s == null:
 		_music.stop.call_deferred()
 		return
-	s.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	s.loop_end = s.data.size() / 2  # 16-bit mono frames
+	_loop(s)
 	_music.stream = s
+	_music.volume_db = MUSIC_DB
 	_music.play.call_deferred()
+
+
+## A looping background layer under the music (rain). "" stops it.
+static func ambience(name: String, volume_db: float = -14.0) -> void:
+	if not _ready_players() or name == _amb_name:
+		return
+	_amb_name = name
+	var s := _stream(name)
+	if s == null:
+		_amb.stop.call_deferred()
+		return
+	_loop(s)
+	_amb.stream = s
+	_amb.volume_db = volume_db
+	_amb.play.call_deferred()
 
 
 ## Sets a bus volume from a 0..1 slider value ("Master", "Music" or "SFX").
