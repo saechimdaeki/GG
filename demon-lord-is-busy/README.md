@@ -16,6 +16,13 @@ godot --headless --import   # 처음 한 번 (클론 직후)
 godot                       # 게임 실행 (타이틀 화면부터)
 ```
 
+실행 파일 (export 템플릿 필요, 자세한 건 [루트 README](../README.md#실행)):
+
+```bash
+godot --headless --export-release "macOS" build/macos/DemonLordIsBusy.zip
+godot --headless --export-release "Windows" build/windows/DemonLordIsBusy.exe
+```
+
 튜토리얼을 처음부터 다시 보려면 (설정 초기화):
 
 ```bash
@@ -80,4 +87,4 @@ WAVE=6 godot -s res://tests/smoke/raid_demo.gd --write-movie out.png --fixed-fps
 **남은 것**
 - [ ] 사람이 끝까지 플레이해 보고 피드백 — 콤보가 실제로 재밌는지, 난이도
 - [ ] 아트 다듬기 (Gungeon 풍 디테일)
-- [ ] 배포 빌드 — `export_presets.cfg` 있음, Godot 4.7.2 export 템플릿 설치 필요
+- [x] 배포 빌드 — Mac `.app` · Windows `.exe` (위 "실행" 참고)

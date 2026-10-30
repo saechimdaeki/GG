@@ -9,7 +9,7 @@
 | 게임 | 폴더 | 장르 | 엔진 | 상태 |
 |---|---|---|---|---|
 | 마왕님은 바쁘다 | [`demon-lord-is-busy/`](demon-lord-is-busy/) | 던전 디펜스 + 액션 로그라이크 | Godot 4.7.2 | 플레이 가능, 플레이테스트 중 |
-| 저주받은 전당포 | [`cursed-pawnshop/`](cursed-pawnshop/) | 크툴루풍 감정·장사 시뮬 (28일 캠페인) | Godot 4.7.2 | M1~M6 완성, 플레이테스트 대기 |
+| 저주받은 전당포 | [`cursed-pawnshop/`](cursed-pawnshop/) | 크툴루풍 감정·장사 시뮬 (28일 캠페인) | Godot 4.7.2 | 완성, 플레이테스트 대기 |
 
 ## 아이디어 보관함
 
@@ -17,7 +17,7 @@
 
 | 아이디어 | 한 줄 | 왜 괜찮은가 |
 |---|---|---|
-| 저주받은 전당포 | 괴물 손님 물건을 감정·흥정, 28일 동안 빚 갚기 | → **구현 중** (M1~M5) |
+| 저주받은 전당포 | 괴물 손님 물건을 감정·흥정, 28일 동안 빚 갚기 | → **완성** |
 | 책상 위 미니 던전 | 화면 아래 투명 띠에 붙어 일하는 동안 작은 모험가들이 알아서 탐험하는 방치형 | 데스크톱 컴패니언 유행, Godot 투명 창 지원 |
 | 레시피 덱빌더 | 카드 = 재료, 콤보 = 요리. 제한 시간 안에 몬스터 손님 주문을 덱으로 맞춤 | 로그라이크 덱빌더 수요 큼 (슬더스2 흥행) |
 
@@ -25,13 +25,41 @@
 
 각 게임 폴더의 README에 자세한 실행법·조작·진행 상황이 있음.
 
-**마왕님은 바쁘다** (Godot 4.7.2 필요)
+**다운로드** — [Releases](https://github.com/saechimdaeki/GG/releases/latest)에서 `<게임>-mac.zip` / `<게임>-windows.exe`
+
+- Mac: zip을 풀면 `.app`. 서명이 없어서 처음엔 **우클릭 → 열기** (또는 시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기)
+- Windows: `.exe` 하나에 다 들어 있음. SmartScreen이 뜨면 **추가 정보 → 실행**
+
+**릴리스 내기** — 태그를 푸시하면 GitHub Actions(`.github/workflows/release.yml`)가 모든 게임을 Mac·Windows로 빌드해 릴리스에 올림.
 
 ```bash
-cd demon-lord-is-busy
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+**소스로 실행** (Godot 4.7.2 필요)
+
+```bash
+cd demon-lord-is-busy       # 또는 cursed-pawnshop
 godot --headless --import   # 클론 직후 한 번
 godot
 ```
+
+**실행 파일 직접 만들기** (Mac `.app` · Windows `.exe`)
+
+Godot 4.7.2 export 템플릿이 설치돼 있어야 함 (에디터 → Editor → Manage Export Templates → Download).
+
+```bash
+cd cursed-pawnshop          # 또는 demon-lord-is-busy
+mkdir -p build/macos build/windows
+godot --headless --export-release "macOS" build/macos/CursedPawnshop.zip
+godot --headless --export-release "Windows" build/windows/CursedPawnshop.exe
+```
+
+- `build/` 는 git에 안 올라감
+
+## 패치노트
+
+업데이트 내역은 [GitHub 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 올림.
 
 ## 새 게임 추가하기
 
@@ -48,4 +76,4 @@ godot
 | `.claude/`, `CLAUDE.md`, `project.yaml` | Claude Code Game Studios — AI 에이전트 개발 프레임워크 설정 |
 | `design/`, `production/` | 프레임워크 공용 (엔티티 레지스트리 · 진행 로그 · QA 스크린샷). 게임 기획서는 각 게임 폴더에 |
 | `docs/` | 프레임워크 문서, 엔진 레퍼런스 |
-| `.github/workflows/` | 푸시마다 게임별 자동 테스트 |
+| `.github/workflows/` | 푸시마다 게임별 자동 테스트(`smoke.yml`), 태그 푸시 → 릴리스 빌드(`release.yml`) |

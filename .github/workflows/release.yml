@@ -1,0 +1,72 @@
+name: release
+
+# Push a tag like v0.2.0 → builds every game for Mac and Windows and attaches them to a GitHub Release.
+# One matrix entry per game folder; add one when a new game joins the repo.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        include:
+          - game: cursed-pawnshop
+            name: CursedPawnshop
+          - game: demon-lord-is-busy
+            name: DemonLordIsBusy
+    defaults:
+      run:
+        working-directory: ${{ matrix.game }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
+      - uses: actions/cache@v4
+        id: tpl
+        with:
+          path: ~/.local/share/godot/export_templates/4.7.2.stable
+          key: godot-templates-4.7.2
+      - name: Install export templates
+        if: steps.tpl.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o t.tpz https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
+          unzip -q t.tpz
+          D=~/.local/share/godot/export_templates/4.7.2.stable
+          mkdir -p $D
+          # ponytail: only the templates the presets use (the full set is 1.3 GB)
+          cp templates/version.txt templates/macos.zip templates/windows_release_x86_64.exe $D/
+      - name: Export
+        run: |
+          godot --headless --path . --import
+          mkdir -p out
+          godot --headless --path . --export-release "macOS" out/${{ matrix.name }}-mac.zip
+          godot --headless --path . --export-release "Windows" out/${{ matrix.name }}-windows.exe
+          ls -la out
+          test -s out/${{ matrix.name }}-mac.zip && test -s out/${{ matrix.name }}-windows.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.game }}
+          path: ${{ matrix.game }}/out/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.ref_name }} out/* --repo ${{ github.repository }} --generate-notes

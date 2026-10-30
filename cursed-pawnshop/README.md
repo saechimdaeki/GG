@@ -17,6 +17,13 @@ godot
 조작: 물건 위에 마우스 → 돋보기, 수상한 곳 클릭 → 단서 노트, 저울 버튼 → 무게, 🕯 촛불 → 저주. 오른쪽 아래 선택지로 질문·추궁·흥정. ESC → 일시정지·설정.
 디버그용 고정 시드: `godot -- --seed=36`
 
+**실행 파일** (export 템플릿 필요, 자세한 건 [루트 README](../README.md#실행)):
+
+```bash
+godot --headless --export-release "macOS" build/macos/CursedPawnshop.zip
+godot --headless --export-release "Windows" build/windows/CursedPawnshop.exe
+```
+
 ## 어디까지 했나 (2026-10-30)
 
 | 마일스톤 | 내용 | 상태 |
