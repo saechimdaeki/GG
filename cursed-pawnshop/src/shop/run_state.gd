@@ -445,6 +445,8 @@ func _curse_night() -> Array:
 	if curse >= CurseData.GAUGE_MAX:
 		ended = "madness"
 		lines.append("🕯 저주 게이지가 가득 찼다. 금고 속의 속삭임이 당신의 목소리로 바뀌었다...")
+	elif curse >= CurseData.GAUGE_WARN:
+		lines.append("⚠ 저주 게이지 %d/%d — %d가 되면 광기에 빠진다! 창고에서 정화하거나 밤의 상점에서 정화 소금을 사라." % [curse, CurseData.GAUGE_MAX, CurseData.GAUGE_MAX])
 	elif curse > 0:
 		lines.append("🕯 저주 게이지 %d/%d" % [curse, CurseData.GAUGE_MAX])
 	return lines

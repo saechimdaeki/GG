@@ -29,6 +29,8 @@ const GAUGE_PER_ITEM := 10
 const EVENT_CHANCE := 0.35
 const GAUGE_DECAY := 5
 const GAUGE_MAX := 100
+## From here the night report shouts a warning and how to bring it down.
+const GAUGE_WARN := 50
 const BLEED_RATIO := 0.1
 const WHISPER_REP := -3
 const WHISPER_GAUGE := 5

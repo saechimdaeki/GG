@@ -188,8 +188,14 @@ func _build_ui() -> void:
 	_backdrop.visible = false
 	add_child(_backdrop)
 	_overlay = _panel(Rect2(90, 34, 460, 290))
-	_overlay_text = _label(_overlay, Vector2(18, 16), 10, INK)
-	_overlay_text.size = Vector2(424, 230)
+	# long night reports scroll instead of running under the button
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(18, 16)
+	scroll.size = Vector2(430, 228)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_overlay.add_child(scroll)
+	_overlay_text = _label(scroll, Vector2.ZERO, 10, INK)
+	_overlay_text.custom_minimum_size = Vector2(418, 0)
 	_overlay_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_overlay_button = Button.new()
 	_overlay_button.position = Vector2(150, 252)
@@ -373,6 +379,7 @@ func _set_backdrop(name: String) -> void:
 func _show_overlay(text: String, button: String, action: Callable) -> void:
 	_overlay.visible = true
 	_overlay_text.text = text
+	(_overlay_text.get_parent() as ScrollContainer).scroll_vertical = 0
 	_overlay_button.text = button
 	for c in _overlay_button.pressed.get_connections():
 		_overlay_button.pressed.disconnect(c["callable"])
@@ -854,7 +861,11 @@ func _draw_shelf() -> void:
 		if e == wanted:
 			draw_rect(Rect2(at - Vector2(half + 1, 15), Vector2(half * 2 + 2, 36)), GOLD, false, 2)
 		ItemDrawer.draw(self, e["item"], at - Vector2(0, 2), minf(12.0, half * 0.6), false)
-		draw_string(UIFont.font(8), at + Vector2(-half, 18), "%dG" % e["tag"], HORIZONTAL_ALIGNMENT_CENTER, half * 2, UIFont.px(8), GOLD)
+		# a coin dot instead of "G": at this size the G reads as a 6
+		var tag := str(e["tag"])
+		var w := UIFont.font(8).get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, UIFont.px(8)).x
+		draw_circle(at + Vector2(-w / 2.0 - 2, 15), 2.0, GOLD)
+		draw_string(UIFont.font(8), at + Vector2(-w / 2.0 + 2, 18), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, UIFont.px(8), GOLD)
 
 
 func _draw_mat() -> void:
@@ -942,7 +953,7 @@ func _pip_tip() -> String:
 		Phase.HAGGLE:
 			return "👻 피프: 호가보다 낮게 불러. 너무 낮으면 모욕이야!"
 		Phase.SELL:
-			return "👻 피프: 비싸게 부르고 손님이 올라오길 기다려. 진짜 가치는 창고 패널에 있어"
+			return "👻 피프: 가격표보다 올려 불러봐. 예산 안이면 사 가!"
 	return ""
 
 

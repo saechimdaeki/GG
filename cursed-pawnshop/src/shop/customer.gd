@@ -84,7 +84,8 @@ static func start_buy_visit(member: Dictionary, seed_value: int, shelf: Array, b
 		"entry": entry,
 		"item": entry["item"],
 		"budget": budget,
-		"offer": maxi(5, snap5_down(budget * float(b["first"]))),
+		# nobody offers above the price tag: a cheap tag is a cheap sale
+		"offer": maxi(5, mini(entry["tag"], snap5_down(budget * float(b["first"])))),
 		"patience": b["patience"],
 		"spots_fake": fake and rng.randf() < float(b["detect"]),
 		"collector": collector,
