@@ -1,7 +1,8 @@
 name: release
 
 # Push a tag like v0.2.0 → builds every game for Mac and Windows, attaches them to a GitHub Release,
-# and posts the patch notes (feat/fix commits since the last tag, .github/patch-notes.sh) as an issue.
+# and posts patch notes (feat/fix commits since the last tag, .github/patch-notes.sh) as one issue
+# per game, labeled patch-notes + the game's name.
 # One matrix entry per game folder; add one when a new game joins the repo.
 
 on:
@@ -74,11 +75,19 @@ jobs:
         with:
           path: out
           merge-multiple: true
-      - name: Write patch notes
-        run: .github/patch-notes.sh "$TAG" > notes.md && cat notes.md
-      - name: Create release
-        run: gh release create "$TAG" out/* --title "$TAG" --notes-file notes.md
-      - name: Post patch notes issue
+      - name: Patch notes, release, one issue per game
+        # Each game gets its own issue labeled with its name; a game with no feat/fix commits gets none.
         run: |
           gh label create patch-notes --color FBCA04 --description "릴리스 패치노트 (자동)" --force
-          gh issue create --title "패치노트 $TAG" --label patch-notes --body-file notes.md
+          : > release.md
+          for game in */project.godot; do
+            game=${game%/project.godot}
+            name=$(sed -n 's/^config\/name="\(.*\)"/\1/p' "$game/project.godot")
+            .github/patch-notes.sh "$TAG" "$game" > notes.md
+            [ -s notes.md ] || continue
+            printf '## %s\n\n' "$name" >> release.md && cat notes.md >> release.md
+            gh label create "$name" --color 5319E7 --description "$game/" --force
+            gh issue create --title "[$name] 패치노트 $TAG" --label patch-notes --label "$name" --body-file notes.md
+          done
+          cat release.md
+          gh release create "$TAG" out/* --title "$TAG" --notes-file release.md
