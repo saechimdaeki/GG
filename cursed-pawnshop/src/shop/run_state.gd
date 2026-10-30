@@ -553,7 +553,8 @@ func end_day() -> Array:
 func debt_line() -> String:
 	if ended != "":
 		return ""
-	var d := days_to_payday()
+	# after end_day the day has already moved on, so payday night counts as "tonight"
+	var d := 0 if payday else days_to_payday()
 	return "바알 상환 %s · %dG" % ["오늘 밤" if d == 0 else "D-%d" % d, debt_due()]
 
 
