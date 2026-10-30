@@ -59,7 +59,7 @@ godot --headless --export-release "Windows" build/windows/CursedPawnshop.exe
 
 ## 패치노트
 
-업데이트 내역은 [GitHub 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 올림.
+릴리스 태그를 푸시하면 지난 태그 이후 `feat:` / `fix:` 커밋이 정리돼 [`patch-notes` 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 자동 등록됨 (`.github/patch-notes.sh`). 커밋 메시지 첫 줄이 그대로 패치노트가 되니 플레이어가 읽을 말로 쓰기.
 
 ## 새 게임 추가하기
 

@@ -1,6 +1,7 @@
 name: release
 
-# Push a tag like v0.2.0 → builds every game for Mac and Windows and attaches them to a GitHub Release.
+# Push a tag like v0.2.0 → builds every game for Mac and Windows, attaches them to a GitHub Release,
+# and posts the patch notes (feat/fix commits since the last tag, .github/patch-notes.sh) as an issue.
 # One matrix entry per game folder; add one when a new game joins the repo.
 
 on:
@@ -9,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -61,12 +63,22 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # patch-notes.sh needs the previous tag
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
+      - name: Write patch notes
+        run: .github/patch-notes.sh "$TAG" > notes.md && cat notes.md
       - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create ${{ github.ref_name }} out/* --repo ${{ github.repository }} --generate-notes
+        run: gh release create "$TAG" out/* --title "$TAG" --notes-file notes.md
+      - name: Post patch notes issue
+        run: |
+          gh label create patch-notes --color FBCA04 --description "릴리스 패치노트 (자동)" --force
+          gh issue create --title "패치노트 $TAG" --label patch-notes --body-file notes.md
