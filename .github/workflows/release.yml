@@ -24,6 +24,8 @@ jobs:
             name: CursedPawnshop
           - game: demon-lord-is-busy
             name: DemonLordIsBusy
+          - game: sunken-city
+            name: SunkenCity
     defaults:
       run:
         working-directory: ${{ matrix.game }}

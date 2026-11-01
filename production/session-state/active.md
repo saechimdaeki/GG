@@ -33,14 +33,14 @@ Task:
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-10-30
+**Updated:** 2026-11-02
 **Branch:** `main`
-**Current task:** 새 게임 가라앉은 도시(sunken-city/) — 기획서·이미지 인계 문서까지 완료
-**Next step:** 유저 리뷰 후 M1(잠수 한 번: 수중 이동·산소·채집·부술 지형·펌프 하나로 배수) 구현. Godot 프로젝트 아직 없음
-**Blocked on:** 유저가 Grok/Gemini로 묶음 1(16장) 생성 — sunken-city/art/PROMPTS.md
+**Current task:** 가라앉은 도시 M1(잠수 한 번) 구현 완료 — sunken-city/src (world·diver·eel 순수 로직 + game.gd 코드 그림)
+**Next step:** 유저 플레이 평가 → M2 마을(마른 땅에 건물 3종·주민·장비 업그레이드). 그림은 Gemini 묶음 1 (art/PROMPTS.md)
+**Blocked on:** 유저 플레이테스트, Gemini 그림 (Grok 구독 끝남)
 **Files in progress:** none
-**Run result:** NOT RUN — 문서만
-**Open questions:** 기획서 수정 여부
+**Run result:** OBSERVED — 시작·배수 중·배수 후 (sunken-city/production/qa/evidence/m1-dive/), smoke PASS
+**Open questions:** 커밋·푸시 여부
 <!-- /CHECKPOINT -->
 
 ---

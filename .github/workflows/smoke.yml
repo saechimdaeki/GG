@@ -19,6 +19,8 @@ jobs:
             script: res://tests/smoke/story_001_check.gd
           - game: cursed-pawnshop
             script: res://tests/smoke/run_check.gd
+          - game: sunken-city
+            script: res://tests/smoke/run_check.gd
     defaults:
       run:
         working-directory: ${{ matrix.game }}

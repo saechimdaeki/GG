@@ -1,0 +1,29 @@
+; Engine configuration file.
+
+config_version=5
+
+[application]
+
+config/name="가라앉은 도시"
+run/main_scene="res://src/game/game.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=640
+window/size/viewport_height=360
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="viewport"
+
+[gui]
+
+theme/custom_font="res://assets/fonts/Galmuri11.ttf"
+
+[rendering]
+textures/vram_compression/import_etc2_astc=true
+
+environment/defaults/default_clear_color=Color(0.03, 0.06, 0.09, 1)
+
+; ponytail: pixel art needs nearest filtering, otherwise small sprites blur
+textures/canvas_textures/default_texture_filter=0
