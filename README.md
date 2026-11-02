@@ -10,7 +10,7 @@
 |---|---|---|---|---|
 | 마왕님은 바쁘다 | [`demon-lord-is-busy/`](demon-lord-is-busy/) | 던전 디펜스 + 액션 로그라이크 | Godot 4.7.2 | 플레이 가능, 플레이테스트 중 |
 | 저주받은 전당포 | [`cursed-pawnshop/`](cursed-pawnshop/) | 크툴루풍 감정·장사 시뮬 (28일 캠페인) | Godot 4.7.2 | 완성, 플레이테스트 대기 |
-| 가라앉은 도시 | [`sunken-city/`](sunken-city/) | 잠수 탐험 + 영역 재건 (2D 사이드뷰) | Godot 4.7.2 | M1 플레이 가능 (잠수·배수) |
+| 가라앉은 도시 | [`sunken-city/`](sunken-city/) | 잠수 탐험 + 영역 재건 (2D 사이드뷰) | Godot 4.7.2 | M2 플레이 가능 (잠수·배수·마을) |
 
 ## 아이디어 보관함
 

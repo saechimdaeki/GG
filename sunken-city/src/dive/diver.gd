@@ -10,7 +10,7 @@ signal hurt
 var pos: Vector2
 var vel := Vector2.ZERO
 var facing := Vector2i.RIGHT
-var oxygen := Tuning.OXYGEN_MAX
+var oxygen: float = VillageData.TANK_MAX[0]
 var inventory := {"scrap": 0, "pipe": 0, "gear": 0}
 var on_floor := false
 var _invuln := 0.0
@@ -39,17 +39,21 @@ func step(world: World, move: Vector2, jump: bool, use_tool: bool, dt: float) ->
 		_walk(move, jump, dt)
 	_move(world, dt)
 
+	var full := oxygen_max(world)
 	if wet:
-		oxygen -= Tuning.OXYGEN_DRAIN * dt
+		oxygen -= Tuning.OXYGEN_DRAIN * dt * (VillageData.PRESSURE_DRAIN if world.crushing(pos) else 1.0)
 	else:
-		oxygen = Tuning.OXYGEN_MAX
+		oxygen = full
 	for a in world.air_plants:
 		if pos.distance_to(a) < Tuning.TILE:
-			oxygen = Tuning.OXYGEN_MAX
+			oxygen = full
 
 	if use_tool and _hit_cd == 0.0:
 		_hit_cd = Tuning.HIT_COOLDOWN
-		world.hit(_tile() + facing)
+		world.hit(_tile() + facing, 1 + world.village.levels["pick"])
+
+	if not world.gate_found and world.gate != Vector2.ZERO and pos.distance_to(world.gate) < Tuning.GATE_RANGE:
+		world.gate_found = true
 
 	for i in range(world.pickups.size() - 1, -1, -1):
 		var p: Dictionary = world.pickups[i]
@@ -67,6 +71,10 @@ func step(world: World, move: Vector2, jump: bool, use_tool: bool, dt: float) ->
 
 	if oxygen <= 0.0:
 		_faint(world)
+
+
+func oxygen_max(world: World) -> float:
+	return VillageData.TANK_MAX[world.village.levels["tank"]]
 
 
 func near_pump(world: World) -> bool:
@@ -115,9 +123,8 @@ func _move(world: World, dt: float) -> void:
 
 
 func _faint(world: World) -> void:
-	for k in inventory:
-		inventory[k] = int(inventory[k] * Tuning.FAINT_KEEP)
-	pos = world.start
+	inventory["scrap"] = int(inventory["scrap"] * Tuning.FAINT_KEEP)
+	pos = world.respawn()
 	vel = Vector2.ZERO
-	oxygen = Tuning.OXYGEN_MAX
+	oxygen = oxygen_max(world)
 	fainted.emit()

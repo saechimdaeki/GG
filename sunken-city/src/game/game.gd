@@ -1,71 +1,76 @@
 extends Node2D
-## M1 dive scene: draws the World with code art (until the Gemini sprites land),
-## reads input, follows the diver with the camera and shows the HUD.
+## Dive scene: game rules (World, Diver, Village) shown through the 2.5D SeaView — 3D
+## sea, pixel-sprite characters. Reads input, runs the village menus and the HUD.
 
-const COLORS := {
-	"wall": Color("1d2b3a"), "wall_edge": Color("2f4558"),
-	"cracked": Color("3a4a52"), "crack": Color("0e161d"),
-	"rubble": Color("54504a"), "open": Color("0b1620"),
-	"open_dry": Color("4a4436"), "wall_dry": Color("6b6152"), "moss": Color("6f9a4a"),
-	"water": Color(0.1, 0.45, 0.55, 0.35), "surface": Color(0.55, 0.9, 1.0, 0.8),
-	"scrap": Color("c9a24a"), "pipe": Color("b8743c"), "gear": Color("7f9a6a"),
-	"plant": Color("5fd6c0"), "eel": Color("3f6e5a"), "lure": Color("ffe9a0"),
-	"diver": Color("c9a24a"), "suit": Color("8a7a5c"), "glass": Color("9fe6ff"),
-	"pump_broken": Color("6b4a32"), "pump_fixed": Color("d9b45a"),
-}
-const DEEP_TINT := Color(0.35, 0.45, 0.6)
-const DRY_TINT := Color(1.0, 0.95, 0.85)
 const LABELS := {"scrap": "황동 조각", "pipe": "파이프", "gear": "톱니"}
+const NEAR := 28.0
+const MENU_KEYS := [KEY_1, KEY_2, KEY_3]
+const RESIDENT_ART := ["moru", "mulbangul"]
+const MENU_COLOR := Color("ffd27a")
+## Every image in assets/ the game uses (made by tools/art_build.py), keyed "folder/name".
+const ART := [
+	"sprites/diver", "sprites/eel_lantern", "sprites/moru", "sprites/mulbangul",
+	"props/air_bubble_plant", "props/pump_broken", "props/pump_fixed", "props/floodgate",
+	"props/scrap_brass", "props/pipe_part", "props/gear",
+	"props/building_workshop", "props/building_lodge", "props/building_tower",
+	"portraits/moru", "portraits/mulbangul",
+]
+const OPTIONAL_ART := ["sprites/diver_stand"]  # used when present, else the swim pose
+const PICKUP_ART := {"scrap": "props/scrap_brass", "pipe": "props/pipe_part", "gear": "props/gear"}
 
 var world := World.new()
 var diver := Diver.new(world.start)
-var _cam := Camera2D.new()
-var _light := PointLight2D.new()
-var _tint := CanvasModulate.new()
+var view := SeaView.new()
 var _oxygen_bar := ProgressBar.new()
 var _inv_label := Label.new()
 var _msg_label := Label.new()
+var _menu_label := Label.new()
+var _menu: Array = []          # {text: String, run: Callable}
+var _menu_at := Vector2.ZERO
 var _msg_time := 0.0
 var _time := 0.0
-var _dry := 0.0  # 0 flooded .. 1 fully drained, warms the palette
+var _tex := {}
+var _portraits := HBoxContainer.new()
+var _menu_lodge := false  # the open menu is the lodge: show the residents' faces
+var _dry := 0.0  # 0 flooded .. 1 fully drained
 
 
 func _ready() -> void:
 	_bind_keys()
-	_tint.color = DEEP_TINT
-	add_child(_tint)
-	_light.texture = _radial_texture()
-	_light.texture_scale = 2.5
-	_light.energy = 1.4
-	add_child(_light)
-	_cam.limit_right = world.width * Tuning.TILE
-	_cam.limit_bottom = world.height * Tuning.TILE
-	_cam.limit_left = 0
-	_cam.limit_top = 0
-	_cam.position_smoothing_enabled = true
-	add_child(_cam)
+	for name in ART + OPTIONAL_ART:
+		if ResourceLoader.exists("res://assets/%s.png" % name):
+			_tex[name] = load("res://assets/%s.png" % name)
+	add_child(view)
+	view.setup(world, _tex)
 	_build_hud()
-	diver.fainted.connect(func(): _say("산소가 바닥났다… 출발점에서 깨어났다. 재료 절반을 잃었다."))
+	diver.fainted.connect(func(): _say("산소가 바닥났다… 정신을 차려보니 %s. 황동 조각 절반을 잃었다." % ("마을이다" if world.pump_fixed else "출발점이다")))
 	diver.picked.connect(func(k): _say("%s 주웠다" % LABELS[k], 1.2))
 	diver.hurt.connect(func(): _say("장어에게 물렸다! 산소 -%d" % int(Tuning.EEL_BITE), 1.2))
-	_say("방향키/WASD 이동 · Space 점프 · J 부수기 · E 펌프 수리\n펌프를 고칠 재료: 황동 조각 3 · 파이프 1 · 톱니 1", 6.0)
+	_say("방향키/WASD 이동 · Space 점프 · J 부수기 · E 상호작용 · R 귀환\n펌프를 고칠 재료: 황동 조각 3 · 파이프 1 · 톱니 1", 6.0)
 
 
 func _physics_process(dt: float) -> void:
 	_time += dt
 	var move := Input.get_vector("left", "right", "up", "down")
 	diver.step(world, move, Input.is_action_just_pressed("jump"), Input.is_action_pressed("tool"), dt)
-	if Input.is_action_just_pressed("interact") and diver.near_pump(world):
-		_try_repair()
-	world.step(dt)
+	if Input.is_action_just_pressed("interact"):
+		_interact()
+	if Input.is_action_just_pressed("return"):
+		diver.pos = world.respawn()
+		diver.vel = Vector2.ZERO
+		_say("밧줄을 당겨 %s(으)로 돌아왔다" % ("마을" if world.pump_fixed else "출발점"), 1.5)
+	if not _menu.is_empty() and diver.pos.distance_to(_menu_at) > NEAR * 1.5:
+		_menu = []
+	var was_found := world.gate_found
+	world.step(dt, diver.pos)
+	if world.gate_found and not was_found:
+		_say("봉인된 고대 수문을 찾았다… 이 너머에 더 깊은 도시가 있다. (다음: M3 수문)", 8.0)
 	_dry = inverse_lerp(Zone1.SURFACE_ROW * Tuning.TILE, world.drained_y, world.surface_y)
-	_tint.color = DEEP_TINT.lerp(DRY_TINT, _dry)
-	_cam.position = diver.pos
-	_light.position = diver.pos
+	view.sync(diver, _dry, dt)
+	_show_sprites()
 	_msg_time -= dt
 	_msg_label.visible = _msg_time > 0
 	_update_hud()
-	queue_redraw()
 
 
 func _try_repair() -> void:
@@ -75,7 +80,7 @@ func _try_repair() -> void:
 	if world.repair_pump(diver.inventory):
 		_say("펌프가 돌아간다! 물이 빠진다…", 4.0)
 		await get_tree().create_timer(Tuning.DRAIN_TIME).timeout
-		_say("구역이 말랐다! 이 땅에 마을을 지을 수 있다. (다음: M2 마을)", 8.0)
+		_say("구역이 말랐다! 금빛 표시가 된 빈터에서 E를 눌러 건물을 지어보자.", 8.0)
 	else:
 		var parts := []
 		for k in need:
@@ -83,101 +88,128 @@ func _try_repair() -> void:
 		_say("재료가 모자란다: " + ", ".join(parts), 2.5)
 
 
+## E picks the closest thing in reach: the broken pump, an empty plot, the workshop or the lodge.
+func _interact() -> void:
+	if not _menu.is_empty():
+		_menu = []
+		return
+	if not world.pump_fixed:
+		if diver.near_pump(world):
+			_try_repair()
+		return
+	var v := world.village
+	for i in v.plots.size():
+		var plot: Dictionary = v.plots[i]
+		if diver.pos.distance_to(plot["pos"]) > NEAR:
+			continue
+		match plot["building"]:
+			"": _open_build_menu(i)
+			"workshop": _open_workshop_menu()
+			"lodge": _open_lodge_menu()
+			"tower": _say("조명탑이 깊은 곳까지 빛을 보낸다.", 2.0)
+		_menu_at = plot["pos"]
+		return
+
+
+func _open_build_menu(plot: int) -> void:
+	_menu = []
+	_menu_lodge = false
+	for kind in world.village.unbuilt():
+		var b: Dictionary = VillageData.BUILDINGS[kind]
+		_menu.append({"text": "%s — %s (%s)" % [b["name"], b["desc"], Village.cost_text(b["cost"])], "run": func():
+			if world.village.build(plot, kind, diver.inventory):
+				_say("%s을(를) 지었다!" % b["name"], 2.5)
+				if kind == "lodge":
+					_say("숙소에 주민들이 찾아왔다. 숙소에서 E로 말을 걸어보자.", 4.0)
+			else:
+				_say("재료가 모자란다 (%s)" % Village.cost_text(b["cost"]), 2.0)})
+
+
+func _open_workshop_menu() -> void:
+	_menu = []
+	_menu_lodge = false
+	var v := world.village
+	for kind in VillageData.UPGRADES:
+		var u: Dictionary = VillageData.UPGRADES[kind]
+		var cost := v.upgrade_cost(kind)
+		var lv: int = v.levels[kind]
+		if cost.is_empty():
+			_menu.append({"text": "%s Lv%d — 최고 단계" % [u["name"], lv], "run": func(): pass})
+			continue
+		_menu.append({"text": "%s Lv%d→%d — %s (%s)" % [u["name"], lv, lv + 1, u["desc"], Village.cost_text(cost)], "run": func():
+			if v.upgrade(kind, diver.inventory):
+				_say("%s 업그레이드 완료! (Lv%d)" % [u["name"], v.levels[kind]], 2.5)
+			else:
+				_say("재료가 모자란다 (%s)" % Village.cost_text(cost), 2.0)})
+
+
+func _open_lodge_menu() -> void:
+	_menu = []
+	_menu_lodge = true
+	var v := world.village
+	for i in v.residents().size():
+		var r: Dictionary = v.residents()[i]
+		if v.requests_done.has(i):
+			_menu.append({"text": "%s: \"고마워, 덕분에 살 만해.\"" % r["name"], "run": func(): pass})
+			continue
+		_menu.append({"text": "%s(%s): \"%s\" (주기: %s)" % [r["name"], r["look"], r["ask"], Village.cost_text(r["need"])], "run": func():
+			if v.fulfil(i, diver.inventory):
+				_say("%s: \"%s\" (+%s)" % [r["name"], r["thanks"], Village.cost_text(r["reward"])], 4.0)
+			else:
+				_say("%s: \"%s\"" % [r["name"], r["hello"]], 3.0)})
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _menu.is_empty() or not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	var i := MENU_KEYS.find(event.physical_keycode)
+	if i >= 0 and i < _menu.size():
+		var run: Callable = _menu[i]["run"]
+		_menu = []
+		run.call()
+
+
 func _say(text: String, seconds := 3.0) -> void:
 	_msg_label.text = text
 	_msg_time = seconds
 
 
-# --- drawing -------------------------------------------------------------
+# --- what the 3D view shows ------------------------------------------------
 
-func _draw() -> void:
-	var t := Tuning.TILE
-	draw_rect(Rect2(0, 0, world.width * t, world.height * t), COLORS["open"].lerp(COLORS["open_dry"], _dry))
-	for y in world.height:
-		for x in world.width:
-			var r := Rect2(x * t, y * t, t, t)
-			match world.cell(Vector2i(x, y)):
-				World.Cell.WALL:
-					draw_rect(r, COLORS["wall"].lerp(COLORS["wall_dry"], _dry))
-					if not world.is_solid(Vector2i(x, y - 1)):
-						draw_rect(Rect2(r.position, Vector2(t, 3)), COLORS["wall_edge"].lerp(COLORS["moss"], _dry))
-				World.Cell.CRACKED:
-					draw_rect(r, COLORS["cracked"])
-					var hurt: int = world.damage.get(Vector2i(x, y), 0)
-					draw_line(r.position + Vector2(3, 2), r.position + Vector2(9, 9), COLORS["crack"], 1.0)
-					draw_line(r.position + Vector2(9, 9), r.position + Vector2(6, 14), COLORS["crack"], 1.0)
-					if hurt > 0:
-						draw_line(r.position + Vector2(13, 3), r.position + Vector2(8, 10), COLORS["crack"], 2.0)
-				World.Cell.RUBBLE:
-					draw_circle(r.get_center() + Vector2(-3, 3), 5, COLORS["rubble"])
-					draw_circle(r.get_center() + Vector2(4, 4), 4, COLORS["rubble"].darkened(0.2))
-					draw_circle(r.get_center() + Vector2(0, -2), 4, COLORS["rubble"].lightened(0.1))
-	for a in world.air_plants:
-		draw_line(a + Vector2(0, 8), a + Vector2(0, -2), COLORS["plant"].darkened(0.4), 2.0)
-		for i in 3:
-			var bob := sin(_time * 2.0 + i) * 1.5
-			draw_circle(a + Vector2(-4 + i * 4, -3 + bob), 2.5, COLORS["plant"])
-	_draw_pump()
-	for p in world.pickups:
-		_draw_pickup(p["pos"], p["kind"])
-	for e in world.eels:
+## Everything that moves or changes, as pixel sprites in the 3D sea. Sprites a little
+## behind the play plane (negative z) sit "in" the scene; the diver is frontmost.
+func _show_sprites() -> void:
+	view.begin_frame()
+	for i in world.air_plants.size():
+		view.show_sprite("plant%d" % i, "props/air_bubble_plant", world.air_plants[i] + Vector2(0, sin(_time * 2.0 + i) * 0.5), false, false, -0.2)
+	view.show_sprite("pump", "props/pump_fixed" if world.pump_fixed else "props/pump_broken", world.pump + Vector2(0, 8), false, true, -0.3)
+	view.show_sprite("gate", "props/floodgate", world.gate + Vector2(0, 8), false, true, -0.3,
+		Color(1.4, 1.4, 1.2) if world.gate_found else Color.WHITE)
+	if world.pump_fixed:
+		var v := world.village
+		for i in v.plots.size():
+			var kind: String = v.plots[i]["building"]
+			if kind != "":
+				view.show_sprite("building%d" % i, "props/building_" + kind, v.plots[i]["pos"] + Vector2(0, 9), false, true, -0.5)
+		if v.has("lodge"):
+			var lodge: Vector2 = v.plots.filter(func(p): return p["building"] == "lodge")[0]["pos"]
+			for i in RESIDENT_ART.size():
+				var tint := Color.WHITE if v.requests_done.has(i) else Color(1.15, 1.1, 0.9)  # waiting: a little glow
+				view.show_sprite("resident%d" % i, "sprites/" + RESIDENT_ART[i], lodge + Vector2(-34 + i * 68, 9), i == 1, true, 0.1, tint)
+	for i in world.pickups.size():
+		var p: Dictionary = world.pickups[i]
+		view.show_sprite("pickup%d" % i, PICKUP_ART[p["kind"]], p["pos"] + Vector2(0, sin(_time * 3.0 + p["pos"].x) * 1.5), false, false, 0.1)
+	for i in world.eels.size():
+		var e: Eel = world.eels[i]
 		if e.alive:
-			_draw_eel(e)
-	_draw_diver()
-	# water on top of everything below the surface
-	var sy := world.surface_y
-	draw_rect(Rect2(0, sy, world.width * t, world.height * t - sy), COLORS["water"])
-	var pts := PackedVector2Array()
-	for i in range(0, world.width * t + 1, 4):
-		pts.append(Vector2(i, sy + sin(i * 0.08 + _time * 3.0)))
-	draw_polyline(pts, COLORS["surface"], 1.0)
-
-
-func _draw_pump() -> void:
-	var c := world.pump
-	var col: Color = COLORS["pump_fixed"] if world.pump_fixed else COLORS["pump_broken"]
-	draw_rect(Rect2(c + Vector2(-10, -6), Vector2(20, 14)), col)
-	draw_rect(Rect2(c + Vector2(10, -2), Vector2(10, 4)), col.darkened(0.3))
-	var spin := _time * 4.0 if world.pump_fixed else 0.6
-	draw_arc(c + Vector2(-2, -10), 6, spin, spin + TAU * 0.8, 10, col.lightened(0.2), 2.0)
-	if world.draining():
-		for i in 4:
-			draw_circle(c + Vector2(22 + fmod(_time * 30.0 + i * 6, 20), 0), 2, COLORS["surface"])
-
-
-func _draw_pickup(p: Vector2, kind: String) -> void:
-	var bob := Vector2(0, sin(_time * 3.0 + p.x) * 1.5)
-	match kind:
-		"scrap": draw_colored_polygon(PackedVector2Array([p + bob + Vector2(-4, 2), p + bob + Vector2(0, -4), p + bob + Vector2(4, 1), p + bob + Vector2(1, 4)]), COLORS["scrap"])
-		"pipe": draw_line(p + bob + Vector2(-5, 2), p + bob + Vector2(4, -3), COLORS["pipe"], 3.0)
-		"gear":
-			draw_circle(p + bob, 4.5, COLORS["gear"])
-			draw_circle(p + bob, 1.5, COLORS["open"])
-
-
-func _draw_eel(e: Eel) -> void:
-	var pts := PackedVector2Array()
-	for i in 6:
-		var x := -e.dir * (i * 4 - 10)
-		pts.append(e.pos + Vector2(x, sin(_time * 6.0 + i) * 2.0))
-	draw_polyline(pts, COLORS["eel"], 4.0)
-	var head := e.pos + Vector2(e.dir * 10, 0)
-	draw_line(head, head + Vector2(e.dir * 4, -6), COLORS["eel"], 1.0)
-	draw_circle(head + Vector2(e.dir * 4, -7), 2.0, COLORS["lure"])
-
-
-func _draw_diver() -> void:
-	if diver.invulnerable() and int(_time * 12) % 2 == 0:
-		return
-	var p := diver.pos
-	var f := float(diver.facing.x if diver.facing.x != 0 else 1)
-	draw_rect(Rect2(p + Vector2(-5, -1), Vector2(10, 8)), COLORS["suit"])        # body
-	draw_rect(Rect2(p + Vector2(-f * 7 - 2, -1), Vector2(4, 6)), COLORS["suit"].darkened(0.3))  # tank
-	draw_circle(p + Vector2(0, -3), 5, COLORS["diver"])                          # helmet
-	draw_circle(p + Vector2(f * 1.5, -3), 2.5, COLORS["glass"])
-	draw_circle(p + Vector2(0, -8.5), 1.2, COLORS["lure"])                      # lamp
-	if world.in_water(p) and int(_time * 2) % 2 == 0:
-		draw_circle(p + Vector2(f * 3, -12 - fmod(_time * 10, 6)), 1.2, COLORS["surface"])
+			view.show_sprite("eel%d" % i, "sprites/eel_lantern", e.pos + Vector2(0, sin(_time * 6.0 + i)), e.dir < 0, false, 0.2)
+	if not (diver.invulnerable() and int(_time * 12) % 2 == 0):
+		var left := diver.facing.x < 0
+		if world.in_water(diver.pos) or not _tex.has("sprites/diver_stand"):
+			view.show_sprite("diver", "sprites/diver", diver.pos + Vector2(0, sin(_time * 3.0) * 0.8), left, false, 0.4)
+		else:
+			view.show_sprite("diver", "sprites/diver_stand", diver.pos + Vector2(0, Tuning.DIVER_SIZE.y / 2 + 1), left, true, 0.4)
+	view.end_frame()
 
 
 # --- setup ---------------------------------------------------------------
@@ -185,13 +217,22 @@ func _draw_diver() -> void:
 func _build_hud() -> void:
 	var hud := CanvasLayer.new()
 	add_child(hud)
+	var panel := PanelContainer.new()
+	panel.position.y = 4
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.02, 0.04, 0.06, 0.6)
+	back.set_content_margin_all(4)
+	panel.add_theme_stylebox_override("panel", back)
+	hud.add_child(panel)
+	# top-right: the start pocket is the map's top-left corner, where the camera pins the diver
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.position.x -= 4
 	var box := VBoxContainer.new()
-	box.position = Vector2(8, 6)
-	hud.add_child(box)
+	panel.add_child(box)
 	var o2 := Label.new()
 	o2.text = "산소"
 	box.add_child(o2)
-	_oxygen_bar.max_value = Tuning.OXYGEN_MAX
 	_oxygen_bar.custom_minimum_size = Vector2(120, 8)
 	_oxygen_bar.show_percentage = false
 	box.add_child(_oxygen_bar)
@@ -202,30 +243,46 @@ func _build_hud() -> void:
 	_msg_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_msg_label.add_theme_constant_override("outline_size", 4)
 	hud.add_child(_msg_label)
+	_menu_label.position = Vector2(8, 64)
+	_menu_label.size = Vector2(624, 0)
+	_menu_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.03, 0.05, 0.08, 0.85)
+	bg.set_content_margin_all(6)
+	_menu_label.add_theme_stylebox_override("normal", bg)
+	_menu_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_menu_label.add_theme_constant_override("outline_size", 4)
+	_menu_label.add_theme_color_override("font_color", MENU_COLOR)
+	hud.add_child(_menu_label)
+	_portraits.position = Vector2(500, 200)
+	for name in RESIDENT_ART:
+		var face := TextureRect.new()
+		face.texture = _tex["portraits/" + name]
+		_portraits.add_child(face)
+	hud.add_child(_portraits)
 
 
 func _update_hud() -> void:
+	_oxygen_bar.max_value = diver.oxygen_max(world)
 	_oxygen_bar.value = diver.oxygen
+	_oxygen_bar.modulate = Color(1, 0.4, 0.4) if world.crushing(diver.pos) else Color.WHITE
 	var parts := []
 	for k in World.MATERIALS:
-		parts.append("%s %d/%d" % [LABELS[k], diver.inventory[k], Tuning.PUMP_COST[k]])
+		parts.append("%s %d" % [LABELS[k], diver.inventory[k]] if world.pump_fixed else "%s %d/%d" % [LABELS[k], diver.inventory[k], Tuning.PUMP_COST[k]])
 	_inv_label.text = "  ".join(parts)
-	if diver.near_pump(world) and not world.pump_fixed and _msg_time <= 0:
+	if world.crushing(diver.pos) and _msg_time <= 0:
+		_say("수압이 짓누른다! 산소가 빨리 닳는다 — 공방에서 잠수복을 업그레이드하자", 0.3)
+	elif diver.near_pump(world) and not world.pump_fixed and _msg_time <= 0:
 		_say("E: 펌프 수리", 0.2)
-
-
-func _radial_texture() -> GradientTexture2D:
-	var g := Gradient.new()
-	g.set_color(0, Color.WHITE)
-	g.set_color(1, Color(1, 1, 1, 0))
-	var tex := GradientTexture2D.new()
-	tex.gradient = g
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 128
-	tex.height = 128
-	return tex
+	var lines := []
+	for i in _menu.size():
+		lines.append("%d. %s" % [i + 1, _menu[i]["text"]])
+	if not lines.is_empty():
+		lines.append("(숫자로 고르기 · E 닫기)")
+	_menu_label.text = "\n".join(lines)
+	_menu_label.visible = not lines.is_empty()
+	_portraits.visible = _menu_lodge and not lines.is_empty()
+	_menu_label.size.y = 0  # shrink back to the text after a longer menu
 
 
 ## ponytail: actions registered in code instead of project.godot's verbose InputEvent blobs.
@@ -233,7 +290,7 @@ func _bind_keys() -> void:
 	var keys := {
 		"left": [KEY_LEFT, KEY_A], "right": [KEY_RIGHT, KEY_D],
 		"up": [KEY_UP, KEY_W], "down": [KEY_DOWN, KEY_S],
-		"jump": [KEY_SPACE], "tool": [KEY_J, KEY_X], "interact": [KEY_E],
+		"jump": [KEY_SPACE], "tool": [KEY_J, KEY_X], "interact": [KEY_E], "return": [KEY_R],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

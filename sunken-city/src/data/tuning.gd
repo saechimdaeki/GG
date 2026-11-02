@@ -16,21 +16,22 @@ const SURFACE_JUMP_RANGE := 10.0  # how close to the surface a jump pops you out
 # On dry ground
 const GRAVITY := 640.0
 const WALK_SPEED := 85.0
-const JUMP_SPEED := 270.0       # ~3.5 tiles high
+const JUMP_SPEED := 300.0       # ~4.4 tiles high: clears the 3-row inner floors of drowned towers
 const FALL_MAX := 360.0
 
 # Oxygen
-const OXYGEN_MAX := 60.0
 const OXYGEN_DRAIN := 1.0       # per second underwater
 const EEL_BITE := 10.0
 const HURT_INVULN := 1.0
 const KNOCKBACK := 160.0
-const FAINT_KEEP := 0.5         # share of carried materials kept after fainting
+const FAINT_KEEP := 0.5         # share of carried scrap kept after fainting (pipes and gears are rare, never lost)
+const GATE_RANGE := 20.0
 
 # Tools
 const HIT_COOLDOWN := 0.25
 const CRACKED_HP := 2
 const RUBBLE_HP := 1
+const HARD_HP := 4
 const PICKUP_RANGE := 12.0
 const PUMP_RANGE := 26.0
 

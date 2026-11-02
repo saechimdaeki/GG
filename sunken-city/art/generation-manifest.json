@@ -1,0 +1,791 @@
+{
+  "tool": "built-in image_gen",
+  "styles": {
+    "A": "Pixel art 2D side-view game sprite, 32-bit style, single character in full body,\nfacing right, neutral standing or swimming pose, mysterious flooded ancient city\nsetting, deep teal and navy palette with soft cyan rim light from above, bold dark\noutline, readable at small size, charming not gory, transparent background (or solid\n#FF00FF magenta background), no text, no frame, no shadow, square image.",
+    "B": "Pixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.",
+    "C": "Pixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.",
+    "E": "Pixel art character portrait, 32-bit style, single character shown from the chest up,\nfacing the viewer, survivor living in a half-drowned ancient city, warm lantern light\nfrom the lower left, teal and brass palette with warm skin and cloth tones, bold dark\noutline, expressive and charming, transparent background (or solid #FF00FF magenta\nbackground), no text, no frame, square image.",
+    "D": "Pixel art 2D side-view game background, 32-bit style, vast flooded ancient city\nunderwater, layers of sunken towers fading into darkness, god rays from the surface,\ndeep teal and navy with glowing cyan accents, atmospheric and lonely, no characters,\nno text, no UI, no frame. Wide 16:9 image."
+  },
+  "assets": [
+    {
+      "path": "tiles/stone_wall.png",
+      "style": "B",
+      "prompt": "Carved ancient stone bricks, sturdy",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: tiles/stone_wall.png.\nPixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.\nSubject: Carved ancient stone bricks, sturdy\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "tiles/stone_cracked.png",
+      "style": "B",
+      "prompt": "The same carved stone bricks but heavily cracked, looks breakable",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: tiles/stone_cracked.png.\nPixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.\nSubject: The same carved stone bricks but heavily cracked, looks breakable\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "tiles/sand_floor.png",
+      "style": "B",
+      "prompt": "Seabed sand with small pebbles and shells, top edge is the surface of the ground",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: tiles/sand_floor.png.\nPixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.\nSubject: Seabed sand with small pebbles and shells, top edge is the surface of the ground\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "tiles/coral_rubble.png",
+      "style": "B",
+      "prompt": "Loose rubble mixed with small coral, diggable",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: tiles/coral_rubble.png.\nPixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.\nSubject: Loose rubble mixed with small coral, diggable\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "props/pump_broken.png",
+      "style": "C",
+      "prompt": "A large ancient water pump machine with a big wheel and pipes, rusted, missing parts, broken and dark",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/pump_broken.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: A large ancient water pump machine with a big wheel and pipes, rusted, missing parts, broken and dark\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "props/pump_fixed.png",
+      "style": "C",
+      "prompt": "The same large ancient water pump machine repaired, polished brass, glowing cyan gauge, water gushing from the pipe",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/pump_fixed.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: The same large ancient water pump machine repaired, polished brass, glowing cyan gauge, water gushing from the pipe\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "props/pipe_part.png",
+      "style": "C",
+      "prompt": "A short bent copper pipe fitting",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/pipe_part.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: A short bent copper pipe fitting\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "props/air_bubble_plant.png",
+      "style": "C",
+      "prompt": "An underwater plant with glowing bulbs that release air bubbles (oxygen refill)",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/air_bubble_plant.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: An underwater plant with glowing bulbs that release air bubbles (oxygen refill)\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "scenes/bg_zone1_far.png",
+      "style": "D",
+      "prompt": "Far layer only: silhouettes of sunken towers and domes, very dark, light from above",
+      "size": [
+        1672,
+        940
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: scenes/bg_zone1_far.png.\nPixel art 2D side-view game background, 32-bit style, vast flooded ancient city\nunderwater, layers of sunken towers fading into darkness, god rays from the surface,\ndeep teal and navy with glowing cyan accents, atmospheric and lonely, no characters,\nno text, no UI, no frame. Wide 16:9 image.\nSubject: Far layer only: silhouettes of sunken towers and domes, very dark, light from above\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "scenes/bg_zone1_drained.png",
+      "style": "D",
+      "prompt": "The same sunken street after the water was drained: wet stones, puddles, warm sunlight through a hole far above, moss, hopeful mood, no water",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: scenes/bg_zone1_drained.png.\nPixel art 2D side-view game background, 32-bit style, vast flooded ancient city\nunderwater, layers of sunken towers fading into darkness, god rays from the surface,\ndeep teal and navy with glowing cyan accents, atmospheric and lonely, no characters,\nno text, no UI, no frame. Wide 16:9 image.\nSubject: The same sunken street after the water was drained: wet stones, puddles, warm sunlight through a hole far above, moss, hopeful mood, no water\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets.  Scene-specific drained warm sunlight requirements override underwater setting."
+    },
+    {
+      "path": "props/building_workshop.png",
+      "style": "C",
+      "prompt": "A small scrap-built workshop shack with a red tin roof, an anvil and hanging tools in front, built on wet ancient stone, warm lamp glow, wide image of one building",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/building_workshop.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: A small scrap-built workshop shack with a red tin roof, an anvil and hanging tools in front, built on wet ancient stone, warm lamp glow, wide image of one building\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "props/building_lodge.png",
+      "style": "C",
+      "prompt": "A cozy two-room lodge made of salvaged planks and old city stones, red roof, warm yellow lit window, a little door, laundry line, wide image of one building",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/building_lodge.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: A cozy two-room lodge made of salvaged planks and old city stones, red roof, warm yellow lit window, a little door, laundry line, wide image of one building\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "props/building_tower.png",
+      "style": "C",
+      "prompt": "A tall thin lighthouse-like lamp tower made of brass pipes and scaffolding, bright warm lantern on top shining",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/building_tower.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: A tall thin lighthouse-like lamp tower made of brass pipes and scaffolding, bright warm lantern on top shining\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "props/floodgate.png",
+      "style": "C",
+      "prompt": "A huge sealed ancient floodgate door, teal-green bronze with barnacles, carved circular seal in the middle, chains, mysterious",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: props/floodgate.png.\nPixel art game object, 32-bit style, single object centered, side view, ancient\nwaterlogged machinery and ruins from a sunken city, brass and green-stained copper,\nsoft top-left highlight, bold dark outline, transparent background (or solid #FF00FF\nmagenta background), no text, no frame, no hands, square image.\nSubject: A huge sealed ancient floodgate door, teal-green bronze with barnacles, carved circular seal in the middle, chains, mysterious\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. Genuine transparent background, entire subject within canvas with padding."
+    },
+    {
+      "path": "tiles/stone_dry.png",
+      "style": "B",
+      "prompt": "The same carved ancient stone bricks but dried out, warm sandy-grey tone, moss on top edge, sunlight feel instead of underwater teal",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: tiles/stone_dry.png.\nPixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.\nSubject: The same carved ancient stone bricks but dried out, warm sandy-grey tone, moss on top edge, sunlight feel instead of underwater teal\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "tiles/stone_hard.png",
+      "style": "B",
+      "prompt": "Reinforced ancient wall: thick dark granite blocks bound with rusted iron bands and rivets, clearly much harder than normal stone",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: tiles/stone_hard.png.\nPixel art 2D side-view platformer terrain tile, 32-bit style, seamless tileable\nsquare texture, flooded ancient stone city, deep teal and navy palette, subtle\nalgae and barnacles, viewed straight from the side, no perspective, no text,\nno frame, square image.\nSubject: Reinforced ancient wall: thick dark granite blocks bound with rusted iron bands and rivets, clearly much harder than normal stone\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets. "
+    },
+    {
+      "path": "scenes/bg_village.png",
+      "style": "D",
+      "prompt": "The drained street of the sunken city turned into a tiny village: salvaged huts on old stone ledges, lamp tower, puddles, warm sunlight from a hole far above, hopeful, no water above the bottom pool",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "status": "generated_raw",
+      "effective_prompt": "Use case: stylized-concept. Asset for Sunken City game: scenes/bg_village.png.\nPixel art 2D side-view game background, 32-bit style, vast flooded ancient city\nunderwater, layers of sunken towers fading into darkness, god rays from the surface,\ndeep teal and navy with glowing cyan accents, atmospheric and lonely, no characters,\nno text, no UI, no frame. Wide 16:9 image.\nSubject: The drained street of the sunken city turned into a tiny village: salvaged huts on old stone ledges, lamp tower, puddles, warm sunlight from a hole far above, hopeful, no water above the bottom pool\nKeep a consistent deep teal, navy, oxidized brass pixel art style across this game asset set. One asset only. No text, labels, frames or sprite sheets.  Scene-specific drained warm sunlight requirements override underwater setting."
+    },
+    {
+      "path": "sprites/diver_stand.png",
+      "prompt": "Same exact approved diver, rounded-square brass helmet, horizontal rectangular blue viewport showing youthful clean-shaven face with dark hair and tiny simple eyes, left-side lamp, burnt-orange overalls, teal sleeves and flippers, cream air cylinder, little brown crossbody salvage satchel. Standing upright, waving one gloved hand. Preserve reference design precisely.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nSame exact approved diver, rounded-square brass helmet, horizontal rectangular blue viewport showing youthful clean-shaven face with dark hair and tiny simple eyes, left-side lamp, burnt-orange overalls, teal sleeves and flippers, cream air cylinder, little brown crossbody salvage satchel. Standing upright, waving one gloved hand. Preserve reference design precisely.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-7441c1f9-3df1-4dd1-9528-040cf4acb968.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "sprites/eel_lantern.png",
+      "prompt": "A green eel creature with a gently rounded but elongated tapering body, little warm lantern bulb dangling over its head, small mischievous eyes, tiny toothy grin, long wiggling swimming silhouette. Endearing strange underwater wildlife, recognizable eel anatomy, fins and tail. No humanoid body or clothing.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nA green eel creature with a gently rounded but elongated tapering body, little warm lantern bulb dangling over its head, small mischievous eyes, tiny toothy grin, long wiggling swimming silhouette. Endearing strange underwater wildlife, recognizable eel anatomy, fins and tail. No humanoid body or clothing.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-33e92ed0-62da-49e2-b49e-279307610fb6.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "sprites/crab_rubble.png",
+      "prompt": "Small rusty red crab, broad squat body under a simple broken carved grey stone slab shell with a little moss, raised little pinchers, small eyes on short stalks and grumpy brows. Readable crab anatomy, slightly comical but not baby mascot. No human clothing.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nSmall rusty red crab, broad squat body under a simple broken carved grey stone slab shell with a little moss, raised little pinchers, small eyes on short stalks and grumpy brows. Readable crab anatomy, slightly comical but not baby mascot. No human clothing.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-c500c507-db95-4bd2-bda5-72cfd691bca8.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "sprites/jelly_ghost.png",
+      "prompt": "Small pale cyan ghostlike jellyfish, translucent bell-shaped dome, two tiny drooping dark eyes and small worried mouth, short softly curling tentacles. Simple aquatic creature anatomy, wistful and charming, few clean pixel clusters.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nSmall pale cyan ghostlike jellyfish, translucent bell-shaped dome, two tiny drooping dark eyes and small worried mouth, short softly curling tentacles. Simple aquatic creature anatomy, wistful and charming, few clean pixel clusters.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-c427e4f4-1d24-48ab-8129-5f0cf6336dd1.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "sprites/moru.png",
+      "prompt": "Moru, older salvage workshop keeper. Tousled short white hair, bushy eyebrows, medium fluffy white beard reaching chest but NOT hiding torso. Brass goggles on forehead, warm tan skin, tiny simple dark eyes and grumpy kind expression. Brown leather work apron over faded teal shirt, small wrench in pocket, dark trousers, sturdy boots. Slightly hunched modest stocky adult, hands behind back. No helmet, no diving tank.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nMoru, older salvage workshop keeper. Tousled short white hair, bushy eyebrows, medium fluffy white beard reaching chest but NOT hiding torso. Brass goggles on forehead, warm tan skin, tiny simple dark eyes and grumpy kind expression. Brown leather work apron over faded teal shirt, small wrench in pocket, dark trousers, sturdy boots. Slightly hunched modest stocky adult, hands behind back. No helmet, no diving tank.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-3c498efd-a238-4e37-8087-0063b667f9b9.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "sprites/mulbangul.png",
+      "prompt": "Mulbangul, a cheerful young kid, tousled orange hair under bright mustard-yellow raincoat hood, warm pale skin, small gill marks on cheeks, tiny dark eyes, small open happy grin, webbed bare hands. Oversized yellow raincoat over teal shorts and little brown boots. Small youngster with natural cartoon child proportions, not baby. Jumping and proudly holding one little brass gear overhead. No helmet, no visor, no air tank.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nMulbangul, a cheerful young kid, tousled orange hair under bright mustard-yellow raincoat hood, warm pale skin, small gill marks on cheeks, tiny dark eyes, small open happy grin, webbed bare hands. Oversized yellow raincoat over teal shorts and little brown boots. Small youngster with natural cartoon child proportions, not baby. Jumping and proudly holding one little brass gear overhead. No helmet, no visor, no air tank.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-e75f7ee1-f498-4432-b3b5-bfa1fe0e84f7.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "portraits/moru.png",
+      "prompt": "Dialogue portrait head and shoulders facing viewer. Same Moru as the additional full-body reference: white hair and beard, bushy eyebrows, goggles on forehead, tan skin, faded teal shirt under brown work apron. Grumpy but kind small half-smile, simple dark eyes. Match his identity and outfit exactly, larger readable face but no shiny anime eyes.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nDialogue portrait head and shoulders facing viewer. Same Moru as the additional full-body reference: white hair and beard, bushy eyebrows, goggles on forehead, tan skin, faded teal shirt under brown work apron. Grumpy but kind small half-smile, simple dark eyes. Match his identity and outfit exactly, larger readable face but no shiny anime eyes.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. Reference image 2 supplies the exact character identity and outfit to preserve.",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-0602e4ea-b7a3-4425-b92c-f42587829c27.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png",
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/moru.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "portraits/mulbangul.png",
+      "prompt": "Dialogue portrait head and shoulders facing viewer. Same Mulbangul as additional full-body reference: tousled orange hair, mustard yellow hood up, pale warm skin, small cheek gill marks, simple small dark eyes, broad cheerful open grin, yellow raincoat. Match identity and outfit exactly. No visor or helmet.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nDialogue portrait head and shoulders facing viewer. Same Mulbangul as additional full-body reference: tousled orange hair, mustard yellow hood up, pale warm skin, small cheek gill marks, simple small dark eyes, broad cheerful open grin, yellow raincoat. Match identity and outfit exactly. No visor or helmet.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. Reference image 2 supplies the exact character identity and outfit to preserve.",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-12f1eede-d228-452a-94f0-0442c21592b0.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png",
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/mulbangul.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "props/scrap_brass.png",
+      "prompt": "Item icon, small single grouped pile of worn golden brass salvage scraps: two bent metal offcuts, short pipe segment and one bent bolt. Simple chunky silhouettes, muted brass ochre with limited highlights and dark edge, no face or ornamental details.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nItem icon, small single grouped pile of worn golden brass salvage scraps: two bent metal offcuts, short pipe segment and one bent bolt. Simple chunky silhouettes, muted brass ochre with limited highlights and dark edge, no face or ornamental details.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-953c0e77-962b-4edb-83b7-60eb6b85d11c.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "path": "props/gear.png",
+      "prompt": "Item icon, one simple round chunky bronze gear, 8 clear broad teeth, round central hole. Warm brass ochre, restrained edge highlights, 2-3 shades, clean practical worn metal. No face, no sparkles, no ornate bolts.",
+      "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nItem icon, one simple round chunky bronze gear, 8 clear broad teeth, round central hole. Warm brass ochre, restrained edge highlights, 2-3 shades, clean practical worn metal. No face, no sparkles, no ornate bolts.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-f00c2766-0456-456c-a472-f5aa686f86b8.png",
+      "references": [
+        "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+      ],
+      "tool": "built-in image_gen",
+      "date": "2026-11-02",
+      "status": "approved_style_raw",
+      "size": [
+        1254,
+        1254
+      ],
+      "verified_transparency": true
+    },
+    {
+      "prompt": "An original cute pixel-art salvage diver character for the game Sunken City. Distinctive design: softly rounded SQUARISH brass diving helmet like a little vintage underwater camera, with a wide horizontal rounded-rectangle blue glass viewport; through it a small simple youthful adult face with two tiny dot eyes, a tiny easy smile, NO beard, NO mustache, NO blush, NO huge glossy eyes. A small off-center practical lamp attached to the LEFT side of the helmet rather than on top. Compact pleasantly rounded body in muted burnt-orange overalls with teal-blue sleeves, charcoal gloves, short but clearly articulated legs and simple small teal flippers. A single pale cream air cylinder on the back and a little crossbody salvage satchel. Proportions about 3.2 heads tall, helmet about 30% height, rounded torso about 40% height: gently cartoonish, neither huge-head baby chibi nor huge-bellied middle-aged man. Friendly, adventurous, endearing through a light buoyant swimming pose and clean silhouette. Full body side view facing right, swimming at a gentle diagonal with one hand loosely reaching forward. TRUE chunky pixel sprite style, about 48x64 native pixel design enlarged with hard square pixels, limited palette, 2-3 flat tones per material, large clear pixel clusters, minimal details, simple soft silhouette, no texture noise or intricate machinery. Warm brass and orange balanced with teal, cream and charcoal. One character centered with roomy transparent padding, square image, real alpha transparency. No background, ground, text, frame, logos, shadows, bubbles or special effects. Entirely original independent character design.",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-a5827b4d-8a20-4b9d-b55d-5f482b102f66.png",
+      "path": "sprites/diver.png",
+      "tool": "built-in image_gen",
+      "status": "approved_style_raw",
+      "date": "2026-11-02",
+      "size": [
+        1254,
+        1254
+      ]
+    }
+  ],
+  "completed_date": "2026-11-02",
+  "runtime_integrated": false,
+  "bundle_r": {
+    "reference": "raw/sprites/diver.png",
+    "assets": [
+      {
+        "path": "raw/sprites/diver_stand.png",
+        "style": "K",
+        "prompt": "The same diver as the reference image (big brass helmet, face filling the round window, puffy orange suit, yellow tank), standing upright on dry ground, tiny legs, waving one hand happily",
+        "effective_prompt": "Super cute chibi pixel art game character in exactly the same style as the reference\ndiver: chunky hard square pixels, bright saturated cheerful colors, flat shading with\n2-3 tones per color, thick dark outline. The head (or main body for creatures) is\nhuge, about 70% of the character; the rest is a tiny round bean-like body with short\nstubby limbs. Huge shiny round eyes with white highlights, small pink blush cheeks, a\nsmall expressive mouth. Soft round shapes, very few details. No bubbles, no sparkles,\nno effects, no ground, no shadow. Full body, side view facing right, transparent\nbackground, no text, no frame, square image.\n\nThe same diver as the reference image (big brass helmet, face filling the round window, puffy orange suit, yellow tank), standing upright on dry ground, tiny legs, waving one hand happily\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. Make the head/main mass about 70% of the silhouette with an extremely short round body and tiny limbs.One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-f33a3cc1-8ea2-4f8a-bf83-3043d73880ca.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/eel_lantern.png",
+        "style": "K",
+        "prompt": "A goofy chubby green eel with a little glowing lantern bulb dangling on its head, big derpy eyes, tiny toothy grin, wiggly swimming pose",
+        "effective_prompt": "Super cute chibi pixel art game character in exactly the same style as the reference\ndiver: chunky hard square pixels, bright saturated cheerful colors, flat shading with\n2-3 tones per color, thick dark outline. The head (or main body for creatures) is\nhuge, about 70% of the character; the rest is a tiny round bean-like body with short\nstubby limbs. Huge shiny round eyes with white highlights, small pink blush cheeks, a\nsmall expressive mouth. Soft round shapes, very few details. No bubbles, no sparkles,\nno effects, no ground, no shadow. Full body, side view facing right, transparent\nbackground, no text, no frame, square image.\n\nA goofy chubby green eel with a little glowing lantern bulb dangling on its head, big derpy eyes, tiny toothy grin, wiggly swimming pose\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. Make the head/main mass about 70% of the silhouette with an extremely short round body and tiny limbs.One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-81db0735-13b7-43e6-b0b8-9c70e13a0bdc.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/crab_rubble.png",
+        "style": "K",
+        "prompt": "A grumpy little crab wearing a chunk of carved stone like a hat-shell, big angry eyebrows, tiny pinchers raised, puffed cheeks",
+        "effective_prompt": "Super cute chibi pixel art game character in exactly the same style as the reference\ndiver: chunky hard square pixels, bright saturated cheerful colors, flat shading with\n2-3 tones per color, thick dark outline. The head (or main body for creatures) is\nhuge, about 70% of the character; the rest is a tiny round bean-like body with short\nstubby limbs. Huge shiny round eyes with white highlights, small pink blush cheeks, a\nsmall expressive mouth. Soft round shapes, very few details. No bubbles, no sparkles,\nno effects, no ground, no shadow. Full body, side view facing right, transparent\nbackground, no text, no frame, square image.\n\nA grumpy little crab wearing a chunk of carved stone like a hat-shell, big angry eyebrows, tiny pinchers raised, puffed cheeks\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. Make the head/main mass about 70% of the silhouette with an extremely short round body and tiny limbs.One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-c8c99087-8024-440b-80ed-33725f23d445.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/jelly_ghost.png",
+        "style": "K",
+        "prompt": "A tiny sad ghost jellyfish, pale blue see-through round head, droopy teary eyes, short wiggly tentacles, floating",
+        "effective_prompt": "Super cute chibi pixel art game character in exactly the same style as the reference\ndiver: chunky hard square pixels, bright saturated cheerful colors, flat shading with\n2-3 tones per color, thick dark outline. The head (or main body for creatures) is\nhuge, about 70% of the character; the rest is a tiny round bean-like body with short\nstubby limbs. Huge shiny round eyes with white highlights, small pink blush cheeks, a\nsmall expressive mouth. Soft round shapes, very few details. No bubbles, no sparkles,\nno effects, no ground, no shadow. Full body, side view facing right, transparent\nbackground, no text, no frame, square image.\n\nA tiny sad ghost jellyfish, pale blue see-through round head, droopy teary eyes, short wiggly tentacles, floating\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. Make the head/main mass about 70% of the silhouette with an extremely short round body and tiny limbs.One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-74b64280-983d-4be1-bd1f-2fb6b3436563.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/moru.png",
+        "style": "K",
+        "prompt": "Tiny old grandpa Moru, a huge fluffy white beard that hides his body, goggles on his forehead, brown work apron with a wrench, hands behind his back, grumpy-cute face",
+        "effective_prompt": "Super cute chibi pixel art game character in exactly the same style as the reference\ndiver: chunky hard square pixels, bright saturated cheerful colors, flat shading with\n2-3 tones per color, thick dark outline. The head (or main body for creatures) is\nhuge, about 70% of the character; the rest is a tiny round bean-like body with short\nstubby limbs. Huge shiny round eyes with white highlights, small pink blush cheeks, a\nsmall expressive mouth. Soft round shapes, very few details. No bubbles, no sparkles,\nno effects, no ground, no shadow. Full body, side view facing right, transparent\nbackground, no text, no frame, square image.\n\nTiny old grandpa Moru, a huge fluffy white beard that hides his body, goggles on his forehead, brown work apron with a wrench, hands behind his back, grumpy-cute face\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. Make the head/main mass about 70% of the silhouette with an extremely short round body and tiny limbs.One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-56a06bf2-26b3-4603-bb49-75c49017fac8.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/mulbangul.png",
+        "style": "K",
+        "prompt": "Tiny cheerful kid Mulbangul in an oversized bright yellow raincoat with the hood up, little webbed hands, proudly holding a shiny gear above the head, jumping",
+        "effective_prompt": "Super cute chibi pixel art game character in exactly the same style as the reference\ndiver: chunky hard square pixels, bright saturated cheerful colors, flat shading with\n2-3 tones per color, thick dark outline. The head (or main body for creatures) is\nhuge, about 70% of the character; the rest is a tiny round bean-like body with short\nstubby limbs. Huge shiny round eyes with white highlights, small pink blush cheeks, a\nsmall expressive mouth. Soft round shapes, very few details. No bubbles, no sparkles,\nno effects, no ground, no shadow. Full body, side view facing right, transparent\nbackground, no text, no frame, square image.\n\nTiny cheerful kid Mulbangul in an oversized bright yellow raincoat with the hood up, little webbed hands, proudly holding a shiny gear above the head, jumping\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. Make the head/main mass about 70% of the silhouette with an extremely short round body and tiny limbs.One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-115f681d-7c1b-4521-adfc-f9ceb2e479b2.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "refinement_prompt": "Edit image 1 (full-body Mulbangul sprite). Keep its exact chunky pixel scale, huge head/tiny bean body proportions, yellow raincoat hood, jumping pose, webbed hands, raised shiny gear and thick dark outline. Change only the face and hair to depict the SAME kid as image 2 (Mulbangul dialogue portrait): warm pale skin, orange hair peeking out under the hood, huge shiny dark eyes, pink cheeks, three small orange gill marks on each cheek and open happy mouth. Remove the blue glass-like appearance of the face; this is a child in an open raincoat hood, no helmet or visor. Full body, side view facing right. Transparent background, square, no text, no effects, no shadow. Preserve crisp large hard square pixels and simple flat shading.",
+        "refinement_references": [
+          "raw/sprites/mulbangul.png",
+          "raw/portraits/mulbangul.png"
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/portraits/moru.png",
+        "style": "KP",
+        "prompt": "Grandpa Moru, huge fluffy white beard, goggles on forehead, bushy eyebrows, grumpy but kind half smile",
+        "effective_prompt": "Super cute chibi pixel art portrait for a dialogue box, same style as the reference\ndiver: chunky hard square pixels, bright saturated colors, flat shading, thick dark\noutline. Head and shoulders facing the viewer, big round head, huge expressive eyes\nwith white highlights, rosy cheeks. Simple shapes. Transparent background, no text,\nno frame, square image.\n\nGrandpa Moru, huge fluffy white beard, goggles on forehead, bushy eyebrows, grumpy but kind half smile\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-c9792f98-b112-49ff-813f-2c6ac2512f7d.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/portraits/mulbangul.png",
+        "style": "KP",
+        "prompt": "Kid Mulbangul, bright yellow raincoat hood up, little gill marks on the cheeks, huge sparkling eyes, big open-mouth grin",
+        "effective_prompt": "Super cute chibi pixel art portrait for a dialogue box, same style as the reference\ndiver: chunky hard square pixels, bright saturated colors, flat shading, thick dark\noutline. Head and shoulders facing the viewer, big round head, huge expressive eyes\nwith white highlights, rosy cheeks. Simple shapes. Transparent background, no text,\nno frame, square image.\n\nKid Mulbangul, bright yellow raincoat hood up, little gill marks on the cheeks, huge sparkling eyes, big open-mouth grin\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-87172d77-cb2a-40ec-bb1d-7e101185625b.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/props/scrap_brass.png",
+        "style": "K-item",
+        "prompt": "A small cute pile of shiny brass scraps and one bent bolt",
+        "effective_prompt": "Cute chunky pixel art item icon, same style as the reference diver: hard square\npixels, bright shiny colors, thick dark outline, flat shading, soft round shapes,\nno face, single object centered, transparent background, no text, no frame, square image.\n\nA small cute pile of shiny brass scraps and one bent bolt\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-e1f4c07b-dcce-443f-97b2-8c660312c3dc.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/props/gear.png",
+        "style": "K-item",
+        "prompt": "One shiny chunky bronze gear, simple and round",
+        "effective_prompt": "Cute chunky pixel art item icon, same style as the reference diver: hard square\npixels, bright shiny colors, thick dark outline, flat shading, soft round shapes,\nno face, single object centered, transparent background, no text, no frame, square image.\n\nOne shiny chunky bronze gear, simple and round\n\nUse the provided diver image as the visual style reference: match its coarse pixel scale, cheerful saturation, thick dark outlines, simple shading and extreme cute proportions. One single static asset, fully inside the canvas with comfortable transparent padding.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-66cb1f72-edbd-4e00-882e-b93a1e250971.png",
+        "tool": "built-in image_gen",
+        "reference": "raw/sprites/diver.png",
+        "status": "generated_raw",
+        "date": "2026-11-02",
+        "size": [
+          1254,
+          1254
+        ],
+        "mode": "RGBA",
+        "verified_transparency": true
+      }
+    ],
+    "status": "superseded",
+    "runtime_integrated": false
+  },
+  "direction_proposals": [
+    {
+      "prompt": "Create an original gameplay sprite for Sunken City, a 2D underwater exploration game. Art direction reference: Dave the Diver's grounded, humorous adult characters and readable detailed retro pixel sprites. Side-view adult salvage diver swimming to the right, full body. Natural stocky adult proportions around 4 heads tall including helmet: helmet occupies only about one quarter of total character height, substantial torso, clearly articulated arms and legs with proper full-length fins. Old brass diving helmet with a single round blue glass porthole and a small practical top lamp, worn muted burnt-orange canvas suit, compact yellow air tank, dark gloves and fins, simple harness and hose. Face mostly obscured by reflective dark glass, eyes only tiny subtle marks if visible. Calm capable worker with a slightly stout belly, endearing through silhouette and body language. Authentic crisp pixel art resembling an approximately 64x64 to 96x64 native game sprite enlarged with nearest neighbor: consistent small square pixels, economical clusters, restrained 4-5 shade palette per material, no smooth painting. Brass ochre, rust orange, dark navy, desaturated teal shading, subtle cool top light. Readable and modestly detailed, worn functional equipment. Avoid chibi, giant head, huge eyes, blush, smiling mascot face, baby proportions, candy colors, stickers, excessive steampunk ornament. One static horizontal swimming pose centered with ample padding on square genuinely transparent background. No scene, ground, shadow, text, frame, bubbles, particles or UI.",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-54e7faf0-e664-46cb-9ec4-babecd214231.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "path": "raw/sprites/diver_grounded_v1.png",
+      "tool": "built-in image_gen",
+      "status": "direction_proposal",
+      "date": "2026-11-02"
+    },
+    {
+      "prompt": "An original cute pixel-art salvage diver character for the game Sunken City. Distinctive design: softly rounded SQUARISH brass diving helmet like a little vintage underwater camera, with a wide horizontal rounded-rectangle blue glass viewport; through it a small simple youthful adult face with two tiny dot eyes, a tiny easy smile, NO beard, NO mustache, NO blush, NO huge glossy eyes. A small off-center practical lamp attached to the LEFT side of the helmet rather than on top. Compact pleasantly rounded body in muted burnt-orange overalls with teal-blue sleeves, charcoal gloves, short but clearly articulated legs and simple small teal flippers. A single pale cream air cylinder on the back and a little crossbody salvage satchel. Proportions about 3.2 heads tall, helmet about 30% height, rounded torso about 40% height: gently cartoonish, neither huge-head baby chibi nor huge-bellied middle-aged man. Friendly, adventurous, endearing through a light buoyant swimming pose and clean silhouette. Full body side view facing right, swimming at a gentle diagonal with one hand loosely reaching forward. TRUE chunky pixel sprite style, about 48x64 native pixel design enlarged with hard square pixels, limited palette, 2-3 flat tones per material, large clear pixel clusters, minimal details, simple soft silhouette, no texture noise or intricate machinery. Warm brass and orange balanced with teal, cream and charcoal. One character centered with roomy transparent padding, square image, real alpha transparency. No background, ground, text, frame, logos, shadows, bubbles or special effects. Entirely original independent character design.",
+      "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-a5827b4d-8a20-4b9d-b55d-5f482b102f66.png",
+      "path": "raw/sprites/diver_original_v1.png",
+      "tool": "built-in image_gen",
+      "status": "direction_proposal",
+      "date": "2026-11-02",
+      "size": [
+        1254,
+        1254
+      ]
+    }
+  ],
+  "bundle_original": {
+    "reference": "raw/sprites/diver_original_v1.png",
+    "assets": [
+      {
+        "path": "raw/sprites/diver_stand.png",
+        "prompt": "Same exact approved diver, rounded-square brass helmet, horizontal rectangular blue viewport showing youthful clean-shaven face with dark hair and tiny simple eyes, left-side lamp, burnt-orange overalls, teal sleeves and flippers, cream air cylinder, little brown crossbody salvage satchel. Standing upright, waving one gloved hand. Preserve reference design precisely.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nSame exact approved diver, rounded-square brass helmet, horizontal rectangular blue viewport showing youthful clean-shaven face with dark hair and tiny simple eyes, left-side lamp, burnt-orange overalls, teal sleeves and flippers, cream air cylinder, little brown crossbody salvage satchel. Standing upright, waving one gloved hand. Preserve reference design precisely.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-7441c1f9-3df1-4dd1-9528-040cf4acb968.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/eel_lantern.png",
+        "prompt": "A green eel creature with a gently rounded but elongated tapering body, little warm lantern bulb dangling over its head, small mischievous eyes, tiny toothy grin, long wiggling swimming silhouette. Endearing strange underwater wildlife, recognizable eel anatomy, fins and tail. No humanoid body or clothing.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nA green eel creature with a gently rounded but elongated tapering body, little warm lantern bulb dangling over its head, small mischievous eyes, tiny toothy grin, long wiggling swimming silhouette. Endearing strange underwater wildlife, recognizable eel anatomy, fins and tail. No humanoid body or clothing.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-33e92ed0-62da-49e2-b49e-279307610fb6.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/crab_rubble.png",
+        "prompt": "Small rusty red crab, broad squat body under a simple broken carved grey stone slab shell with a little moss, raised little pinchers, small eyes on short stalks and grumpy brows. Readable crab anatomy, slightly comical but not baby mascot. No human clothing.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nSmall rusty red crab, broad squat body under a simple broken carved grey stone slab shell with a little moss, raised little pinchers, small eyes on short stalks and grumpy brows. Readable crab anatomy, slightly comical but not baby mascot. No human clothing.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-c500c507-db95-4bd2-bda5-72cfd691bca8.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/jelly_ghost.png",
+        "prompt": "Small pale cyan ghostlike jellyfish, translucent bell-shaped dome, two tiny drooping dark eyes and small worried mouth, short softly curling tentacles. Simple aquatic creature anatomy, wistful and charming, few clean pixel clusters.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nSmall pale cyan ghostlike jellyfish, translucent bell-shaped dome, two tiny drooping dark eyes and small worried mouth, short softly curling tentacles. Simple aquatic creature anatomy, wistful and charming, few clean pixel clusters.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-c427e4f4-1d24-48ab-8129-5f0cf6336dd1.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/moru.png",
+        "prompt": "Moru, older salvage workshop keeper. Tousled short white hair, bushy eyebrows, medium fluffy white beard reaching chest but NOT hiding torso. Brass goggles on forehead, warm tan skin, tiny simple dark eyes and grumpy kind expression. Brown leather work apron over faded teal shirt, small wrench in pocket, dark trousers, sturdy boots. Slightly hunched modest stocky adult, hands behind back. No helmet, no diving tank.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nMoru, older salvage workshop keeper. Tousled short white hair, bushy eyebrows, medium fluffy white beard reaching chest but NOT hiding torso. Brass goggles on forehead, warm tan skin, tiny simple dark eyes and grumpy kind expression. Brown leather work apron over faded teal shirt, small wrench in pocket, dark trousers, sturdy boots. Slightly hunched modest stocky adult, hands behind back. No helmet, no diving tank.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-3c498efd-a238-4e37-8087-0063b667f9b9.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/sprites/mulbangul.png",
+        "prompt": "Mulbangul, a cheerful young kid, tousled orange hair under bright mustard-yellow raincoat hood, warm pale skin, small gill marks on cheeks, tiny dark eyes, small open happy grin, webbed bare hands. Oversized yellow raincoat over teal shorts and little brown boots. Small youngster with natural cartoon child proportions, not baby. Jumping and proudly holding one little brass gear overhead. No helmet, no visor, no air tank.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nMulbangul, a cheerful young kid, tousled orange hair under bright mustard-yellow raincoat hood, warm pale skin, small gill marks on cheeks, tiny dark eyes, small open happy grin, webbed bare hands. Oversized yellow raincoat over teal shorts and little brown boots. Small youngster with natural cartoon child proportions, not baby. Jumping and proudly holding one little brass gear overhead. No helmet, no visor, no air tank.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-e75f7ee1-f498-4432-b3b5-bfa1fe0e84f7.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/portraits/moru.png",
+        "prompt": "Dialogue portrait head and shoulders facing viewer. Same Moru as the additional full-body reference: white hair and beard, bushy eyebrows, goggles on forehead, tan skin, faded teal shirt under brown work apron. Grumpy but kind small half-smile, simple dark eyes. Match his identity and outfit exactly, larger readable face but no shiny anime eyes.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nDialogue portrait head and shoulders facing viewer. Same Moru as the additional full-body reference: white hair and beard, bushy eyebrows, goggles on forehead, tan skin, faded teal shirt under brown work apron. Grumpy but kind small half-smile, simple dark eyes. Match his identity and outfit exactly, larger readable face but no shiny anime eyes.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. Reference image 2 supplies the exact character identity and outfit to preserve.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-0602e4ea-b7a3-4425-b92c-f42587829c27.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png",
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/moru.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/portraits/mulbangul.png",
+        "prompt": "Dialogue portrait head and shoulders facing viewer. Same Mulbangul as additional full-body reference: tousled orange hair, mustard yellow hood up, pale warm skin, small cheek gill marks, simple small dark eyes, broad cheerful open grin, yellow raincoat. Match identity and outfit exactly. No visor or helmet.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nDialogue portrait head and shoulders facing viewer. Same Mulbangul as additional full-body reference: tousled orange hair, mustard yellow hood up, pale warm skin, small cheek gill marks, simple small dark eyes, broad cheerful open grin, yellow raincoat. Match identity and outfit exactly. No visor or helmet.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. Reference image 2 supplies the exact character identity and outfit to preserve.",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-12f1eede-d228-452a-94f0-0442c21592b0.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png",
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/mulbangul.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/props/scrap_brass.png",
+        "prompt": "Item icon, small single grouped pile of worn golden brass salvage scraps: two bent metal offcuts, short pipe segment and one bent bolt. Simple chunky silhouettes, muted brass ochre with limited highlights and dark edge, no face or ornamental details.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nItem icon, small single grouped pile of worn golden brass salvage scraps: two bent metal offcuts, short pipe segment and one bent bolt. Simple chunky silhouettes, muted brass ochre with limited highlights and dark edge, no face or ornamental details.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-953c0e77-962b-4edb-83b7-60eb6b85d11c.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      },
+      {
+        "path": "raw/props/gear.png",
+        "prompt": "Item icon, one simple round chunky bronze gear, 8 clear broad teeth, round central hole. Warm brass ochre, restrained edge highlights, 2-3 shades, clean practical worn metal. No face, no sparkles, no ornate bolts.",
+        "effective_prompt": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles.\n\nItem icon, one simple round chunky bronze gear, 8 clear broad teeth, round central hole. Warm brass ochre, restrained edge highlights, 2-3 shades, clean practical worn metal. No face, no sparkles, no ornate bolts.\nReference image 1 supplies ONLY the approved pixel style and visual proportions. Other subjects must have their OWN described identity and anatomy, not wear the diver's equipment. ",
+        "source": "/Users/junseongkim/.codex/generated_images/01a19999-fb3c-7230-bee6-c8cf65914351/exec-f00c2766-0456-456c-a472-f5aa686f86b8.png",
+        "references": [
+          "/Users/junseongkim/Desktop/GG/sunken-city/art/raw/sprites/diver.png"
+        ],
+        "tool": "built-in image_gen",
+        "date": "2026-11-02",
+        "status": "approved_style_raw",
+        "size": [
+          1254,
+          1254
+        ],
+        "verified_transparency": true
+      }
+    ],
+    "status": "complete_raw",
+    "runtime_integrated": false,
+    "style": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles."
+  },
+  "active_art_direction": "bundle_original"
+}
