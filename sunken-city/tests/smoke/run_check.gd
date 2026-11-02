@@ -65,6 +65,13 @@ func _check_swim_and_walk() -> void:
 	_run(d, w, Vector2.UP, 0.5)
 	_expect(d.pos.y < y0 - 20, "swimming up did not rise")
 	_expect(d.vel.length() <= Tuning.SWIM_MAX + 1, "swim speed over max")
+	# negative buoyancy: not swimming up means sinking, also while swimming sideways
+	var idle := Diver.new(OPEN_WATER)
+	_run(idle, w, Vector2.ZERO, 2.0)
+	_expect(idle.pos.y > OPEN_WATER.y + 24, "idle diver should sink (sank %.1f px in 2 s)" % (idle.pos.y - OPEN_WATER.y))
+	var side := Diver.new(OPEN_WATER)
+	_run(side, w, Vector2.RIGHT, 2.0)
+	_expect(side.pos.y > OPEN_WATER.y + 16, "swimming sideways should still sink (sank %.1f px)" % (side.pos.y - OPEN_WATER.y))
 	# above the surface in the start pocket: gravity puts the diver on the floor
 	var dry := Diver.new(w.start + Vector2(0, -8))
 	_run(dry, w, Vector2.ZERO, 1.0)

@@ -94,7 +94,8 @@ func _swim(move: Vector2, dt: float) -> void:
 		vel += move.normalized() * Tuning.SWIM_ACCEL * dt
 	else:
 		vel -= vel * minf(Tuning.SWIM_DRAG * dt, 1.0)
-		vel.y += Tuning.SWIM_SINK * dt
+	if move.y >= 0.0:  # only kicking upward fights the weight of the helmet and tank
+		vel.y = move_toward(vel.y, maxf(vel.y, Tuning.SINK_SPEED), Tuning.SINK_ACCEL * dt)
 	# ease down to swim speed instead of clamping, so a surface jump keeps its push for a few frames
 	vel = vel.move_toward(vel.limit_length(Tuning.SWIM_MAX), Tuning.SWIM_ACCEL * 1.5 * dt)
 

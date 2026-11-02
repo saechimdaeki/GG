@@ -787,5 +787,382 @@
     "runtime_integrated": false,
     "style": "Original cute pixel art for Sunken City, matching the attached approved diver's pixel scale, simple clean face, modest rounded proportions, soft angular silhouettes, restrained warm colors with teal accents and 2-3 flat shades per material. Crisp hard square pixels like a 48x64 native sprite enlarged, large readable pixel clusters. Human characters about 3 to 3.5 heads tall, simple dot or short-line eyes and small expressive mouths. No enormous glossy anime eyes, no blush, no baby chibi, no bean body, no photorealism, no texture noise or elaborate ornament. Full body side view facing right unless portrait. Single static subject centered, square transparent background with padding. No text, frame, ground, shadow, effects, sparkles or bubbles."
   },
-  "active_art_direction": "bundle_original"
+  "active_art_direction": "bundle_original",
+  "bundle_3d": {
+    "tool": "built-in image_gen",
+    "style_sheet": "raw3d/concepts/style_sheet.png",
+    "image_settings": {
+      "transparent_background": false,
+      "reference": "style_sheet.png"
+    },
+    "model_generation": {
+      "tool": null,
+      "plan": null,
+      "credits": null,
+      "status": "not_run_no_connected_Tripo_or_Meshy"
+    },
+    "assets": [
+      {
+        "name": "rock_big",
+        "size_tiles": "8×5×5",
+        "description": "a big rounded seabed boulder, flat-ish top to stand on, teal moss on top, barnacles",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a big rounded seabed boulder, flat-ish top to stand on, teal moss on top, barnacles. Target proportions width × height × depth: 8×5×5 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-275e06e3-1f84-4b15-9166-160afc705aec.png",
+        "concept_path": "raw3d/concepts/rock_big.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1536,
+          1024
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/rock_big.glb"
+      },
+      {
+        "name": "rock_mid",
+        "size_tiles": "4×3×3",
+        "description": "a medium rounded seabed rock, moss on top",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a medium rounded seabed rock, moss on top. Target proportions width × height × depth: 4×3×3 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-80f4e835-6588-4e4a-9662-c8c4b50e8b97.png",
+        "concept_path": "raw3d/concepts/rock_mid.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1448,
+          1086
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/rock_mid.glb"
+      },
+      {
+        "name": "rock_small",
+        "size_tiles": "2×1×2",
+        "description": "a small flat seabed stone",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a small flat seabed stone. Target proportions width × height × depth: 2×1×2 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-ab1e5c9e-0305-4b7f-a23b-edba0394e1cd.png",
+        "concept_path": "raw3d/concepts/rock_small.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1536,
+          1024
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/rock_small.glb"
+      },
+      {
+        "name": "cliff_wall",
+        "size_tiles": "6×10×4",
+        "description": "a tall vertical rock cliff section, flat front, rough sides, moss streaks, can be stacked side by side",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a tall vertical rock cliff section, flat front, rough sides, moss streaks, can be stacked side by side. Target proportions width × height × depth: 6×10×4 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-d1535e73-0a7e-4676-9028-f328563c7298.png",
+        "concept_path": "raw3d/concepts/cliff_wall.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1374,
+          1145
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/cliff_wall.glb"
+      },
+      {
+        "name": "overhang",
+        "size_tiles": "8×3×4",
+        "description": "a rock ledge that sticks out sideways like a shelf, flat top, rough underside",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a rock ledge that sticks out sideways like a shelf, flat top, rough underside. Target proportions width × height × depth: 8×3×4 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-80ec33d9-9e31-41a9-9727-42669b39d568.png",
+        "concept_path": "raw3d/concepts/overhang.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1774,
+          887
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/overhang.glb"
+      },
+      {
+        "name": "seabed_slab",
+        "size_tiles": "10×2×6",
+        "description": "a long flat slab of seabed with sand and pebbles on top, rocky front edge",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a long flat slab of seabed with sand and pebbles on top, rocky front edge. Target proportions width × height × depth: 10×2×6 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-ba19a65d-8a66-4794-b630-77eb51484d1f.png",
+        "concept_path": "raw3d/concepts/seabed_slab.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1536,
+          1024
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/seabed_slab.glb"
+      },
+      {
+        "name": "rock_arch",
+        "size_tiles": "8×6×3",
+        "description": "a natural rock arch you can swim through",
+        "folder": "rocks",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a natural rock arch you can swim through. Target proportions width × height × depth: 8×6×3 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-48e8e9a1-1f4b-491e-bccc-5c8aa0944805.png",
+        "concept_path": "raw3d/concepts/rock_arch.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1448,
+          1086
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/rocks/rock_arch.glb"
+      },
+      {
+        "name": "ruin_wall",
+        "size_tiles": "6×6×1",
+        "description": "a section of carved stone city wall with a round porthole window, brass trim, moss",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a section of carved stone city wall with a round porthole window, brass trim, moss. Target proportions width × height × depth: 6×6×1 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-85e4b82d-b171-46b7-b79c-cbe1de5b8c21.png",
+        "concept_path": "raw3d/concepts/ruin_wall.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1412,
+          1114
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_wall.glb"
+      },
+      {
+        "name": "ruin_wall_broken",
+        "size_tiles": "6×5×1",
+        "description": "the same carved stone wall section but broken, jagged top, missing blocks",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: the same carved stone wall section but broken, jagged top, missing blocks. Target proportions width × height × depth: 6×5×1 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-27294173-c02e-4f95-85da-feab3671dfae.png",
+        "concept_path": "raw3d/concepts/ruin_wall_broken.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1374,
+          1145
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_wall_broken.glb"
+      },
+      {
+        "name": "ruin_column",
+        "size_tiles": "1.5×8×1.5",
+        "description": "a tall carved stone column with a brass ring, slightly cracked",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a tall carved stone column with a brass ring, slightly cracked. Target proportions width × height × depth: 1.5×8×1.5 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-e48b1536-f475-48b3-b646-178bd2240c7e.png",
+        "concept_path": "raw3d/concepts/ruin_column.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1024,
+          1536
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_column.glb"
+      },
+      {
+        "name": "ruin_column_broken",
+        "size_tiles": "1.5×4×1.5",
+        "description": "a broken column stump with fallen pieces at its base",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a broken column stump with fallen pieces at its base. Target proportions width × height × depth: 1.5×4×1.5 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-ca8155c5-9a00-411e-a32d-c5119a39126c.png",
+        "concept_path": "raw3d/concepts/ruin_column_broken.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1086,
+          1448
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_column_broken.glb"
+      },
+      {
+        "name": "ruin_arch",
+        "size_tiles": "6×7×1.5",
+        "description": "a carved stone city arch / doorway with a keystone and brass ornament",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a carved stone city arch / doorway with a keystone and brass ornament. Target proportions width × height × depth: 6×7×1.5 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-93e7f96d-be7d-4fbd-a9d9-b24cbc0d5366.png",
+        "concept_path": "raw3d/concepts/ruin_arch.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1355,
+          1161
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_arch.glb"
+      },
+      {
+        "name": "ruin_stairs",
+        "size_tiles": "6×3×3",
+        "description": "a short flight of wide carved stone stairs",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a short flight of wide carved stone stairs. Target proportions width × height × depth: 6×3×3 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-2f72cedd-e813-4da4-a76e-a19ea4325f7b.png",
+        "concept_path": "raw3d/concepts/ruin_stairs.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1536,
+          1024
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_stairs.glb"
+      },
+      {
+        "name": "ruin_tower_top",
+        "size_tiles": "6×6×6",
+        "description": "the top of a drowned round tower: dome roof with a brass spire, round windows",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: the top of a drowned round tower: dome roof with a brass spire, round windows. Target proportions width × height × depth: 6×6×6 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-cc2d3e88-730a-4a3e-8296-8a8390153604.png",
+        "concept_path": "raw3d/concepts/ruin_tower_top.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1278,
+          1230
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_tower_top.glb"
+      },
+      {
+        "name": "ruin_floor",
+        "size_tiles": "6×1×6",
+        "description": "a square slab of carved stone floor tiles, some cracked",
+        "folder": "ruins",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a square slab of carved stone floor tiles, some cracked. Target proportions width × height × depth: 6×1×6 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-4c93222b-a3a2-44bb-a308-d51488d84854.png",
+        "concept_path": "raw3d/concepts/ruin_floor.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1536,
+          1024
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/ruins/ruin_floor.glb"
+      },
+      {
+        "name": "coral_orange",
+        "size_tiles": "2×2×2",
+        "description": "a cluster of bright orange branching coral",
+        "folder": "life",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a cluster of bright orange branching coral. Target proportions width × height × depth: 2×2×2 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-9a168672-7d06-4d96-8b3f-c6b9bf73bac9.png",
+        "concept_path": "raw3d/concepts/coral_orange.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1278,
+          1230
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/life/coral_orange.glb"
+      },
+      {
+        "name": "coral_pink",
+        "size_tiles": "2×1.5×2",
+        "description": "a round cluster of pink brain coral and small polyps",
+        "folder": "life",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a round cluster of pink brain coral and small polyps. Target proportions width × height × depth: 2×1.5×2 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-09df90e6-6081-4606-a0f4-e675611525fe.png",
+        "concept_path": "raw3d/concepts/coral_pink.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1448,
+          1086
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/life/coral_pink.glb"
+      },
+      {
+        "name": "sea_fan",
+        "size_tiles": "2×3×0.5",
+        "description": "a flat purple sea fan",
+        "folder": "life",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a flat purple sea fan. Target proportions width × height × depth: 2×3×0.5 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-fd6e8bf7-3d28-4863-bb13-9ab66a8b6996.png",
+        "concept_path": "raw3d/concepts/sea_fan.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1296,
+          1214
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/life/sea_fan.glb"
+      },
+      {
+        "name": "tube_sponge",
+        "size_tiles": "1×2×1",
+        "description": "a bunch of yellow tube sponges",
+        "folder": "life",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a bunch of yellow tube sponges. Target proportions width × height × depth: 1×2×1 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-5de883b6-aa7c-43ca-a015-52ad13d5e37e.png",
+        "concept_path": "raw3d/concepts/tube_sponge.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1024,
+          1536
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/life/tube_sponge.glb"
+      },
+      {
+        "name": "anemone",
+        "size_tiles": "1×1×1",
+        "description": "a bright anemone with soft tentacles",
+        "folder": "life",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a bright anemone with soft tentacles. Target proportions width × height × depth: 1×1×1 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-6ceea1f3-c38d-4350-8368-95daa810b4d6.png",
+        "concept_path": "raw3d/concepts/anemone.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1295,
+          1214
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/life/anemone.glb"
+      },
+      {
+        "name": "kelp_tall",
+        "size_tiles": "1×5×1",
+        "description": "a tall strand of green kelp with a few leaves (alpha cutout ok)",
+        "folder": "life",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a tall strand of green kelp with a few leaves (alpha cutout ok). Target proportions width × height × depth: 1×5×1 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-aba02926-0555-4547-ac95-0f5693f51f1b.png",
+        "concept_path": "raw3d/concepts/kelp_tall.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1024,
+          1536
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/life/kelp_tall.glb"
+      },
+      {
+        "name": "wreck_bow",
+        "size_tiles": "10×6×4",
+        "description": "the broken front half of a small old wooden boat stuck in the sand, tilted",
+        "folder": "wreck",
+        "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: the broken front half of a small old wooden boat stuck in the sand, tilted. Target proportions width × height × depth: 10×6×4 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
+        "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-4356e264-6a6f-45c4-94c3-64282487b9d4.png",
+        "concept_path": "raw3d/concepts/wreck_bow.png",
+        "status": "concept_generated_glb_pending",
+        "image_size": [
+          1536,
+          1024
+        ],
+        "image_mode": "RGB",
+        "target_glb_path": "raw3d/wreck/wreck_bow.glb"
+      }
+    ],
+    "style_prompt": "Style sheet for a cheerful 2.5D underwater adventure game: a lineup of 8 stylized low-poly 3D environment assets on a plain light grey background, three-quarter view, evenly lit, no shadows on the ground. Chunky simple shapes with big flat color areas and hand-painted textures (not realistic, not noisy): warm grey-brown carved stone blocks of a sunken ancient city with teal moss and barnacles, a broken stone column, a round stone arch with a porthole window and brass trim, a big rounded seabed rock, a cluster of saturated orange and pink coral, purple sea fans, yellow tube sponges, green kelp. Clean silhouettes, readable from far away, adventurous and charming mood. Exactly eight separate objects, clean organized spacing, no text.",
+    "style_review": "Reviewed: eight distinct chunky assets, warm stone/teal moss and saturated coral palette; adopted for concept generation. User review pending.",
+    "credits": {
+      "image_generation": "not_reported_by_builtin_tool",
+      "ai_3d": 0
+    },
+    "status": "concepts_complete_models_pending",
+    "date": "2026-11-02",
+    "validation": "23 PNGs decoded successfully; style sheet and 22 concepts visually reviewed (concept overview plus individual samples). No GLB generated."
+  }
 }

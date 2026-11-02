@@ -9,8 +9,10 @@ const PX := 1.0 / Tuning.TILE      # one game pixel in world units
 const SPRITE_PX := PX / 2.0        # sprite textures are built at 2x (tools/art_build.py)
 const FRONT_Z := 0.6               # rock front face, a little in front of the play plane
 const BACK_Z := -3.0               # rock extrusion depth
-const CAM_DIST := 19.0
-const CAM_FOV := 35.0
+const CAM_FOV := 18.0              # narrow lens = nearly flat side view (rock sides barely show)
+const VIEW_TILES_HIGH := 15.0      # how much of the world fits on screen vertically
+const CAM_DIST := VIEW_TILES_HIGH / 2.0 / 0.15838  # tan(9 deg): distance that frames VIEW_TILES_HIGH
+const LOOK_AHEAD := 2.5            # tiles the camera leads the diver's movement
 const ROCK_SHADER := preload("res://src/view3d/spatial_env_rock.gdshader")
 const KELP_SHADER := preload("res://src/view3d/spatial_env_kelp.gdshader")
 const FISH_PER_SCHOOL := 14
@@ -23,8 +25,8 @@ const SCHOOLS := [
 	[Vector2(40, 54), Color(0.55, 0.5, 0.95), Color(0.9, 0.9, 1.0)],
 	[Vector2(90, 53), Color(0.4, 0.95, 0.85), Color(0.9, 1.0, 1.0)],
 ]
-const WATER_DEEP := Color(0.01, 0.04, 0.09)
-const WATER_FOG := Color(0.03, 0.17, 0.3)
+const WATER_DEEP := Color(0.01, 0.05, 0.12)
+const WATER_FOG := Color(0.07, 0.36, 0.56)  # shallow water: clear bright blue, so dark rock stands out
 const AIR_FOG := Color(0.55, 0.5, 0.42)
 const SKY := Color(0.45, 0.68, 0.85)
 
@@ -37,8 +39,11 @@ var _lamp := OmniLight3D.new()
 var _rock_mat := ShaderMaterial.new()
 var _rock := MeshInstance3D.new()
 var _chunks := MeshInstance3D.new()
+var _edges := MeshInstance3D.new()
+var _contour: Array = []           # [Vector2, Vector2] wall outline segments, from the last terrain build
 var _water := MeshInstance3D.new()
 var _revision := -1
+var _lead := Vector3.ZERO          # smoothed look-ahead offset
 var _shown := {}
 var _tex := {}
 var _noise := FastNoiseLite.new()
@@ -54,12 +59,21 @@ func setup(w: World, textures: Dictionary) -> void:
 	_noise.seed = 7
 	_noise.frequency = 0.35
 	_rock_mat.shader = ROCK_SHADER
+	# the sandy stone matches the concept art and stays a different hue from the blue water
+	_rock_mat.set_shader_parameter("stone_wet", load("res://assets/tiles/stone_dry.png"))
+	_rock_mat.set_shader_parameter("stone_dry", load("res://assets/tiles/stone_dry.png"))
 	_rock.material_override = _rock_mat
 	_chunks.material_override = _rock_mat
 	add_child(_rock)
 	add_child(_chunks)
+	var edge_mat := StandardMaterial3D.new()
+	edge_mat.vertex_color_use_as_albedo = true
+	edge_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	edge_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_edges.material_override = edge_mat
+	add_child(_edges)
 	_build_environment()
-	_build_ruins()
+	_build_stage()
 	_build_water()
 	_build_snow()
 	_build_kelp()
@@ -75,12 +89,15 @@ func sync(diver: Diver, dry: float, dt: float) -> void:
 	if world.revision != _revision:
 		_revision = world.revision
 		_rock.mesh = _terrain_mesh()
+		_edges.mesh = _edge_mesh()
 		_chunks.mesh = _chunk_mesh()
 	var sy := -world.surface_y * PX
 	_rock_mat.set_shader_parameter("surface_y", sy)
 	_rock_mat.set_shader_parameter("dry_amount", dry)
 	_place_water(sy)
 	_kelp_mat.set_shader_parameter("surface_y", sy)
+	for piece in _life:
+		piece.visible = piece.position.y - piece.texture.get_height() * piece.pixel_size / 2.0 < sy
 	_move_schools(to3(diver.pos), sy, dt)
 	_move_shafts(sy)
 	# marine snow only fills the water: re-aim the emitter at what is still flooded
@@ -93,8 +110,9 @@ func sync(diver: Diver, dry: float, dt: float) -> void:
 	var depth := clampf((d.y - sy) / -20.0, 0.0, 1.0) if wet else 0.0
 	_env.fog_light_color = (WATER_FOG.lerp(WATER_DEEP, depth)) if wet else AIR_FOG.lerp(WATER_FOG, 1.0 - dry)
 	# light fog: the play plane (19 units away) stays crisp, the ruins behind fade out
-	_env.fog_density = lerpf(0.012, 0.03, depth) if wet else 0.002
-	_env.background_color = _env.fog_light_color.darkened(0.2) if wet else SKY.lerp(Color(0.85, 0.7, 0.5), dry * 0.5)
+	# the camera sits ~47 units back, so fog must be thin or the play plane washes out
+	_env.fog_density = lerpf(0.003, 0.012, depth) if wet else 0.0008
+	_env.background_color = _env.fog_light_color if wet else SKY.lerp(Color(0.85, 0.7, 0.5), dry * 0.5)
 	if not wet:
 		_env.fog_light_color = SKY.lerp(AIR_FOG, dry)
 	_env.ambient_light_energy = lerpf(0.55, 0.2, depth) if wet else lerpf(0.5, 1.0, dry)
@@ -106,9 +124,10 @@ func sync(diver: Diver, dry: float, dt: float) -> void:
 	# camera: follow, clamped to the map so the edge of the world never shows
 	var half_h := CAM_DIST * tan(deg_to_rad(CAM_FOV / 2.0))
 	var half_w := half_h * 16.0 / 9.0
+	_lead = _lead.lerp(Vector3(diver.vel.x, -diver.vel.y, 0) / Tuning.SWIM_MAX * LOOK_AHEAD, minf(dt * 1.5, 1.0))
 	var target := Vector3(
-		clampf(d.x, half_w, world.width - half_w),
-		clampf(d.y + 1.0, -world.height + half_h, -half_h),
+		clampf(d.x + _lead.x, half_w, world.width - half_w),
+		clampf(d.y + 0.5 + _lead.y * 0.5, -world.height + half_h, -half_h),
 		CAM_DIST)
 	camera.position = target if camera.position == Vector3.ZERO else camera.position.lerp(target, minf(dt * 5.0, 1.0))
 
@@ -162,6 +181,7 @@ func _solid(x: int, y: int) -> bool:
 func _terrain_mesh() -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_contour.clear()
 	for y in range(-1, world.height):
 		for x in range(-1, world.width):
 			var c := [_solid(x, y), _solid(x + 1, y), _solid(x + 1, y + 1), _solid(x, y + 1)]
@@ -185,6 +205,7 @@ func _terrain_mesh() -> ArrayMesh:
 				var j := (i + 1) % poly.size()
 				if is_mid[i] and is_mid[j] and poly.size() > 2:
 					_quad(st, poly[i], poly[j])
+					_contour.append([poly[i], poly[j]])
 	st.generate_normals()
 	return st.commit()
 
@@ -195,10 +216,11 @@ func _v(p: Vector2, z: float) -> Vector3:
 
 
 func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
-	# y is flipped, so 2D clockwise is 3D counter-clockwise: emit a, c, b to face the camera
+	# order chosen so generate_normals() points camera-facing faces at +z (checked on screen:
+	# the reverse order lit the rock's front as if it were a side)
 	st.add_vertex(a)
-	st.add_vertex(c)
 	st.add_vertex(b)
+	st.add_vertex(c)
 
 
 func _quad(st: SurfaceTool, a: Vector2, b: Vector2) -> void:
@@ -271,44 +293,89 @@ func _build_environment() -> void:
 	add_child(_lamp)
 
 
-## Silhouettes of the drowned city behind the play plane: towers, broken arches and
-## domes at increasing depth; fog does the fading.
-func _build_ruins() -> void:
+## Paper stage: the concept-art cutouts (assets/stage) stood up at three depths.
+## Life sits on floors and rooftops just behind the diver; big rocks and ruins fill
+## the middle distance; giant towers and arches make the drowned skyline far back.
+## Fog does the depth. Widths are in tiles; heights follow each picture's aspect.
+const STAGE_LIFE := {"coral_orange": 2.0, "coral_pink": 2.2, "anemone": 1.6, "tube_sponge": 1.5,
+	"sea_fan": 2.0, "rock_small": 2.0, "ruin_column_broken": 1.8, "kelp_tall": 1.4}
+const STAGE_MID := {"rock_big": 9.0, "rock_mid": 5.0, "rock_arch": 9.0, "cliff_wall": 6.0, "ruin_arch": 7.0,
+	"ruin_wall": 7.0, "ruin_wall_broken": 8.0, "ruin_column": 3.0, "ruin_stairs": 7.0, "wreck_bow": 12.0,
+	"seabed_slab": 11.0, "coral_orange": 4.0, "sea_fan": 4.0}
+const STAGE_FAR := {"ruin_tower_top": 16.0, "ruin_column": 5.0, "ruin_arch": 14.0, "cliff_wall": 12.0,
+	"rock_arch": 18.0, "ruin_wall": 14.0}
+var _life: Array[Sprite3D] = []   # living decor: hidden once the water leaves it
+
+
+func _stage_piece(name: String, width: float, base: Vector3, tint := Color.WHITE, flip := false) -> Sprite3D:
+	var tex: Texture2D = load("res://assets/stage/%s.png" % name)
+	var sp := Sprite3D.new()
+	sp.texture = tex
+	sp.pixel_size = width / tex.get_width()
+	sp.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+	sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	sp.shaded = true
+	sp.double_sided = true
+	sp.flip_h = flip
+	sp.modulate = tint
+	sp.position = base + Vector3(0, tex.get_height() * sp.pixel_size / 2.0, 0)
+	add_child(sp)
+	return sp
+
+
+## Top surface (world y) of the first wall below row from in column x, or NAN if none.
+func _ground_below(x: int, from: int) -> float:
+	for y in range(from, world.height):
+		if world.cell(Vector2i(x, y)) == World.Cell.WALL and world.cell(Vector2i(x, y - 1)) != World.Cell.WALL:
+			return -float(y)
+	return NAN
+
+
+func _build_stage() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
+	rng.seed = 33
+	# life on every floor and rooftop, behind the play plane (the diver swims in front)
+	for y in range(Zone1.SURFACE_ROW + 2, world.height):
+		for x in world.width:
+			if world.cell(Vector2i(x, y)) != World.Cell.OPEN or world.cell(Vector2i(x, y + 1)) != World.Cell.WALL:
+				continue
+			if rng.randf() > 0.22:
+				continue
+			var name: String = STAGE_LIFE.keys()[rng.randi() % STAGE_LIFE.size()]
+			var piece := _stage_piece(name, STAGE_LIFE[name] * rng.randf_range(0.8, 1.25),
+				Vector3(x + rng.randf(), -(y + 1) - 0.15, rng.randf_range(-1.4, -0.3)), Color.WHITE, rng.randf() < 0.5)
+			_life.append(piece)
+	# middle distance: along the seabed and the deep cavern floor
+	for floor_from in [Zone1.SURFACE_ROW + 2, Zone1.PRESSURE_ROW]:
+		var x := -4.0
+		while x < world.width + 4:
+			var col := clampi(int(x), 0, world.width - 1)
+			var ground := _ground_below(col, floor_from)
+			if not is_nan(ground):
+				var name: String = STAGE_MID.keys()[rng.randi() % STAGE_MID.size()]
+				var depth := rng.randf_range(-9.0, -3.5)
+				var dim := remap(depth, -9.0, -3.5, 0.55, 0.85)
+				_stage_piece(name, STAGE_MID[name] * rng.randf_range(0.9, 1.4), Vector3(x, ground - 0.6, depth),
+					Color(dim, dim * 1.05, dim * 1.1), rng.randf() < 0.5)
+			x += rng.randf_range(4.0, 9.0)
+	# the drowned skyline
+	var fx := -20.0
+	while fx < world.width + 20:
+		var name: String = STAGE_FAR.keys()[rng.randi() % STAGE_FAR.size()]
+		var depth := rng.randf_range(-34.0, -14.0)
+		_stage_piece(name, STAGE_FAR[name] * rng.randf_range(0.8, 1.4),
+			Vector3(fx, -world.height * 0.75 + rng.randf_range(-4.0, 6.0), depth), Color(0.45, 0.55, 0.62), rng.randf() < 0.5)
+		fx += rng.randf_range(7.0, 15.0)
+	# far back wall so the fog has something to fade into
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.08, 0.2, 0.26)
-	mat.roughness = 1.0
-	for layer in [[-7.0, 14], [-15.0, 12], [-26.0, 10]]:
-		for i in layer[1]:
-			var x := rng.randf_range(-6.0, world.width + 6.0)
-			var h := rng.randf_range(6.0, 22.0)
-			var w := rng.randf_range(1.2, 3.5)
-			var tower := MeshInstance3D.new()
-			var box := BoxMesh.new()
-			box.size = Vector3(w, h, w)
-			tower.mesh = box
-			tower.material_override = mat
-			tower.position = Vector3(x, -world.height + h / 2.0 + rng.randf_range(-2.0, 6.0), layer[0] + rng.randf_range(-2.0, 2.0))
-			tower.rotation_degrees.z = rng.randf_range(-8.0, 8.0)  # sunk crooked
-			add_child(tower)
-			if rng.randf() < 0.5:
-				var dome := MeshInstance3D.new()
-				var sphere := SphereMesh.new()
-				sphere.radius = w * 0.75
-				sphere.height = w * 1.0
-				dome.mesh = sphere
-				dome.material_override = mat
-				dome.position = tower.position + Vector3(0, h / 2.0, 0)
-				add_child(dome)
-	# far back wall so the fog has something to fade into
 	var back := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(world.width + 80, world.height + 60)
+	plane.size = Vector2(world.width + 120, world.height + 80)
 	plane.orientation = PlaneMesh.FACE_Z
 	back.mesh = plane
 	back.material_override = mat
-	back.position = Vector3(world.width / 2.0, -world.height / 2.0, -40)
+	back.position = Vector3(world.width / 2.0, -world.height / 2.0, -60)
 	add_child(back)
 
 
@@ -541,4 +608,32 @@ func _move_shafts(surface: float) -> void:
 		# hang from the current surface; sway and pulse slowly
 		mi.position = Vector3(mi.get_meta("x") + sin(t * 0.2 + i) * 1.5 - 4.0, surface - 11.0, mi.position.z)
 		var mat: StandardMaterial3D = mi.material_override
-		mat.albedo_color = Color.WHITE * (0.6 + 0.4 * sin(t * 0.5 + i * 1.7))
+		mat.albedo_color = Color.WHITE * (0.3 + 0.2 * sin(t * 0.5 + i * 1.7))
+
+
+## Where rock meets water: a dark outline on every wall edge, so the shape of the
+## ground reads at a glance.
+func _edge_mesh() -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	const LINE := 0.1
+	var z := FRONT_Z + 0.4  # in front of the noise bumps on the rock face
+	for seg in _contour:
+		var a: Vector2 = seg[0]
+		var b: Vector2 = seg[1]
+		var n := (b - a).orthogonal().normalized()
+		# the normal must point out of the rock: step a little and check which side is solid
+		var mid := (a + b) / 2.0
+		if _solid(floori(mid.x + n.x * 0.3), floori(mid.y + n.y * 0.3)):
+			n = -n
+		_strip(st, a, b, n * LINE, Color(0.03, 0.03, 0.04), z)
+	return st.commit()
+
+
+func _strip(st: SurfaceTool, a: Vector2, b: Vector2, off: Vector2, col: Color, z: float) -> void:
+	var pa := _v(a, FRONT_Z)
+	var pb := _v(b, FRONT_Z)
+	var o := Vector3(off.x, -off.y, 0)
+	for v in [pa, pb, pb + o, pa, pb + o, pa + o]:
+		st.set_color(col)
+		st.add_vertex(Vector3(v.x, v.y, z))

@@ -1,0 +1,134 @@
+[
+  {
+    "name": "rock_big",
+    "size_tiles": "8×5×5",
+    "description": "a big rounded seabed boulder, flat-ish top to stand on, teal moss on top, barnacles",
+    "folder": "rocks"
+  },
+  {
+    "name": "rock_mid",
+    "size_tiles": "4×3×3",
+    "description": "a medium rounded seabed rock, moss on top",
+    "folder": "rocks"
+  },
+  {
+    "name": "rock_small",
+    "size_tiles": "2×1×2",
+    "description": "a small flat seabed stone",
+    "folder": "rocks"
+  },
+  {
+    "name": "cliff_wall",
+    "size_tiles": "6×10×4",
+    "description": "a tall vertical rock cliff section, flat front, rough sides, moss streaks, can be stacked side by side",
+    "folder": "rocks"
+  },
+  {
+    "name": "overhang",
+    "size_tiles": "8×3×4",
+    "description": "a rock ledge that sticks out sideways like a shelf, flat top, rough underside",
+    "folder": "rocks"
+  },
+  {
+    "name": "seabed_slab",
+    "size_tiles": "10×2×6",
+    "description": "a long flat slab of seabed with sand and pebbles on top, rocky front edge",
+    "folder": "rocks"
+  },
+  {
+    "name": "rock_arch",
+    "size_tiles": "8×6×3",
+    "description": "a natural rock arch you can swim through",
+    "folder": "rocks"
+  },
+  {
+    "name": "ruin_wall",
+    "size_tiles": "6×6×1",
+    "description": "a section of carved stone city wall with a round porthole window, brass trim, moss",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_wall_broken",
+    "size_tiles": "6×5×1",
+    "description": "the same carved stone wall section but broken, jagged top, missing blocks",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_column",
+    "size_tiles": "1.5×8×1.5",
+    "description": "a tall carved stone column with a brass ring, slightly cracked",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_column_broken",
+    "size_tiles": "1.5×4×1.5",
+    "description": "a broken column stump with fallen pieces at its base",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_arch",
+    "size_tiles": "6×7×1.5",
+    "description": "a carved stone city arch / doorway with a keystone and brass ornament",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_stairs",
+    "size_tiles": "6×3×3",
+    "description": "a short flight of wide carved stone stairs",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_tower_top",
+    "size_tiles": "6×6×6",
+    "description": "the top of a drowned round tower: dome roof with a brass spire, round windows",
+    "folder": "ruins"
+  },
+  {
+    "name": "ruin_floor",
+    "size_tiles": "6×1×6",
+    "description": "a square slab of carved stone floor tiles, some cracked",
+    "folder": "ruins"
+  },
+  {
+    "name": "coral_orange",
+    "size_tiles": "2×2×2",
+    "description": "a cluster of bright orange branching coral",
+    "folder": "life"
+  },
+  {
+    "name": "coral_pink",
+    "size_tiles": "2×1.5×2",
+    "description": "a round cluster of pink brain coral and small polyps",
+    "folder": "life"
+  },
+  {
+    "name": "sea_fan",
+    "size_tiles": "2×3×0.5",
+    "description": "a flat purple sea fan",
+    "folder": "life"
+  },
+  {
+    "name": "tube_sponge",
+    "size_tiles": "1×2×1",
+    "description": "a bunch of yellow tube sponges",
+    "folder": "life"
+  },
+  {
+    "name": "anemone",
+    "size_tiles": "1×1×1",
+    "description": "a bright anemone with soft tentacles",
+    "folder": "life"
+  },
+  {
+    "name": "kelp_tall",
+    "size_tiles": "1×5×1",
+    "description": "a tall strand of green kelp with a few leaves (alpha cutout ok)",
+    "folder": "life"
+  },
+  {
+    "name": "wreck_bow",
+    "size_tiles": "10×6×4",
+    "description": "the broken front half of a small old wooden boat stuck in the sand, tilted",
+    "folder": "wreck"
+  }
+]

@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-02
 **Branch:** `main`
-**Current task:** 가라앉은 도시 A안 2차 — 넓은 맵(128x64, tools/gen_zone1.py: 가라앉은 빌딩 5채·옥상 마을·깊은 동굴), 캐릭터 2x 디테일, 물고기 떼 6, 해초, 빛줄기, 하늘
-**Next step:** 마을(물 빠진 뒤) 화면 — 회색 배경·건물 실루엣 단조로움. 빌딩 외벽이 바위처럼 보임 → 건물다운 모양(창문 테두리 등). 도보 동선(옥상↔바닥) 실제 플레이 확인
+**Current task:** 가라앉은 도시 — 종이 무대(콘셉트 22장 컷아웃 3층 배치) + 돌 질감 지형(앞면 법선 뒤집힘 수정) + 음의 부력(가라앉기) + 평평한 넓은 카메라
+**Next step:** 물 밖 하늘이 탁함, 마을 배경. 유저 플레이 평가
 **Blocked on:** 유저 화면 평가
-**Files in progress:** src/view3d/*
-**Run result:** OBSERVED — 넓은 바다·물고기 떼·해초·탑 내부·깊은 폐허·마을 (sunken-city/production/qa/evidence/view3d-wide-sea/), smoke PASS
-**Open questions:** 커밋·푸시 여부, 낮 잠수/밤 고물상 루프 도입 여부
+**Files in progress:** none
+**Run result:** OBSERVED — sunken-city/production/qa/evidence/paper-stage/ (넓은 바다·탑 산호·깊은 폐허·마을·시작), smoke PASS
+**Open questions:** 커밋·푸시 여부
 <!-- /CHECKPOINT -->
 
 ---
@@ -98,3 +98,11 @@ PROMPTS.md 지금 할 일 10장 생성·저장, 기준 diver.png 참조. 물방�
 
 ### 독자적 도트 스타일 전체 교체 완료
 승인 시안 diver_original_v1.png를 diver.png로 반영. 서 있는 잠수부·괴물3·주민2·초상화2·아이템2 총 10장 재생성. 초상화는 주민 전신 추가 참조. 11장 투명 PNG 검증, PROMPTS.md 및 manifest 갱신. 런타임 가공은 후속 작업.
+
+## 2026-11-02 묶음 3D-1 콘셉트 완료
+
+PROMPTS_3D.md의 지금 할 일에 따라 내장 image_gen 사용. S-0 스타일 시트 1장과 이를 참조한 에셋 콘셉트 22장을 raw3d/concepts/에 저장. 23 PNG 디코딩 검증, 전체 콘셉트 축소 미리보기 및 개별 표본·난파선 시각 검토 완료. 체크리스트와 manifest bundle_3d 갱신. 이미지 크레딧 미제공, AI 3D 미실행/플랜 없음/크레딧 0으로 명시. GLB 생성·게임 연결은 미완료이며 문서 대체 절차대로 사람에게 인계. ROADMAP.md는 워크스페이스에 없어 PROMPTS_3D.md에 체크 기록.
+
+Godot 최초 샌드박스 실행은 user 로그 경로·macOS 인증서 접근 ERROR. /tmp 로그 지정 후 허용된 샌드박스 밖 실행으로 exit 0, ERROR 없음. 게임 코드 변경 없음.
+
+이전 게임 작업 이어받기: 넓은 맵·물고기·해초·빛줄기·하늘 반영 상태였음. 마을 물 빠진 화면의 회색 배경·건물 실루엣 개선, 빌딩 외벽을 건물답게 만드는 작업과 옥상↔바닥 도보 동선 플레이 확인이 남아 있음. 기존 진행 중 코드 변경은 보존.

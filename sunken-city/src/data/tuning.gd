@@ -10,7 +10,8 @@ const DIVER_SIZE := Vector2(12, 14)
 const SWIM_ACCEL := 420.0
 const SWIM_MAX := 90.0
 const SWIM_DRAG := 3.0          # velocity fraction lost per second with no input
-const SWIM_SINK := 12.0         # slow sink while idle in water
+const SINK_SPEED := 28.0        # negative buoyancy: drift down at this speed unless swimming up
+const SINK_ACCEL := 60.0        # how fast the drift builds
 const SURFACE_JUMP_RANGE := 10.0  # how close to the surface a jump pops you out
 
 # On dry ground

@@ -82,6 +82,29 @@ def fit(im: Image.Image, box: tuple[int, int]) -> Image.Image:
     return Image.fromarray(np.clip(small, 0, 255).astype(np.uint8))
 
 
+STAGE_MAX = 320  # stage cutouts: longest side in px (they're scaled to tiles in 3D)
+STAGE_BG_TOL = 16  # how far from the flat grey background a pixel may be and still count as background
+
+
+def cut_out(im: Image.Image) -> Image.Image:
+    """Concept renders sit on flat light grey. Remove only the grey that touches the
+    border (so grey stone inside the object survives), crop, shrink."""
+    a = np.array(im.convert("RGB")).astype(np.int32)
+    bg = np.median(np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]]), axis=0)
+    near = np.abs(a - bg).max(axis=2) <= STAGE_BG_TOL
+    labels, _ = ndimage.label(near)
+    border = np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))
+    background = np.isin(labels, border[border > 0])
+    background = ndimage.binary_dilation(background, iterations=2)  # eat the anti-aliased grey fringe
+    rgba = np.dstack([a, np.where(background, 0, 255)]).astype(np.uint8)
+    out = Image.fromarray(rgba, "RGBA")
+    out = out.crop(out.getbbox())
+    k = STAGE_MAX / max(out.size)
+    if k < 1:
+        out = fit(out, (round(out.width * k), round(out.height * k)))
+    return out
+
+
 def cover(im: Image.Image, w: int = 640, h: int = 360) -> Image.Image:
     im = im.convert("RGB")
     k = max(w / im.width, h / im.height)
@@ -92,6 +115,11 @@ def cover(im: Image.Image, w: int = 640, h: int = 360) -> Image.Image:
 
 def main() -> None:
     made = []
+    stage = OUT / "stage"
+    stage.mkdir(parents=True, exist_ok=True)
+    for f in sorted((ROOT / "art" / "raw3d" / "concepts").glob("*.png")):
+        if f.stem != "style_sheet":
+            cut_out(Image.open(f)).save(stage / f.name)
     for f in sorted(RAW.glob("*/*.png")):
         rel = f"{f.parent.name}/{f.name}"
         dest = OUT / rel

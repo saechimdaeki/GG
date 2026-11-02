@@ -103,3 +103,52 @@
 - [DEV — How to tame your AI pixel art](https://dev.to/jenissimo/how-to-tame-your-ai-pixel-art-3pk5)
 - [ai2pixelart (PyPI)](https://pypi.org/project/ai2pixelart/)
 - [godot-realtimecaustics](https://github.com/paddy-exe/godot-realtimecaustics), [godotshaders — water](https://godotshaders.com/shader-tag/water)
+
+
+---
+
+# 2차 리서치 — 왜 우리 배경이 "초딩 같은가" (2026-11-02)
+
+## 데이브 더 다이버 개발진이 직접 말한 제작 방식
+
+**아트 방향 (정기엽 아트 디렉터, [테크M](https://www.techm.kr/news/articleView.html?idxno=101371))**
+- 아름다운 바다를 위해 **배경은 3D로 구축**, 물고기 사냥의 손맛을 위해 **생물은 2D 도트**. 상어 같은 큰 생물만 3D
+- "광활하지만 미지의 영역" 느낌, **가시거리를 제한해도 공간감**이 살게
+- **입체적인 3D 공간 위에 가장 평면적인 도트**를 올렸을 때의 독특함이 핵심
+- 순서: **도트를 먼저 찍고 그걸 바탕으로 원화**를 그림. 도트는 수려함보다 **상상력을 자극하는 투박한 스타일**
+- 데이브는 친근한 **뚱뚱한 중년 아저씨** — 흔한 캐릭터 디자인을 일부러 피함
+- 2D 쪽에서 일해온 사람이 **2D의 평면 감성으로 3D를 만든 것**이 독특하게 받아들여졌다 ([게임어바웃](https://www.gameabout.com/news/curationView.html?idxno=84685), [인벤](https://www.inven.co.kr/webzine/news/?news=289969))
+- 생물은 프레임 도트 대신 **스파인(Spine) 뼈대 애니메이션**으로 생동감
+
+**기술 (민트로켓 변선항, Unity U Day Seoul 2024 "Dave, a 2D-Diver in a 3D-Land" — [루리웹](https://m.ruliweb.com/news/read/197125), [ZDNet](https://zdnet.co.kr/view/?no=20240522150033))**
+- 레벨 제작 순서: **지형 더미 → 아트 리소스(3D 지형) 제작 → 원경 추가**
+- 렌더링은 **원근(퍼스펙티브)** 카메라, 물리는 **2D(정사영)** — 원경까지 자연스럽게 보이면서 비용을 낮추려고
+- 콜라이더는 **아티스트가 만든 3D 지형을 카메라로 캡처 → 2D 스프라이트 → 2D 콜라이더 자동 생성**. 데이브보다 앞쪽 지형만 남기는 셰이더를 씌워 캡처. 수작업 8시간 → 30초(90% 감소)
+- 즉 **그림(지형 아트)이 먼저고, 충돌은 그림에서 뽑아냄**
+
+## 우리와의 결정적 차이
+
+| | 데이브 | 우리 (지금) |
+|---|---|---|
+| 지형 | **환경 아티스트가 만든 3D 지형 아트** | 코드가 만든 도형 (격자 → 마칭스퀘어 덩어리, 상자 탑, 구) |
+| 순서 | 아트 먼저 → 충돌을 아트에서 추출 | 격자 지도 먼저 → 그 위에 도형을 씌움 |
+| 원경 | 아트로 만든 원경 | 회색 상자·구 실루엣 |
+| 생물 | 도트 + 스파인 애니메이션, 큰 건 3D | AI 그림 축소 + 코드로 만든 삼각형 물고기 |
+
+**결론: 배경이 초딩 같은 이유는 "환경 아트가 없어서"다.** 셰이더·안개·빛줄기 같은 연출을 아무리 손봐도, 바탕이 코드로 만든 상자와 덩어리면 그 이상이 안 됨. 데이브도 연출이 아니라 **아티스트가 만든 3D 지형**이 바탕.
+
+## 현실적인 방법 (아트를 어디서 가져올까)
+
+1. **3D 에셋 팩 구매** ⭐ — 저폴리 스타일 수중 환경 팩(바위·산호·해초·난파선·폐허), glTF로 Godot에 바로 들어감
+   - 예: [Low Poly Underwater Environment Pack (CGTrader, $24.99, GLTF)](https://www.cgtrader.com/3d-models/exterior/landscape/low-poly-underwater-environment-pack), [Underwater World by ithappy (301개, Godot 호환, $79)](https://cgtrader.com/3d-models/exterior/landscape/tile-pack-environment-4), [Superhive 버전](https://superhivemarket.com/products/low-poly-underwater-environment-pack)
+   - 구매·라이선스 확인은 사람이 해야 함
+2. **AI 3D 생성** — GPT 콘셉트 그림 → Meshy/Tripo로 glb 생성. 유료 플랜이어야 상업 이용이 깔끔하고(무료는 CC BY·비상업 등 조건이 엇갈림), 모델끼리 스타일 맞추기가 어려움 ([비교](https://okmiku.com/blog/ai-3d-model-generator-meshy-tripo-meta-sam-2026))
+3. **2D 페인팅 레이어** — GPT가 큰 배경 그림을 레이어별로 그림. 빠르지만 데이브 같은 3D 공간감은 안 나옴
+
+## 제작 방식도 데이브처럼 바꿔야 함
+
+1. 레벨을 **Godot 에디터에서 에셋을 배치해 손으로** 만든다 (코드 생성 X)
+2. 충돌은 **배치한 3D 지형을 정면에서 래스터화해 격자로 자동 추출** (데이브의 "캡처 → 콜라이더"와 같은 원리). 게임 로직(World 격자)은 그대로 씀
+3. 원경은 같은 에셋을 크게·멀리 배치 + 안개
+4. 생물: 작은 물고기는 도트 + 뼈대 애니메이션(Godot Skeleton2D), 큰 생물만 3D
+5. 캐릭터는 "도트 먼저" — 화면 크기(32~48px)로 직접 찍힌 도트가 기준, AI 큰 그림을 줄이는 방식은 버림
