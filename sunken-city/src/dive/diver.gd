@@ -6,6 +6,7 @@ extends RefCounted
 signal fainted
 signal picked(kind: String)
 signal hurt
+signal pinched
 
 var pos: Vector2
 var vel := Vector2.ZERO
@@ -68,6 +69,13 @@ func step(world: World, move: Vector2, jump: bool, use_tool: bool, dt: float) ->
 			_invuln = Tuning.HURT_INVULN
 			vel = (pos - e.pos).normalized() * Tuning.KNOCKBACK
 			hurt.emit()
+
+	for c in world.crabs:
+		if _invuln == 0.0 and c.touches(pos, Tuning.DIVER_SIZE):
+			inventory["scrap"] = maxi(inventory["scrap"] - Tuning.CRAB_PINCH, 0)
+			_invuln = Tuning.HURT_INVULN
+			vel = Vector2(signf(pos.x - c.pos.x) * Tuning.KNOCKBACK, -Tuning.KNOCKBACK * 0.6)
+			pinched.emit()
 
 	if oxygen <= 0.0:
 		_faint(world)

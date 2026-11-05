@@ -114,6 +114,7 @@ no text. Object:
 
 - [x] S-0 스타일 시트 생성·후속 콘셉트 기준 채택 (사용자 최종 검토 전) (`raw3d/concepts/style_sheet.png`)
 - [x] 콘셉트 그림 22장 (`raw3d/concepts/`)
+- [x] 무료 TRELLIS 첫 모델 `rock_big` 생성·연결·비교
 - [ ] GLB 22개 (`raw3d/<폴더>/`)
 - [x] 비용 없이 가기로 함 (2026-11-02): GLB 대신 콘셉트 22장을 **종이 무대 컷아웃**으로 사용 — `tools/art_build.py`가 배경을 따서 `assets/stage/`에 저장, `src/view3d/sea_view.gd`가 앞·중간·먼 곳 3층으로 배치
 - [ ] (선택) 나중에 무료 GLB가 생기면 같은 이름으로 `raw3d/<폴더>/`에 넣기 — 컷아웃 자리를 3D로 바꿔 끼움
@@ -122,6 +123,9 @@ no text. Object:
 
 내장 image_gen으로 스타일 시트 1장 + 이를 참조한 단일 콘셉트 22장 생성. PNG 디코딩 검증 완료. 전체 프롬프트·크기·목표 GLB 경로는 `generation-manifest.json`의 `bundle_3d`에 기록. 이미지 크레딧은 도구에서 제공하지 않음.
 
-현재 Tripo/Meshy 연결 도구가 없어 문서의 대체 절차(1~2.1)까지 완료. **GLB는 아직 없음.** 사람이 상업 이용 가능한 유료 플랜으로 `raw3d/concepts/<이름>.png`를 각각 image-to-3D에 넣고, 위 3D 규격으로 `raw3d/<폴더>/<이름>.glb`에 저장한 뒤 플랜·설정·사용 크레딧을 manifest에 보완해야 함. 스타일 시트는 생성 기준으로 채택했으며 사용자 최종 확정은 대기.
+무료 TRELLIS로 `rock_big` GLB를 생성하고 Godot에 연결했다. 같은 폭과 위치에서 비교한 결과 컷아웃의 윤곽과 이끼가 수중에서 더 선명했고, 첫 비교는 컷아웃이 우세했다. 사용자 요청으로 후속 변환을 재개해 `rock_mid`까지 연결했으며, 무료 ZeroGPU 한도에 도달해 `rock_small`부터 남았다. 설정과 비용은 manifest에, 캡처는 `production/qa/evidence/glb-first/`에 기록했다.
 
-모델 검수 시 얇은 식물 형태, 아치 통로, 창문에 그려진 청록색의 유리/구멍 처리, 장식의 폴리곤 수를 확인. 게임 연결은 Claude 후속 작업.
+## 결정 (2026-11-05): 컷아웃으로 간다
+- TRELLIS로 `rock_big`·`rock_mid`를 만들어 봤지만, 콘셉트가 비스듬히 위에서 본 그림이라 옆모습에서 **납작한 상자**처럼 보였음 (`production/qa/evidence/glb-first/`). 컷아웃이 더 예쁨
+- 두 GLB는 `raw3d/_shelved/`에 보관 — `tools/art_build.py`가 이 폴더는 건너뜀. 나머지 20개는 만들지 않음
+- 나중에 정면(옆모습)으로 그린 콘셉트가 생기면 다시 시도할 수 있음: `raw3d/<폴더>/<이름>.glb`에 넣으면 그 자리 컷아웃을 자동으로 대체

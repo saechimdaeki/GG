@@ -33,13 +33,13 @@ Task:
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-11-02
+**Updated:** 2026-11-05
 **Branch:** `main`
-**Current task:** 가라앉은 도시 — 종이 무대(콘셉트 22장 컷아웃 3층 배치) + 돌 질감 지형(앞면 법선 뒤집힘 수정) + 음의 부력(가라앉기) + 평평한 넓은 카메라
-**Next step:** 물 밖 하늘이 탁함, 마을 배경. 유저 플레이 평가
-**Blocked on:** 유저 화면 평가
+**Current task:** 가라앉은 도시 M3 진행 — 펌프 밸브(물 채우기/빼기), 기둥 위 톱니(채워야 닿음), 게(마른 탑 층에만, 닿으면 조각 -1). 컷아웃 확정: GLB 2개는 art/raw3d/_shelved/
+**Next step:** M3 나머지 — 구역 2(수문 너머). 물 채운 상태 전용 괴물(해파리 jelly_ghost 그림 있음)
+**Blocked on:** 유저 플레이 평가
 **Files in progress:** none
-**Run result:** OBSERVED — sunken-city/production/qa/evidence/paper-stage/ (넓은 바다·탑 산호·깊은 폐허·마을·시작), smoke PASS
+**Run result:** OBSERVED — m3-valve/01-refilled-pillar.png, 02-crab-dry-floor.png; smoke PASS, VIEW3D PASS
 **Open questions:** 커밋·푸시 여부
 <!-- /CHECKPOINT -->
 

@@ -43,3 +43,8 @@ const DRAIN_TIME := 4.0
 # Eel
 const EEL_SPEED := 40.0
 const EEL_SIZE := Vector2(20, 8)
+
+# Crab (M3: only out on drained ground)
+const CRAB_SPEED := 22.0
+const CRAB_SIZE := Vector2(14, 10)
+const CRAB_PINCH := 1           # scrap dropped per pinch

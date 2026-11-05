@@ -12,7 +12,7 @@
 
 ---
 
-## 할 일 1 — 물 밖 하늘을 맑게 (코드)
+## 할 일 1 — 물 밖 하늘을 맑게 (완료)
 
 **문제:** 물 밖(시작 지점 위, 물 빠진 마을)이 탁한 청록색. 물속 안개 색이 물 밖까지 번져서 그럼.
 스크린샷: `production/qa/evidence/paper-stage/04-town.png`, `05-start.png`
@@ -29,7 +29,14 @@
 
 ---
 
-## 할 일 2 — 종이 컷아웃을 진짜 3D로 (무료, 하나씩)
+> **2026-11-05: 할 일 2는 중단.** 컷아웃이 더 나아서 GLB를 더 만들지 않음 (`art/PROMPTS_3D.md` 맨 아래 "결정").
+
+## 할 일 2 — 종이 컷아웃을 진짜 3D로 (첫 모델 검증 완료)
+
+- [x] 무료 TRELLIS `rock_big` GLB 생성본 연결 및 스모크 검증.
+- [x] 같은 위치·크기의 [GLB](qa/evidence/glb-first/rock-big-glb.png)와 [컷아웃](qa/evidence/glb-first/rock-big-cutout.png) 비교.
+- [x] 사용자 요청으로 후속 변환 재개. `rock_mid` 생성·연결 및 스모크 검증.
+- [ ] 나머지 20개 변환. `rock_small`부터 무료 ZeroGPU 한도 초기화 후 재개.
 
 ### 2-1. GLB 만들기 (사람 또는 GPT가 웹에서)
 1. Hugging Face의 **TRELLIS** 무료 데모(MIT 라이선스, 상업 이용 가능)를 연다

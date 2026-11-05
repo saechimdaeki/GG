@@ -1,0 +1,19 @@
+{
+  "space": "https://huggingface.co/spaces/trellis-community/TRELLIS",
+  "seed": 7,
+  "ss_guidance_strength": 7.5,
+  "ss_sampling_steps": 12,
+  "slat_guidance_strength": 3.0,
+  "slat_sampling_steps": 12,
+  "mesh_simplify": 0.98,
+  "texture_size": 1024,
+  "cost": 0,
+  "result": [
+    {
+      "video": "/private/var/folders/bw/wsgh_4_s43n40y1c9t249xm40000gn/T/gradio/e3d4c075d202612078f192a0002649ce819edd248690d8bc0fca8ee0c7842de4/sample.mp4",
+      "subtitles": null
+    },
+    "/private/var/folders/bw/wsgh_4_s43n40y1c9t249xm40000gn/T/gradio/66e67a40e8ea9f9afa136937449307f5ac91ba4817dae2b55b66ab469bbc79ed/sample.glb",
+    "/private/var/folders/bw/wsgh_4_s43n40y1c9t249xm40000gn/T/gradio/66e67a40e8ea9f9afa136937449307f5ac91ba4817dae2b55b66ab469bbc79ed/sample.glb"
+  ]
+}

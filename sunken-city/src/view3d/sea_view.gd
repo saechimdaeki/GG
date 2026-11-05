@@ -27,13 +27,20 @@ const SCHOOLS := [
 ]
 const WATER_DEEP := Color(0.01, 0.05, 0.12)
 const WATER_FOG := Color(0.07, 0.36, 0.56)  # shallow water: clear bright blue, so dark rock stands out
-const AIR_FOG := Color(0.55, 0.5, 0.42)
-const SKY := Color(0.45, 0.68, 0.85)
+const AIR_FOG := Color(0.82, 0.91, 1.0)
+const SKY := Color(0.18, 0.53, 0.92)
+const SKY_WARM_HORIZON := Color(1.0, 0.83, 0.64)
+const AIR_TRANSITION_SECONDS := 0.5
 
 var world: World
 var camera := Camera3D.new()
 var sprites := {}                  # key -> Sprite3D, created on first use
 var _env := Environment.new()
+var _sky_material := ShaderMaterial.new()
+var _air_blend := 0.0
+var _backdrop := MeshInstance3D.new()
+var _underwater_backdrop_mat := StandardMaterial3D.new()
+var _backdrop_mat := ShaderMaterial.new()
 var _sun := DirectionalLight3D.new()
 var _lamp := OmniLight3D.new()
 var _rock_mat := ShaderMaterial.new()
@@ -97,7 +104,7 @@ func sync(diver: Diver, dry: float, dt: float) -> void:
 	_place_water(sy)
 	_kelp_mat.set_shader_parameter("surface_y", sy)
 	for piece in _life:
-		piece.visible = piece.position.y - piece.texture.get_height() * piece.pixel_size / 2.0 < sy
+		piece.visible = float(piece.get_meta("stage_base_y")) < sy
 	_move_schools(to3(diver.pos), sy, dt)
 	_move_shafts(sy)
 	# marine snow only fills the water: re-aim the emitter at what is still flooded
@@ -106,20 +113,32 @@ func sync(diver: Diver, dry: float, dt: float) -> void:
 	(_snow.process_material as ParticleProcessMaterial).emission_box_extents = Vector3(world.width / 2.0 + 4, water_h / 2.0, 4)
 	var d := to3(diver.pos)
 	var wet := world.in_water(diver.pos)
-	# fog thickens with depth underwater; above water it thins to warm haze
-	var depth := clampf((d.y - sy) / -20.0, 0.0, 1.0) if wet else 0.0
-	_env.fog_light_color = (WATER_FOG.lerp(WATER_DEEP, depth)) if wet else AIR_FOG.lerp(WATER_FOG, 1.0 - dry)
-	# light fog: the play plane (19 units away) stays crisp, the ruins behind fade out
-	# the camera sits ~47 units back, so fog must be thin or the play plane washes out
-	_env.fog_density = lerpf(0.003, 0.012, depth) if wet else 0.0008
-	_env.background_color = _env.fog_light_color if wet else SKY.lerp(Color(0.85, 0.7, 0.5), dry * 0.5)
-	if not wet:
-		_env.fog_light_color = SKY.lerp(AIR_FOG, dry)
-	_env.ambient_light_energy = lerpf(0.55, 0.2, depth) if wet else lerpf(0.5, 1.0, dry)
-	_sun.light_energy = lerpf(1.6, 0.3, depth) if wet else lerpf(1.2, 1.8, dry)
-	_sun.light_color = Color(0.6, 0.85, 1.0) if wet else Color(1.0, 0.9, 0.75)
+	# Blend the complete environment over half a second; at zero the underwater
+	# colors, fog and lighting retain their original values.
+	_air_blend = move_toward(_air_blend, 0.0 if wet else 1.0, dt / AIR_TRANSITION_SECONDS)
+	var depth := clampf((d.y - sy) / -20.0, 0.0, 1.0)
+	var water_color := WATER_FOG.lerp(WATER_DEEP, depth)
+	var horizon := AIR_FOG.lerp(SKY_WARM_HORIZON, dry)
+	_sky_material.set_shader_parameter("top_color", water_color.lerp(SKY.lerp(Color(0.3, 0.59, 0.94), dry), _air_blend))
+	_sky_material.set_shader_parameter("horizon_color", water_color.lerp(horizon, _air_blend))
+	# Fog's sky affect is independent of density and otherwise flattens the sky
+	# to the fog color even with almost no distance fog.
+	_env.fog_sky_affect = 1.0 - _air_blend
+	_env.background_mode = Environment.BG_SKY if _air_blend > 0.0 else Environment.BG_COLOR
+	_env.background_color = water_color
+	_env.fog_light_color = water_color.lerp(horizon, _air_blend)
+	_env.fog_density = lerpf(lerpf(0.003, 0.012, depth), 0.0003, _air_blend)
+	_env.volumetric_fog_density = lerpf(0.006, 0.0, _air_blend)
+	_env.ambient_light_color = Color(0.45, 0.65, 0.75).lerp(Color(0.85, 0.9, 1.0).lerp(Color(1.0, 0.9, 0.75), dry), _air_blend)
+	_env.ambient_light_energy = lerpf(lerpf(0.55, 0.2, depth), lerpf(0.5, 1.0, dry), _air_blend)
+	_sun.light_energy = lerpf(lerpf(1.6, 0.3, depth), lerpf(1.2, 1.8, dry), _air_blend)
+	_sun.light_color = Color(0.6, 0.85, 1.0).lerp(Color(1.0, 0.97, 0.9).lerp(Color(1.0, 0.86, 0.66), dry), _air_blend)
+	_backdrop_mat.set_shader_parameter("surface_y", sy)
+	_backdrop_mat.set_shader_parameter("air_blend", _air_blend)
+	# Use the original opaque pass underwater so the wall still writes depth.
+	_backdrop.material_override = _backdrop_mat if _air_blend > 0.0 else _underwater_backdrop_mat
 	_lamp.position = d + Vector3(0, 0.4, 1.0)
-	_lamp.light_energy = lerpf(0.6, 2.2, depth) if wet else 0.3
+	_lamp.light_energy = lerpf(lerpf(0.6, 2.2, depth), 0.3, _air_blend)
 	_lamp.omni_range = 9.0 if world.village.has("tower") else 6.0  # the light tower widens the lantern
 	# camera: follow, clamped to the map so the edge of the world never shows
 	var half_h := CAM_DIST * tan(deg_to_rad(CAM_FOV / 2.0))
@@ -268,6 +287,10 @@ func _box(st: SurfaceTool, a: Vector2, b: Vector2) -> void:
 # --- scenery ---------------------------------------------------------------
 
 func _build_environment() -> void:
+	var sky := Sky.new()
+	sky.sky_material = _sky_material
+	_sky_material.shader = preload("res://src/view3d/clear_sky.gdshader")
+	_env.sky = sky
 	_env.background_mode = Environment.BG_COLOR
 	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	_env.ambient_light_color = Color(0.45, 0.65, 0.75)
@@ -304,10 +327,26 @@ const STAGE_MID := {"rock_big": 9.0, "rock_mid": 5.0, "rock_arch": 9.0, "cliff_w
 	"seabed_slab": 11.0, "coral_orange": 4.0, "sea_fan": 4.0}
 const STAGE_FAR := {"ruin_tower_top": 16.0, "ruin_column": 5.0, "ruin_arch": 14.0, "cliff_wall": 12.0,
 	"rock_arch": 18.0, "ruin_wall": 14.0}
-var _life: Array[Sprite3D] = []   # living decor: hidden once the water leaves it
+var _life: Array[Node3D] = []   # living decor: hidden once the water leaves it
 
 
-func _stage_piece(name: String, width: float, base: Vector3, tint := Color.WHITE, flip := false) -> Sprite3D:
+const STAGE_MODEL_GLOW := 0.15  # share of a GLB texture added as emission, so it matches the cutouts
+const STAGE_MODEL_LIFT := 1.6  # vertex-colored GLBs: brighten albedo instead
+
+
+func _stage_piece(name: String, width: float, base: Vector3, tint := Color.WHITE, flip := false) -> Node3D:
+	var model_path := "res://assets/models/%s.glb" % name
+	if ResourceLoader.exists(model_path):
+		var scene := load(model_path) as PackedScene
+		if scene != null:
+			var model := _stage_model(scene, width, base, tint, flip)
+			if model != null:
+				model.set_meta("stage_asset", name)
+				return model
+	return _stage_cutout(name, width, base, tint, flip)
+
+
+func _stage_cutout(name: String, width: float, base: Vector3, tint: Color, flip: bool) -> Sprite3D:
 	var tex: Texture2D = load("res://assets/stage/%s.png" % name)
 	var sp := Sprite3D.new()
 	sp.texture = tex
@@ -319,8 +358,74 @@ func _stage_piece(name: String, width: float, base: Vector3, tint := Color.WHITE
 	sp.flip_h = flip
 	sp.modulate = tint
 	sp.position = base + Vector3(0, tex.get_height() * sp.pixel_size / 2.0, 0)
+	sp.set_meta("stage_asset", name)
+	sp.set_meta("stage_base_y", base.y)
 	add_child(sp)
 	return sp
+
+
+## Imported meshes may have transformed parents and arbitrary origins. Measure
+## every surface in the holder's coordinates after flipping, then fit its width.
+func _stage_model(scene: PackedScene, width: float, base: Vector3, tint: Color, flip: bool) -> Node3D:
+	var holder := Node3D.new()
+	var instance := scene.instantiate()
+	if not instance is Node3D:
+		instance.free()
+		holder.free()
+		return null
+	holder.add_child(instance)
+	if flip:
+		holder.rotation.y = PI
+	var boxes: Array[AABB] = []
+	_stage_meshes(holder, Transform3D.IDENTITY, tint, boxes)
+	if boxes.is_empty():
+		holder.free()
+		return null
+	var bounds := boxes[0]
+	for box in boxes.slice(1):
+		bounds = bounds.merge(box)
+	if bounds.size.x <= 0.0001:
+		holder.free()
+		return null
+	var factor := width / bounds.size.x
+	holder.scale = Vector3.ONE * factor
+	holder.position = base - Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z) * factor
+	holder.set_meta("stage_base_y", base.y)
+	add_child(holder)
+	return holder
+
+
+func _stage_meshes(node: Node, parent_transform: Transform3D, tint: Color, boxes: Array[AABB]) -> void:
+	var local := parent_transform
+	if node is Node3D:
+		local *= (node as Node3D).transform
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		if mi.mesh != null:
+			boxes.append(local * mi.get_aabb())
+			for surface in mi.mesh.get_surface_count():
+				var original := mi.get_active_material(surface)
+				var material: BaseMaterial3D
+				if original is BaseMaterial3D:
+					material = original.duplicate() as BaseMaterial3D
+				else:
+					material = StandardMaterial3D.new()
+				material.albedo_color *= tint
+				# TRELLIS exports PBR that reads metallic and murky underwater: match the
+				# painted cutouts instead — matte, plus a little of its own texture as light
+				material.metallic = 0.0
+				material.roughness = 1.0
+				if material.albedo_texture != null:  # no texture (vertex colors): glowing would wash it white
+					material.emission_enabled = true
+					material.emission = Color.WHITE * tint
+					material.emission_texture = material.albedo_texture
+					material.emission_energy_multiplier = STAGE_MODEL_GLOW
+				else:
+					material.albedo_color *= STAGE_MODEL_LIFT
+				mi.set_surface_override_material(surface, material)
+			mi.material_override = null  # allow the isolated per-surface tints to show
+	for child in node.get_children():
+		_stage_meshes(child, local, tint, boxes)
 
 
 ## Top surface (world y) of the first wall below row from in column x, or NAN if none.
@@ -355,8 +460,10 @@ func _build_stage() -> void:
 				var name: String = STAGE_MID.keys()[rng.randi() % STAGE_MID.size()]
 				var depth := rng.randf_range(-9.0, -3.5)
 				var dim := remap(depth, -9.0, -3.5, 0.55, 0.85)
-				_stage_piece(name, STAGE_MID[name] * rng.randf_range(0.9, 1.4), Vector3(x, ground - 0.6, depth),
+				var mid_piece := _stage_piece(name, STAGE_MID[name] * rng.randf_range(0.9, 1.4), Vector3(x, ground - 0.6, depth),
 					Color(dim, dim * 1.05, dim * 1.1), rng.randf() < 0.5)
+				if STAGE_LIFE.has(name):  # big corals and fans die off with the water too
+					_life.append(mid_piece)
 			x += rng.randf_range(4.0, 9.0)
 	# the drowned skyline
 	var fx := -20.0
@@ -367,16 +474,27 @@ func _build_stage() -> void:
 			Vector3(fx, -world.height * 0.75 + rng.randf_range(-4.0, 6.0), depth), Color(0.45, 0.55, 0.62), rng.randf() < 0.5)
 		fx += rng.randf_range(7.0, 15.0)
 	# far back wall so the fog has something to fade into
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.08, 0.2, 0.26)
-	var back := MeshInstance3D.new()
+	_underwater_backdrop_mat.albedo_color = Color(0.08, 0.2, 0.26)
+	var shader := Shader.new()
+	shader.code = """shader_type spatial;
+	uniform float surface_y;
+	uniform float air_blend;
+	varying float world_y;
+	void vertex() { world_y = (MODEL_MATRIX * vec4(VERTEX, 1.0)).y; }
+	void fragment() {
+		ALBEDO = vec3(0.08, 0.2, 0.26);
+		ROUGHNESS = 1.0;
+		ALPHA = world_y > surface_y ? 1.0 - air_blend : 1.0;
+	}
+	"""
+	_backdrop_mat.shader = shader
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(world.width + 120, world.height + 80)
 	plane.orientation = PlaneMesh.FACE_Z
-	back.mesh = plane
-	back.material_override = mat
-	back.position = Vector3(world.width / 2.0, -world.height / 2.0, -60)
-	add_child(back)
+	_backdrop.mesh = plane
+	_backdrop.material_override = _underwater_backdrop_mat
+	_backdrop.position = Vector3(world.width / 2.0, -world.height / 2.0, -60)
+	add_child(_backdrop)
 
 
 func _build_water() -> void:

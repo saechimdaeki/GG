@@ -9,7 +9,8 @@ const DT := 1.0 / 60.0
 const O2: float = VillageData.TANK_MAX[0]
 const OPEN_WATER := Vector2(50.5, 14.5) * Tuning.TILE  # open sea, clear of eel lanes and walls
 const IN_TOWER := Vector2(18.5, 33.5) * Tuning.TILE    # a room inside the first tower: a floor right below, above the drained line
-const DEEP := Vector2(60.5, 52.5) * Tuning.TILE        # crushing cavern below the pressure line
+const DEEP := Vector2(60.5, 52.5) * Tuning.TILE
+const PILLAR_X := 48  # tools/gen_zone1.py: the lone sea pillar        # crushing cavern below the pressure line
 
 var _fails := 0
 
@@ -25,6 +26,8 @@ func _initialize() -> void:
 	_check_hard_wall_and_pressure()
 	_check_rubble_regrows()
 	_check_economy()
+	_check_valve()
+	_check_crabs()
 	print("PASS" if _fails == 0 else "FAIL %d" % _fails)
 	quit(0 if _fails == 0 else 1)
 
@@ -247,6 +250,68 @@ func _check_economy() -> void:
 			need[k] += c.get(k, 0)
 	for k in need:
 		_expect(have[k] >= need[k], "%s: map+rewards give %d, everything costs %d" % [k, have[k], need[k]])
+
+
+## M3: the repaired pump is a valve. Refilling raises the water to REFLOOD_ROW (below
+## every rooftop), draining lowers it again; the pillar gear is out of jumping reach
+## when dry and reachable by swimming when refilled.
+func _check_valve() -> void:
+	var w := World.new()
+	_expect(not w.toggle_valve(), "valve worked before the pump was repaired")
+	w.repair_pump({"scrap": 3, "pipe": 1, "gear": 1})
+	_expect(not w.toggle_valve(), "valve worked while still draining")
+	w.step(Tuning.DRAIN_TIME + 0.1)
+	_expect(w.toggle_valve(), "valve did not start refilling")
+	w.step(Tuning.DRAIN_TIME + 0.1)
+	_expect(is_equal_approx(w.surface_y, Zone1.REFLOOD_ROW * Tuning.TILE), "refill should stop at REFLOOD_ROW, got row %.1f" % (w.surface_y / Tuning.TILE))
+	for plot in w.village.plots:
+		_expect(not w.in_water(plot["pos"]), "refill flooded a building plot")
+	_expect(not w.in_water(w.pump), "refill flooded the pump")
+	_expect(w.toggle_valve(), "valve did not drain again")
+	w.step(Tuning.DRAIN_TIME + 0.1)
+	_expect(is_equal_approx(w.surface_y, w.drained_y), "second drain did not reach the drained row")
+	# the pillar gear: highest gear above the seabed in open sea
+	var gear := Vector2.ZERO
+	for p in w.pickups:
+		if p["kind"] == "gear" and floori(p["pos"].x / Tuning.TILE) == PILLAR_X:
+			gear = p["pos"]
+	_expect(gear != Vector2.ZERO, "no pillar gear in the map")
+	var floor_y := 0.0
+	var gx := floori(gear.x / Tuning.TILE)
+	for y in range(Zone1.MAP.size()):
+		if w.cell(Vector2i(gx - 1, y)) == World.Cell.WALL and y > gear.y / Tuning.TILE:
+			floor_y = y * Tuning.TILE
+			break
+	var jump_px := Tuning.JUMP_SPEED * Tuning.JUMP_SPEED / (2.0 * Tuning.GRAVITY)
+	_expect(floor_y - gear.y > jump_px + Tuning.TILE, "pillar gear is within jumping reach when dry (%.0f px up, jump %.0f)" % [floor_y - gear.y, jump_px])
+	_expect(gear.y > Zone1.REFLOOD_ROW * Tuning.TILE, "pillar gear is above the refilled water")
+
+
+## M3: crabs live on seabed ground that the water has left. Hidden while flooded,
+## out once drained, walking along the floor without falling off ledges; a pinch
+## knocks the diver back and costs one scrap; refilling sends them back into the sand.
+func _check_crabs() -> void:
+	var w := World.new()
+	_expect(w.crabs.size() >= 3, "expected at least 3 crabs, got %d" % w.crabs.size())
+	_expect(w.crabs.all(func(c): return not c.active), "crab out while the basin is flooded")
+	w.repair_pump({"scrap": 3, "pipe": 1, "gear": 1})
+	w.step(Tuning.DRAIN_TIME + 0.1)
+	_expect(w.crabs.all(func(c): return c.active), "crab still hidden after draining")
+	var c: Crab = w.crabs[0]
+	var y0 := c.pos.y
+	for i in 600:
+		w.step(DT)
+	_expect(is_equal_approx(c.pos.y, y0), "crab left its floor")
+	_expect(not w.box_hits(c.pos, Tuning.CRAB_SIZE), "crab walked into a wall")
+	_expect(w.solid_at(c.pos + Vector2(0, Tuning.TILE)), "crab walked off a ledge")
+	var d := Diver.new(c.pos)
+	d.inventory = {"scrap": 2, "pipe": 0, "gear": 0}
+	d.step(w, Vector2.ZERO, false, false, DT)
+	_expect(d.inventory["scrap"] == 1, "crab pinch should cost one scrap, have %d" % d.inventory["scrap"])
+	_expect(d.invulnerable(), "no invulnerability after a pinch")
+	w.toggle_valve()
+	w.step(Tuning.DRAIN_TIME + 0.1)
+	_expect(not c.active or not w.in_water(c.pos), "crab stayed out under the refilled water")
 
 
 func _run(d: Diver, w: World, move: Vector2, seconds: float) -> void:

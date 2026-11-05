@@ -9,7 +9,7 @@ const RESIDENT_ART := ["moru", "mulbangul"]
 const MENU_COLOR := Color("ffd27a")
 ## Every image in assets/ the game uses (made by tools/art_build.py), keyed "folder/name".
 const ART := [
-	"sprites/diver", "sprites/eel_lantern", "sprites/moru", "sprites/mulbangul",
+	"sprites/diver", "sprites/eel_lantern", "sprites/crab_rubble", "sprites/moru", "sprites/mulbangul",
 	"props/air_bubble_plant", "props/pump_broken", "props/pump_fixed", "props/floodgate",
 	"props/scrap_brass", "props/pipe_part", "props/gear",
 	"props/building_workshop", "props/building_lodge", "props/building_tower",
@@ -45,6 +45,7 @@ func _ready() -> void:
 	_build_hud()
 	diver.fainted.connect(func(): _say("산소가 바닥났다… 정신을 차려보니 %s. 황동 조각 절반을 잃었다." % ("마을이다" if world.pump_fixed else "출발점이다")))
 	diver.picked.connect(func(k): _say("%s 주웠다" % LABELS[k], 1.2))
+	diver.pinched.connect(func(): _say("게한테 집혔다! 황동 조각 -%d" % Tuning.CRAB_PINCH, 1.2))
 	diver.hurt.connect(func(): _say("장어에게 물렸다! 산소 -%d" % int(Tuning.EEL_BITE), 1.2))
 	_say("방향키/WASD 이동 · Space 점프 · J 부수기 · E 상호작용 · R 귀환\n펌프를 고칠 재료: 황동 조각 3 · 파이프 1 · 톱니 1", 6.0)
 
@@ -80,7 +81,7 @@ func _try_repair() -> void:
 	if world.repair_pump(diver.inventory):
 		_say("펌프가 돌아간다! 물이 빠진다…", 4.0)
 		await get_tree().create_timer(Tuning.DRAIN_TIME).timeout
-		_say("구역이 말랐다! 금빛 표시가 된 빈터에서 E를 눌러 건물을 지어보자.", 8.0)
+		_say("구역이 말랐다! 금빛 표시가 된 빈터에서 E를 눌러 건물을 지어보자.\n펌프에서 E: 밸브 — 물을 다시 채우거나 뺄 수 있다.", 8.0)
 	else:
 		var parts := []
 		for k in need:
@@ -109,6 +110,21 @@ func _interact() -> void:
 			"tower": _say("조명탑이 깊은 곳까지 빛을 보낸다.", 2.0)
 		_menu_at = plot["pos"]
 		return
+	if diver.near_pump(world):
+		_use_valve()
+
+
+## M3: the repaired pump doubles as a valve that refills or drains the basin.
+func _use_valve() -> void:
+	if world.draining():
+		_say("물이 아직 움직이는 중이다…", 1.5)
+		return
+	var refill := not world.refilled()
+	world.toggle_valve()
+	if refill:
+		_say("밸브를 거꾸로 돌렸다! 물이 차오른다… 높은 곳에 헤엄쳐 닿을 수 있다.", 4.0)
+	else:
+		_say("밸브를 돌렸다. 물이 다시 빠진다…", 3.0)
 
 
 func _open_build_menu(plot: int) -> void:
@@ -203,6 +219,11 @@ func _show_sprites() -> void:
 		var e: Eel = world.eels[i]
 		if e.alive:
 			view.show_sprite("eel%d" % i, "sprites/eel_lantern", e.pos + Vector2(0, sin(_time * 6.0 + i)), e.dir < 0, false, 0.2)
+	for i in world.crabs.size():
+		var c: Crab = world.crabs[i]
+		if c.active:
+			# sprite faces right; scuttle with a little hop
+			view.show_sprite("crab%d" % i, "sprites/crab_rubble", c.pos + Vector2(0, Tuning.CRAB_SIZE.y / 2.0 - absf(sin(_time * 10.0 + i)) * 1.5), c.dir < 0, true, 0.2)
 	if not (diver.invulnerable() and int(_time * 12) % 2 == 0):
 		var left := diver.facing.x < 0
 		if world.in_water(diver.pos) or not _tex.has("sprites/diver_stand"):
@@ -274,6 +295,8 @@ func _update_hud() -> void:
 		_say("수압이 짓누른다! 산소가 빨리 닳는다 — 공방에서 잠수복을 업그레이드하자", 0.3)
 	elif diver.near_pump(world) and not world.pump_fixed and _msg_time <= 0:
 		_say("E: 펌프 수리", 0.2)
+	elif diver.near_pump(world) and world.pump_fixed and _msg_time <= 0:
+		_say("E: 밸브 (%s)" % ("물 빼기" if world.refilled() else "물 채우기"), 0.2)
 	var lines := []
 	for i in _menu.size():
 		lines.append("%d. %s" % [i + 1, _menu[i]["text"]])

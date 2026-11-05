@@ -10,6 +10,7 @@ texture the game repeats across the map. Scenes: cover-cropped to 640x360.
 A file missing from SIZES is skipped with a warning; writes art/preview.png.
 """
 from pathlib import Path
+import shutil
 
 import numpy as np
 from scipy import ndimage
@@ -113,7 +114,25 @@ def cover(im: Image.Image, w: int = 640, h: int = 360) -> Image.Image:
     return im.crop((x, y, x + w, y + h))
 
 
+def copy_models() -> int:
+    """Keep optional GLBs outside the .gdignore art source tree at runtime."""
+    models = OUT / "models"
+    # _shelved/ holds GLBs we tried and set aside (cutouts looked better side-on)
+    sources = sorted(p for p in (ROOT / "art" / "raw3d").glob("*/*.glb") if p.parent.name != "_shelved")
+    if sources:
+        models.mkdir(parents=True, exist_ok=True)
+    names: set[str] = set()
+    for source in sources:
+        if source.name in names:
+            raise ValueError(f"Duplicate model name: {source.name}")
+        names.add(source.name)
+    for source in sources:
+        shutil.copy2(source, models / source.name)
+    return len(sources)
+
+
 def main() -> None:
+    print(f"{copy_models()} models -> {OUT / 'models'}")
     made = []
     stage = OUT / "stage"
     stage.mkdir(parents=True, exist_ok=True)

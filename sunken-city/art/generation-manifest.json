@@ -796,10 +796,15 @@
       "reference": "style_sheet.png"
     },
     "model_generation": {
-      "tool": null,
-      "plan": null,
-      "credits": null,
-      "status": "not_run_no_connected_Tripo_or_Meshy"
+      "tool": "TRELLIS via official Gradio API",
+      "space": "https://huggingface.co/spaces/trellis-community/TRELLIS",
+      "requested_space": "https://huggingface.co/spaces/microsoft/TRELLIS (redirected)",
+      "plan": "free ZeroGPU; no paid service",
+      "credits": 0,
+      "cost": 0,
+      "license_source": "https://github.com/microsoft/TRELLIS/blob/main/LICENSE",
+      "license_copy": "raw3d/LICENSE-TRELLIS.txt",
+      "date": "2026-11-02"
     },
     "assets": [
       {
@@ -810,13 +815,29 @@
         "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a big rounded seabed boulder, flat-ish top to stand on, teal moss on top, barnacles. Target proportions width × height × depth: 8×5×5 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
         "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-275e06e3-1f84-4b15-9166-160afc705aec.png",
         "concept_path": "raw3d/concepts/rock_big.png",
-        "status": "concept_generated_glb_pending",
+        "status": "glb_generated_and_connected",
         "image_size": [
           1536,
           1024
         ],
         "image_mode": "RGB",
-        "target_glb_path": "raw3d/rocks/rock_big.glb"
+        "target_glb_path": "raw3d/rocks/rock_big.glb",
+        "glb": {
+          "path": "raw3d/rocks/rock_big.glb",
+          "runtime_path": "assets/models/rock_big.glb",
+          "triangles": 4278,
+          "textures": 1,
+          "texture_size": 1024,
+          "seed": 7,
+          "ss_guidance_strength": 7.5,
+          "ss_sampling_steps": 12,
+          "slat_guidance_strength": 3.0,
+          "slat_sampling_steps": 12,
+          "mesh_simplify": 0.98,
+          "postprocess": "gltf-transform simplify --ratio 0.3 --error 0.01; rotate Y 180 degrees so generated front faces +Z; set metallicFactor=0 and roughnessFactor=1; add area-weighted vertex normals",
+          "raw_triangles": 14266,
+          "cost": 0
+        }
       },
       {
         "name": "rock_mid",
@@ -826,13 +847,29 @@
         "prompt": "Single stylized low-poly 3D game asset for a cheerful 2.5D underwater adventure game, same style as the reference style sheet: chunky simple shapes, big flat color areas, hand-painted texture, warm grey-brown stone with teal moss and barnacles, saturated coral colors. Three-quarter view from slightly above, the whole object visible and centered with margin, plain light grey background, soft even lighting, no ground, no shadow, no other objects, no text. Object: a medium rounded seabed rock, moss on top. Target proportions width × height × depth: 4×3×3 tiles. Reference image is STYLE ONLY, do not reproduce the lineup or unrelated objects. Only the requested asset. No decorative display plinth, no scenery inside openings. Large simple geometry suitable for image-to-3D.",
         "source_path": "/Users/junseongkim/.codex/generated_images/01a19acc-f6b0-7443-8b86-ac5deef5696c/exec-80f4e835-6588-4e4a-9662-c8c4b50e8b97.png",
         "concept_path": "raw3d/concepts/rock_mid.png",
-        "status": "concept_generated_glb_pending",
+        "status": "glb_generated_and_connected",
         "image_size": [
           1448,
           1086
         ],
         "image_mode": "RGB",
-        "target_glb_path": "raw3d/rocks/rock_mid.glb"
+        "target_glb_path": "raw3d/rocks/rock_mid.glb",
+        "glb": {
+          "path": "raw3d/rocks/rock_mid.glb",
+          "runtime_path": "assets/models/rock_mid.glb",
+          "triangles": 4500,
+          "textures": 1,
+          "raw_triangles": 12666,
+          "seed": 7,
+          "ss_guidance_strength": 7.5,
+          "ss_sampling_steps": 12,
+          "slat_guidance_strength": 3.0,
+          "slat_sampling_steps": 12,
+          "mesh_simplify": 0.98,
+          "texture_size": 1024,
+          "postprocess": "gltf-transform simplify (error 0.01); rotate Y 180 degrees; matte non-metallic material",
+          "cost": 0
+        }
       },
       {
         "name": "rock_small",
@@ -1161,8 +1198,8 @@
       "image_generation": "not_reported_by_builtin_tool",
       "ai_3d": 0
     },
-    "status": "concepts_complete_models_pending",
+    "status": "glb_batch_in_progress",
     "date": "2026-11-02",
-    "validation": "23 PNGs decoded successfully; style sheet and 22 concepts visually reviewed (concept overview plus individual samples). No GLB generated."
+    "validation": "23 PNGs decoded successfully; style sheet and 22 concepts visually reviewed (concept overview plus individual samples). rock_big GLB imported and verified in Godot. Same-position comparison at nine tiles favored the cutout for underwater readability; additional conversions deferred."
   }
 }

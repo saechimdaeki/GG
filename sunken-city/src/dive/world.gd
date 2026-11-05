@@ -15,6 +15,7 @@ var damage := {}            # Vector2i -> hits taken
 var revision := 0           # bumps whenever a tile changes, so views know to rebuild
 var pickups: Array = []     # {pos: Vector2, kind: String}
 var eels: Array[Eel] = []
+var crabs: Array[Crab] = []
 var air_plants: Array[Vector2] = []
 var start := Vector2.ZERO
 var pump := Vector2.ZERO
@@ -26,7 +27,9 @@ var pressure_y := 0.0
 var _regrow := {}           # Vector2i -> seconds until broken rubble silts back
 var surface_y := 0.0        # water surface in px; below it is water
 var drained_y := 0.0
+var reflood_y := 0.0
 var _drain_from := 0.0
+var _drain_to := 0.0
 var _drain_t := -1.0        # < 0: not draining
 
 
@@ -36,6 +39,7 @@ func _init(map: Array = Zone1.MAP, surface_row := Zone1.SURFACE_ROW, drained_row
 	surface_y = surface_row * Tuning.TILE
 	drained_y = drained_row * Tuning.TILE
 	pressure_y = Zone1.PRESSURE_ROW * Tuning.TILE
+	reflood_y = Zone1.REFLOOD_ROW * Tuning.TILE
 	var plot_positions: Array[Vector2] = []
 	for y in height:
 		for x in width:
@@ -52,6 +56,7 @@ func _init(map: Array = Zone1.MAP, surface_row := Zone1.SURFACE_ROW, drained_row
 				"P": pump = center
 				"O": air_plants.append(center)
 				"E": eels.append(Eel.new(center))
+				"C": crabs.append(Crab.new(center + Vector2(0, Tuning.TILE / 2.0 - Tuning.CRAB_SIZE.y / 2.0)))  # standing on the floor
 				"g": pickups.append({"pos": center, "kind": "gear"})
 				"p": pickups.append({"pos": center, "kind": "pipe"})
 				"B": plot_positions.append(center)
@@ -133,9 +138,27 @@ func repair_pump(inventory: Dictionary) -> bool:
 	for k in Tuning.PUMP_COST:
 		inventory[k] -= Tuning.PUMP_COST[k]
 	pump_fixed = true
-	_drain_from = surface_y
-	_drain_t = 0.0
+	_move_water(drained_y)
 	return true
+
+
+## The repaired pump is a valve: refill the basin up to reflood_y, or drain it again.
+## Refused before the repair and while the water is still moving.
+func toggle_valve() -> bool:
+	if not pump_fixed or draining():
+		return false
+	_move_water(reflood_y if is_equal_approx(surface_y, drained_y) else drained_y)
+	return true
+
+
+func refilled() -> bool:
+	return pump_fixed and surface_y < drained_y - 1.0
+
+
+func _move_water(to: float) -> void:
+	_drain_from = surface_y
+	_drain_to = to
+	_drain_t = 0.0
 
 
 func draining() -> bool:
@@ -156,9 +179,11 @@ func step(dt: float, diver_pos := Vector2(-1000, -1000)) -> void:
 			revision += 1
 	if draining():
 		_drain_t = minf(_drain_t + dt, Tuning.DRAIN_TIME)
-		surface_y = lerpf(_drain_from, drained_y, smoothstep(0.0, 1.0, _drain_t / Tuning.DRAIN_TIME))
+		surface_y = lerpf(_drain_from, _drain_to, smoothstep(0.0, 1.0, _drain_t / Tuning.DRAIN_TIME))
 		if _drain_t >= Tuning.DRAIN_TIME:
 			_drain_t = -1.0
+	for c in crabs:
+		c.step(self, dt)
 	for e in eels:
 		if e.alive and not in_water(e.pos):
 			e.alive = false
