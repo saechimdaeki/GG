@@ -14,6 +14,8 @@ signal hit
 var holders := 0
 ## Payout when delivered intact.
 var value := 0.0
+## Shown under the crosshair.
+var label := ""
 var size := Vector3.ONE
 ## 1 = pristine, 0 = broken (pays nothing). Host lowers it on hard impacts; synced.
 var durability := 1.0:
@@ -35,6 +37,7 @@ func setup(d: Dictionary) -> void:
 	name = d.name
 	mass = d.mass
 	value = d.value
+	label = d.get("label", d.name)
 	curse = d.get("curse", "")
 	position = Vector3(d.pos[0], d.pos[1], d.pos[2])
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC

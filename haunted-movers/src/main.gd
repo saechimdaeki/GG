@@ -16,6 +16,7 @@ const Ghost = preload("res://src/ghost.gd")
 const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
 const Net = preload("res://src/net.gd")
+const UiTheme = preload("res://src/ui_theme.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
@@ -53,9 +54,12 @@ var _last_thud := 0
 var _menu: Control
 var _hint := Label.new()
 var _result := Label.new()
+var _aim := Label.new()
 
 
 func _ready() -> void:
+	# Controls under CanvasLayers don't inherit a Window theme, so merge into the fallback theme.
+	ThemeDB.get_default_theme().merge_with(UiTheme.build())
 	_setup_input()
 	_build_room()
 	truck.name = "Truck"
@@ -285,6 +289,29 @@ func _process(_delta: float) -> void:
 		and not _shooting
 	_refresh_lan()
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
+
+
+## What the local player is looking at (set by player.gd each frame).
+func set_aim(target: Object) -> void:
+	if target == null:
+		_aim.text = ""
+	elif target is Node and target.name == "DepartButton":
+		_aim.text = "출발 버튼 — 클릭하면 오늘 일 끝"
+	elif target is Furniture:
+		var f: Furniture = target
+		var lift_kg: float = Tuning.data.player_strength * run.strength_mult / 9.8
+		var parts := ["%s · %dkg · %d원" % [f.label, roundi(f.mass), roundi(f.value * f.durability)]]
+		if f.mass > lift_kg:
+			parts.append("둘이 들어야 함")
+		if f.curse == "runaway":
+			parts.append("가까이 가면 도망감")
+		elif f.curse == "buck":
+			parts.append("들면 들썩임")
+		if f.durability < 1.0:
+			parts.append("파손 %d%%" % roundi((1.0 - f.durability) * 100))
+		_aim.text = " · ".join(parts)
+	else:
+		_aim.text = ""
 
 
 ## Host: a cursed piece shook everyone off.
@@ -612,6 +639,12 @@ func _build_room() -> void:
 	var house := House.new()
 	house.name = "House"
 	add_child(house)
+	# Menu camera: the house at dusk from the road; a player's camera takes over on spawn.
+	var menu_cam := Camera3D.new()
+	menu_cam.name = "MenuCam"
+	add_child(menu_cam)
+	menu_cam.look_at_from_position(Vector3(-9, 2.2, -13), Vector3(0, 2.0, 4), Vector3.UP)
+	menu_cam.current = true
 
 	# VHS overlay: above the 3D view, below the HUD (layer 1).
 	var vhs_layer := CanvasLayer.new()
@@ -632,9 +665,17 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var cross := Label.new()
-	cross.text = "+"
+	cross.text = "•"
 	cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	cross.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	cross.grow_vertical = Control.GROW_DIRECTION_BOTH
 	layer.add_child(cross)
+	_aim.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_aim.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_aim.offset_top = 22
+	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_aim.add_theme_font_size_override("font_size", 15)
+	layer.add_child(_aim)
 	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -40
@@ -662,7 +703,8 @@ func _build_hud() -> void:
 
 	_shop.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_shop.offset_top = -250
-	_shop.offset_bottom = -70
+	_shop.offset_bottom = -56
+	_shop.grow_vertical = Control.GROW_DIRECTION_BEGIN  # extra height goes up, clear of the hint
 	_shop.offset_left = -260
 	_shop.offset_right = 260
 	var box := VBoxContainer.new()
@@ -685,17 +727,26 @@ func _build_hud() -> void:
 func _build_menu() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	layer.add_child(panel)
 	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(320, 0)
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BOTH
-	layer.add_child(box)
-	_menu = box
+	box.custom_minimum_size = Vector2(380, 0)
+	panel.add_child(box)
+	_menu = panel
 	_status.visible = false
 	var title := Label.new()
-	title.text = "유령집 이삿짐센터  v%s" % ProjectSettings.get_setting("application/config/version", "")
+	title.text = "유령집 이삿짐센터"
+	title.add_theme_font_size_override("font_size", 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
+	var sub := Label.new()
+	sub.text = "가구는 무겁고, 집은 귀신 들렸다   v%s" % ProjectSettings.get_setting("application/config/version", "")
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.modulate = Color(1, 1, 1, 0.75)
+	box.add_child(sub)
 	var host_btn := Button.new()
 	host_btn.text = "호스트"
 	host_btn.pressed.connect(host)

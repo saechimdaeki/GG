@@ -80,6 +80,10 @@ func stun(sec: float) -> void:
 
 func _process(_delta: float) -> void:
 	flashlight.visible = flash_on and not stunned
+	if is_multiplayer_authority() and is_inside_tree():
+		ray.target_position = Vector3(0, 0, -(Tuning.data.reach + _main().run.reach_bonus))
+		ray.force_raycast_update()
+		_main().set_aim(null if held or stunned else ray.get_collider())
 	if body:
 		body.rotation.x = PI / 2 if stunned else 0.0  # knocked flat on the back
 		(body.get_node("HeadVis") as Node3D).rotation.x = head.rotation.x * 0.6
