@@ -114,7 +114,7 @@ func host(upnp := true) -> void:
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(PORT, 4)
 	if err != OK:
-		_hint.text = "호스트 실패: 포트 %d (%s)" % [PORT, error_string(err)]
+		_hint.text = "호스트 실패: 포트 %d를 이미 쓰는 중 — 이 게임이 이미 켜져 있나요? (%s)" % [PORT, error_string(err)]
 		return
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_joined)
