@@ -225,20 +225,30 @@ func _initialize() -> void:
 	dummy._air_t = 0.0  # settle the hero the kick above sent flying
 	dummy._knockback = Vector2.ZERO
 	dummy.rotation = 0.0
+	# Lava on the 3x3 around the hero: after the kick it can sit against a wall, and
+	# move_and_slide may nudge it into a neighbouring cell as it lands (CI flake).
 	var lava_cell := dummy.grid.cell_at(dummy.global_position)
-	var had: Variant = grid.terrain.get(lava_cell)
-	grid.terrain[lava_cell] = "lava"
+	var had := {}
+	for dx in [-1, 0, 1]:
+		for dy in [-1, 0, 1]:
+			var c: Vector2i = lava_cell + Vector2i(dx, dy)
+			had[c] = grid.terrain.get(c)
+			grid.terrain[c] = "lava"
 	dummy.launch(Vector2.ZERO, 0.02)
 	dummy.health = 999
 	for i in 60:  # hitstop from the combos above slows time; wait for the landing
 		if not is_instance_valid(dummy) or not dummy.airborne():
 			break
 		await physics_frame
-	_check("launched hero landing in lava dies (lava dive)", not is_instance_valid(dummy) or dummy.health <= 0)
-	if had == null:
-		grid.terrain.erase(lava_cell)
-	else:
-		grid.terrain[lava_cell] = had
+	var landed := "gone" if not is_instance_valid(dummy) else "%s hp %d air %s" % [
+		dummy.grid.cell_at(dummy.global_position), dummy.health, dummy.airborne()]
+	_check("launched hero landing in lava dies (lava dive) [lava around %s, hero %s]" % [lava_cell, landed],
+		not is_instance_valid(dummy) or dummy.health <= 0)
+	for c in had:
+		if had[c] == null:
+			grid.terrain.erase(c)
+		else:
+			grid.terrain[c] = had[c]
 	# B: perk cards are rule changes, offered once.
 	Rewards.apply("bowling", game)
 	_check("perk card is recorded and not offered again", game.perks.has("bowling")
