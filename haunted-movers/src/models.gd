@@ -91,12 +91,23 @@ static func mover(color: Color) -> Node3D:
 	var shirt := matte(Color("#e9e2cf"))
 	var skin := matte(Color("#e8b48f"))
 	var boots := matte(Color("#3a2a22"))
+	# Limbs hang from pivots at the hip/shoulder (named LegL/LegR/ArmL/ArmR) so player.gd
+	# can swing them by rotating the pivot on x.
 	for sx in [-1, 1]:
-		_capsule(root, 0.11, 0.8, Vector3(sx * 0.13, 0.42, 0), overalls)                 # legs
-		box(root, Vector3(0.18, 0.12, 0.3), Vector3(sx * 0.13, 0.06, -0.04), boots)         # boots
-		var arm := _capsule(root, 0.08, 0.62, Vector3(sx * 0.33, 1.1, -0.04), shirt)       # arms
-		arm.rotation.z = sx * 0.12
-		_sphere(root, 0.08, Vector3(sx * 0.36, 0.8, -0.08), skin)                          # hands
+		var side := "L" if sx < 0 else "R"
+		var hip := Node3D.new()
+		hip.name = "Leg" + side
+		hip.position = Vector3(sx * 0.13, 0.82, 0)
+		root.add_child(hip)
+		_capsule(hip, 0.11, 0.8, Vector3(0, -0.4, 0), overalls)                           # leg
+		box(hip, Vector3(0.18, 0.12, 0.3), Vector3(0, -0.76, -0.04), boots)                 # boot
+		var shoulder := Node3D.new()
+		shoulder.name = "Arm" + side
+		shoulder.position = Vector3(sx * 0.31, 1.4, -0.04)
+		shoulder.rotation.z = sx * 0.12
+		root.add_child(shoulder)
+		_capsule(shoulder, 0.08, 0.62, Vector3(0, -0.3, 0), shirt)                         # arm
+		_sphere(shoulder, 0.08, Vector3(0, -0.62, -0.03), skin)                             # hand
 	_capsule(root, 0.27, 0.75, Vector3(0, 1.1, 0), overalls)                              # torso
 	box(root, Vector3(0.3, 0.22, 0.05), Vector3(0, 1.2, -0.25), overalls)                 # bib
 	for sx in [-1, 1]:
