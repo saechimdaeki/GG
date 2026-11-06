@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -19,7 +19,9 @@ const Net = preload("res://src/net.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
-const PORT := 7777
+const DEFAULT_PORT := 7777
+## Game port; `--port=N` overrides it (e.g. test copies next to a running game).
+var port := DEFAULT_PORT
 
 ## peer id -> {body, local, target, t}. Host only.
 var grabs := {}
@@ -45,6 +47,7 @@ var _lan_box := VBoxContainer.new()
 var _lan_seen := ""
 var _auto_join_lan := false
 var _pause := PanelContainer.new()
+var _shooting := false  # --screenshot: keep the Esc menu out of the picture
 var _sfx := {}
 var _last_thud := 0
 var _menu: Control
@@ -85,6 +88,9 @@ func _ready() -> void:
 	add_child(net)
 	net.wan_ready.connect(_on_wan_ready)
 	var args := OS.get_cmdline_user_args()
+	for arg in args:
+		if arg.begins_with("--port="):
+			port = arg.trim_prefix("--port=").to_int()
 	if "--host" in args:
 		host(not "--no-upnp" in args)
 	elif "--join" in args:
@@ -106,16 +112,17 @@ func _ready() -> void:
 			delay = a.trim_prefix("--shot-delay=").to_float()
 	for a in args:
 		if a.begins_with("--screenshot="):
+			_shooting = true
 			_screenshot_later(a.trim_prefix("--screenshot="), delay)
 
 
-## Hosts on PORT, announces itself on the LAN, and (unless `upnp` is false) asks the
+## Hosts on `port`, announces itself on the LAN, and (unless `upnp` is false) asks the
 ## router to open the port for friends over the internet.
 func host(upnp := true) -> void:
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(PORT, 4)
+	var err := peer.create_server(port, 4)
 	if err != OK:
-		_hint.text = "호스트 실패: 포트 %d를 이미 쓰는 중 — 이 게임이 이미 켜져 있나요? (%s)" % [PORT, error_string(err)]
+		_hint.text = "호스트 실패: 포트 %d를 이미 쓰는 중 — 이 게임이 이미 켜져 있나요? (%s)" % [port, error_string(err)]
 		return
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_joined)
@@ -124,13 +131,13 @@ func host(upnp := true) -> void:
 	_close_menu()
 	run = RunState.new_run(Tuning.data.run)  # the clock ran behind the menu; start fresh
 	_push_run()
-	net.start_beacon(PORT)
+	net.start_beacon(port)
 	var lan := Net.local_ips()
 	_addr.text = "같은 와이파이 친구: %s\n인터넷 친구: %s" % [
-		", ".join(lan.map(func(a: String) -> String: return "%s:%d" % [a, PORT])) if not lan.is_empty() else "(없음)",
+		", ".join(lan.map(func(a: String) -> String: return "%s:%d" % [a, port])) if not lan.is_empty() else "(없음)",
 		"공유기 포트 여는 중…" if upnp else "꺼짐 (--no-upnp)"]
 	if upnp:
-		net.open_wan(PORT)
+		net.open_wan(port)
 
 
 func _on_wan_ready(address: String, error: String) -> void:
@@ -141,7 +148,7 @@ func _on_wan_ready(address: String, error: String) -> void:
 
 ## Joins "ip" or "ip:port" (LAN address, or the host's internet address).
 func join(address: String) -> void:
-	var a := Net.parse_address(address, PORT)
+	var a := Net.parse_address(address, port)
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(a[0], a[1])
 	if err != OK:
@@ -274,7 +281,8 @@ func _process(_delta: float) -> void:
 	_vhs.set_shader_parameter("noise", amount)
 	# Esc menu: whenever the mouse is free during play (no menu, no shop). The game keeps running.
 	_pause.visible = _menu == null and run.phase == "day" and players.get_child_count() > 0 \
-		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless"
+		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless" \
+		and not _shooting
 	_refresh_lan()
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
 
@@ -574,15 +582,30 @@ func _build_room() -> void:
 	sun.shadow_enabled = true
 	add_child(sun)
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("#3a2a40")
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#7a6a80")
-	env.ambient_light_energy = 0.45
+	var sky_mat := ProceduralSkyMaterial.new()  # dusk: violet top, burnt-orange horizon
+	sky_mat.sky_top_color = Color("#2a2347")
+	sky_mat.sky_horizon_color = Color("#d9785a")
+	sky_mat.ground_horizon_color = Color("#4a3040")
+	sky_mat.ground_bottom_color = Color("#1a1420")
+	sky_mat.sun_angle_max = 20.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.16  # dark: the flashlight and bulbs do the work
 	env.fog_enabled = true
-	env.fog_light_color = Color("#3a2a40")
-	env.fog_density = 0.02
+	env.fog_light_color = Color("#6a4a5a")
+	env.fog_density = 0.012
+	env.fog_sky_affect = 0.3
+	env.ssao_enabled = true       # contact shadows in corners and under furniture
+	env.ssao_intensity = 1.6
+	env.glow_enabled = true       # bulbs, windows and headlights bloom a little
+	env.glow_intensity = 0.6
+	env.glow_hdr_threshold = 1.2
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.1
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -597,7 +620,7 @@ func _build_room() -> void:
 	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sm := ShaderMaterial.new()
-	sm.shader = preload("res://src/vhs.gdshader")
+	sm.shader = preload("res://src/canvas_post_vhs.gdshader")
 	rect.material = sm
 	_vhs = sm
 	vhs_layer.add_child(rect)
@@ -612,7 +635,7 @@ func _build_hud() -> void:
 	cross.text = "+"
 	cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	layer.add_child(cross)
-	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
+	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -40
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -801,7 +824,7 @@ func _demo_load() -> void:
 
 
 func _setup_input() -> void:
-	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11}
+	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11, flashlight = KEY_F}
 	for action in keys:
 		if InputMap.has_action(action):
 			continue

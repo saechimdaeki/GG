@@ -3,6 +3,7 @@ extends RigidBody3D
 ## (kinematic) and follow the synced transform.
 
 const Tuning = preload("res://src/tuning.gd")
+const Models = preload("res://src/models.gd")
 
 ## Host: a "buck" curse just kicked; main releases everyone holding it.
 signal bucked(body: RigidBody3D)
@@ -18,8 +19,7 @@ var size := Vector3.ONE
 var durability := 1.0:
 	set(v):
 		durability = v
-		if _mat:
-			_mat.albedo_color = _color.lerp(Color("#222222"), (1.0 - v) * 0.7)
+		_mat.albedo_color = Color(0.08, 0.06, 0.05, (1.0 - v) * 0.65)  # grime overlay on the model
 
 var _mat := StandardMaterial3D.new()
 var _color := Color.WHITE
@@ -46,16 +46,16 @@ func setup(d: Dictionary) -> void:
 	col.shape = shape
 	add_child(col)
 
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	_color = Color(d.color)
-	_mat.albedo_color = _color
-	mesh.material = _mat
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	add_child(mi)
+	var model := Models.furniture(d.name, size, _color)
+	add_child(model)
+	_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_mat.albedo_color = Color(0, 0, 0, 0)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_overlay = _mat
 
-	_add_face()
+	_add_face(Models.face_anchor(d.name, size))
 
 	var cfg := SceneReplicationConfig.new()
 	for p in [".:position", ".:rotation", ".:holders", ".:durability"]:
@@ -116,18 +116,18 @@ func _nearest_player(radius: float) -> Node3D:
 	return best
 
 
-## Two eyes and a mouth on the -z face (toward the front door).
-func _add_face() -> void:
+## Two eyes and a mouth facing -z, centred on `at` (the model's front surface).
+func _add_face(at: Vector3) -> void:
 	var white := StandardMaterial3D.new()
 	white.albedo_color = Color("#f4ecd8")
 	var black := StandardMaterial3D.new()
 	black.albedo_color = Color("#1a1218")
-	var front := -size.z / 2
-	var spread := minf(0.2, size.x * 0.25)
+	var spread := minf(0.15, size.x * 0.22)
+	var eye := minf(0.11, size.x * 0.3)
 	for sx in [-1, 1]:
-		_face_part(Vector3(0.12, 0.12, 0.02), Vector3(sx * spread, size.y * 0.25, front - 0.011), white)
-		_face_part(Vector3(0.06, 0.06, 0.02), Vector3(sx * spread, size.y * 0.25 - 0.02, front - 0.021), black)
-	_face_part(Vector3(0.18, 0.04, 0.02), Vector3(0, size.y * 0.25 - 0.14, front - 0.011), black)
+		_face_part(Vector3(eye, eye, 0.02), at + Vector3(sx * spread, 0, -0.011), white)
+		_face_part(Vector3(eye / 2, eye / 2, 0.02), at + Vector3(sx * spread, -eye * 0.18, -0.021), black)
+	_face_part(Vector3(eye * 1.4, 0.03, 0.02), at + Vector3(0, -eye * 1.1, -0.011), black)
 
 
 func _face_part(box: Vector3, pos: Vector3, mat: Material) -> void:

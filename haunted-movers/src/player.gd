@@ -4,11 +4,15 @@ extends CharacterBody3D
 
 const Tuning = preload("res://src/tuning.gd")
 const Furniture = preload("res://src/furniture.gd")
+const Models = preload("res://src/models.gd")
 
 var head := Node3D.new()
 var cam := Camera3D.new()
 var ray := RayCast3D.new()
-var face := MeshInstance3D.new()
+var body: Node3D
+var flashlight := SpotLight3D.new()
+## Flashlight on/off, owned by this player, synced so others see the beam.
+var flash_on := true
 var held: RigidBody3D
 var held_local := Vector3.ZERO
 var hold_dist := 2.0
@@ -29,29 +33,23 @@ func _init() -> void:
 	col.position.y = 0.85
 	add_child(col)
 
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.35
-	body_mesh.height = 1.7
-	var body := MeshInstance3D.new()
-	body.name = "Body"
-	body.mesh = body_mesh
-	body.position.y = 0.85
-	add_child(body)
-
 	head.name = "Head"
 	head.position.y = 1.55
 	add_child(head)
-	var face_mesh := BoxMesh.new()
-	face_mesh.size = Vector3(0.3, 0.15, 0.1)
-	face.mesh = face_mesh
-	face.position = Vector3(0, 0, -0.33)
-	head.add_child(face)
 	head.add_child(cam)
+	flashlight.position = Vector3(0.18, -0.15, 0)  # held at the right hand, under the eyes
+	flashlight.spot_range = 14.0
+	flashlight.spot_angle = 24.0
+	flashlight.spot_attenuation = 0.8
+	flashlight.light_energy = 3.0
+	flashlight.light_color = Color("#fff2d6")
+	flashlight.shadow_enabled = true
+	cam.add_child(flashlight)
 	ray.target_position = Vector3(0, 0, -t.reach)
 	cam.add_child(ray)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned"]:
+	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:flash_on"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.replication_config = cfg
@@ -61,12 +59,14 @@ func _init() -> void:
 func _ready() -> void:
 	add_to_group("players")
 	ray.add_exception(self)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.from_hsv(fmod(name.to_int() * 0.37, 1.0), 0.6, 0.9)
-	($Body as MeshInstance3D).material_override = mat
+	body = Models.mover(Color.from_hsv(fmod(name.to_int() * 0.37, 1.0), 0.6, 0.85))
+	add_child(body)
 	var mine := is_multiplayer_authority()
 	cam.current = mine
-	face.visible = not mine  # ponytail: the face box would sit in front of our own camera
+	# our own body would poke into the camera; keep only its shadow on the floor
+	if mine:
+		for mi in body.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	if mine and _demo:
 		head.rotation.x = -0.5
 
@@ -79,7 +79,10 @@ func stun(sec: float) -> void:
 
 
 func _process(_delta: float) -> void:
-	($Body as Node3D).rotation.x = PI / 2 if stunned else 0.0
+	flashlight.visible = flash_on and not stunned
+	if body:
+		body.rotation.x = PI / 2 if stunned else 0.0  # knocked flat on the back
+		(body.get_node("HeadVis") as Node3D).rotation.x = head.rotation.x * 0.6
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -98,6 +101,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_try_grab()
 		else:
 			_release()
+	elif event.is_action_pressed("flashlight"):
+		flash_on = not flash_on
 	elif event.is_action_pressed("use_tape"):
 		_main().request_tape()
 	elif event.is_action_pressed("ui_cancel"):
