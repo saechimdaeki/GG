@@ -10,6 +10,8 @@ extends SceneTree
 ## Story 005: run rules (quota, misses, bankrupt, clear, shop), next day resets the
 ## house, a tape exorcises a nearby ghost.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
+## Mimic: the moving box bites whoever holds it past the limit — knocked out, let go, teeth
+## shown — but a bite never ends the day by itself.
 ## Animation: walking swings the legs; carrying puts both hands out in front.
 ## Level: two bots lift the sofa, turn it, carry it out the front door onto the
 ## truck, and depart — the core loop is physically possible in this house.
@@ -75,6 +77,7 @@ func _run() -> void:
 	_check_audio(main)
 	await _check_footsteps(main)
 	await _check_animation(main)
+	await _check_mimic(main)
 	_check_address_parse()
 	_check_settings(main)
 	_check_tips()
@@ -223,6 +226,30 @@ func _check_next_day_and_tape(main: Node) -> void:
 	main.run.tapes = 1
 	_expect(main.use_tape(1) and not main.ghost.visible and main.run.tapes == 0, "tape near ghost did nothing")
 	p.free()
+
+
+func _check_mimic(main: Node) -> void:
+	var box: RigidBody3D = main.furniture.get_node("box")
+	var bites := [0]
+	box.bit.connect(func(_b: RigidBody3D) -> void: bites[0] += 1)
+	main.stun_until.erase(300)
+	main.run.phase = "day"
+	var lone: CharacterBody3D = Player.new()  # the only player → a day-failing stun would end the day
+	lone.name = "300"
+	lone.set_multiplayer_authority(300)
+	main.players.add_child(lone)
+	main.grabs.clear()
+	for i in 120:  # up to 2 s held (limit 1.5 s); a real client lets go once it's bitten
+		if bites[0] > 0:
+			break
+		main.hold(300, "box", Vector3.ZERO, box.global_position + Vector3.UP * 0.3)
+		await physics_frame
+	_expect(bites[0] >= 1, "mimic never bit")
+	_expect(main.is_stunned(300) and not main.grabs.has(300), "bitten holder not knocked out / still holding")
+	_expect(box.bite_show > 0.0, "teeth not shown")
+	_expect(main.run.phase == "day", "a mimic bite alone ended the day")
+	main.stun_until.erase(300)
+	lone.free()
 
 
 func _check_animation(main: Node) -> void:

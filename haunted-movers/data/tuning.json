@@ -114,6 +114,24 @@
       ],
       "value": 30,
       "label": "스탠드"
+    },
+    {
+      "name": "box",
+      "size": [
+        0.6,
+        0.5,
+        0.6
+      ],
+      "mass": 15,
+      "color": "#b58a5a",
+      "pos": [
+        3.5,
+        0.25,
+        2.0
+      ],
+      "value": 120,
+      "label": "이삿짐 상자",
+      "curse": "mimic"
     }
   ],
   "impact_threshold": 3.0,
@@ -143,6 +161,12 @@
       "interval": 3.0,
       "kick_up": 2.5,
       "kick_spin": 1.5
+    },
+    "mimic": {
+      "bite_after": 1.5,
+      "stun": 4.0,
+      "hop_up": 3.0,
+      "show_teeth": 1.5
     }
   },
   "ghost": {

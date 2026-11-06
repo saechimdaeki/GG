@@ -87,6 +87,7 @@ func _ready() -> void:
 		var f := Furniture.new()
 		f.setup(d)
 		f.bucked.connect(_on_bucked)
+		f.bit.connect(_on_bit)
 		f.hit.connect(_on_furniture_hit)
 		furniture.add_child(f)
 	players.name = "Players"
@@ -260,8 +261,9 @@ func is_stunned(id: int) -> bool:
 	return stun_until.get(id, 0) > Time.get_ticks_msec()
 
 
-## Host: knock out peer `id` for `sec` seconds. Everyone out at once fails the day.
-func stun_player(id: int, sec: float) -> void:
+## Host: knock out peer `id` for `sec` seconds. Everyone out at once fails the day, unless
+## `can_fail_day` is false (the mimic's bite is a scare, not a run-ender when you play alone).
+func stun_player(id: int, sec: float, can_fail_day := true) -> void:
 	stun_until[id] = Time.get_ticks_msec() + int(sec * 1000)
 	broadcast_sfx("whoosh")
 	force_release(id)
@@ -272,7 +274,7 @@ func stun_player(id: int, sec: float) -> void:
 	var all_out := players.get_child_count() > 0
 	for p in players.get_children():
 		all_out = all_out and is_stunned(p.name.to_int())
-	if all_out:
+	if all_out and can_fail_day:
 		announce("전원 기절 — 오늘은 실패!")
 		day_failed.emit()
 
@@ -358,6 +360,14 @@ func set_aim(target: Object) -> void:
 		_aim.text = " · ".join(parts)
 	else:
 		_aim.text = ""
+
+
+## Host: the mimic box bit its holders — they're knocked out (and let go).
+func _on_bit(body: RigidBody3D) -> void:
+	broadcast_sfx("whoosh")
+	for id in grabs.keys():
+		if grabs[id].body == body:
+			stun_player(id, Tuning.data.curses.mimic.stun, false)
 
 
 ## Host: a cursed piece shook everyone off.
