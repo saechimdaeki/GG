@@ -44,6 +44,7 @@ var _addr := Label.new()
 var _lan_box := VBoxContainer.new()
 var _lan_seen := ""
 var _auto_join_lan := false
+var _pause := PanelContainer.new()
 var _sfx := {}
 var _last_thud := 0
 var _menu: Control
@@ -150,7 +151,9 @@ func join(address: String) -> void:
 	multiplayer.multiplayer_peer = peer
 	for f in furniture.get_children():
 		f.freeze = true  # host owns the physics; we only display it
-	multiplayer.server_disconnected.connect(func() -> void: _hint.text = "호스트와 연결이 끊김")
+	multiplayer.server_disconnected.connect(func() -> void:
+		_hint.text = "호스트와 연결이 끊김 — Esc 메뉴에서 \"메뉴로 나가기\""
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE)
 	_close_menu()
 
 
@@ -269,6 +272,9 @@ func _process(_delta: float) -> void:
 		var d: float = me.cam.global_position.distance_to(ghost.global_position)
 		amount = clampf(1.0 - d / Tuning.data.ghost.noise_range, 0.0, 1.0)
 	_vhs.set_shader_parameter("noise", amount)
+	# Esc menu: whenever the mouse is free during play (no menu, no shop). The game keeps running.
+	_pause.visible = _menu == null and run.phase == "day" and players.get_child_count() > 0 \
+		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless"
 	_refresh_lan()
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
 
@@ -650,6 +656,7 @@ func _build_hud() -> void:
 	box.add_child(_next_btn)
 	_shop.visible = false
 	layer.add_child(_shop)
+	_build_pause(layer)
 
 
 func _build_menu() -> void:
@@ -664,7 +671,7 @@ func _build_menu() -> void:
 	_menu = box
 	_status.visible = false
 	var title := Label.new()
-	title.text = "유령집 이삿짐센터"
+	title.text = "유령집 이삿짐센터  v%s" % ProjectSettings.get_setting("application/config/version", "")
 	box.add_child(title)
 	var host_btn := Button.new()
 	host_btn.text = "호스트"
@@ -682,6 +689,10 @@ func _build_menu() -> void:
 	join_btn.text = "주소로 참가"
 	join_btn.pressed.connect(func() -> void: join(ip.text))
 	box.add_child(join_btn)
+	var quit_btn := Button.new()
+	quit_btn.text = "게임 종료"
+	quit_btn.pressed.connect(get_tree().quit)
+	box.add_child(quit_btn)
 	if net.start_listening() != OK:
 		_lan_box.get_child(0).text = "(이 컴퓨터에서 이미 찾는 중 — 주소로 참가)"
 
@@ -712,6 +723,44 @@ func _refresh_lan() -> void:
 		b.text = "참가: " + k
 		b.pressed.connect(join.bind(k))
 		_lan_box.add_child(b)
+
+
+func _build_pause(layer: CanvasLayer) -> void:
+	_pause.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_pause.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_pause.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_pause.custom_minimum_size = Vector2(300, 0)
+	var box := VBoxContainer.new()
+	_pause.add_child(box)
+	var note := Label.new()
+	note.text = "온라인이라 게임은 계속 돌아가요"
+	box.add_child(note)
+	for item in [["계속하기", func() -> void: Input.mouse_mode = Input.MOUSE_MODE_CAPTURED],
+			["전체 화면 (F11)", _toggle_fullscreen],
+			["메뉴로 나가기", _leave_to_menu],
+			["게임 종료", get_tree().quit]]:
+		var b := Button.new()
+		b.text = item[0]
+		b.pressed.connect(item[1])
+		box.add_child(b)
+	_pause.visible = false
+	layer.add_child(_pause)
+
+
+func _toggle_fullscreen() -> void:
+	var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if event.is_action_pressed("fullscreen"):
+		_toggle_fullscreen()
+
+
+## Drops the connection (the router port mapping is removed on exit) and reloads to the menu.
+func _leave_to_menu() -> void:
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	get_tree().reload_current_scene()
 
 
 func _close_menu() -> void:
@@ -752,7 +801,7 @@ func _demo_load() -> void:
 
 
 func _setup_input() -> void:
-	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E}
+	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11}
 	for action in keys:
 		if InputMap.has_action(action):
 			continue
