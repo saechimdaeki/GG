@@ -19,6 +19,7 @@ const Net = preload("res://src/net.gd")
 const UiTheme = preload("res://src/ui_theme.gd")
 const Settings = preload("res://src/settings.gd")
 const Tips = preload("res://src/tips.gd")
+const Voice = preload("res://src/voice.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
@@ -51,6 +52,10 @@ var _lan_seen := ""
 var _auto_join_lan := false
 var _pause := PanelContainer.new()
 var _settings := PanelContainer.new()
+## Shown on the menu after a reload (e.g. why we were sent back). Survives the scene reload.
+static var _menu_note := ""
+## Command-line args (--host, --join…) apply to the first launch only, not to a reload after leaving.
+static var _args_used := false
 var _shooting := false  # --screenshot: keep the Esc menu out of the picture
 var _sfx := {}
 var _last_thud := 0
@@ -60,6 +65,8 @@ var _result := Label.new()
 var _aim := Label.new()
 var _tip := Label.new()
 var _grabbed_once := false
+var voice := Voice.new()
+var _mic_label := Label.new()
 
 
 func _ready() -> void:
@@ -89,6 +96,11 @@ func _ready() -> void:
 	spawner.spawn_path = spawner.get_path_to(players)
 	spawner.spawn_function = _spawn_player
 	Settings.load_or_default()
+	if AudioServer.get_bus_index(&"Voice") == -1:  # friends' voices get their own volume
+		AudioServer.add_bus()
+		AudioServer.set_bus_name(AudioServer.bus_count - 1, "Voice")
+	voice.name = "Voice"
+	add_child(voice)
 	_build_hud()
 	_build_audio()
 	_apply_settings()
@@ -98,7 +110,8 @@ func _ready() -> void:
 	net.name = "Net"
 	add_child(net)
 	net.wan_ready.connect(_on_wan_ready)
-	var args := OS.get_cmdline_user_args()
+	var args := OS.get_cmdline_user_args() if not _args_used else PackedStringArray()
+	_args_used = true
 	for arg in args:
 		if arg.begins_with("--port="):
 			port = arg.trim_prefix("--port=").to_int()
@@ -119,11 +132,14 @@ func _ready() -> void:
 		open_settings()
 	if "--demo-load" in args:
 		_demo_load()
+	# Screenshot args survive a reload (they're test tooling), and the delay counts from app start.
+	var all_args := OS.get_cmdline_user_args()
 	var delay := 4.0
-	for a in args:
+	for a in all_args:
 		if a.begins_with("--shot-delay="):
 			delay = a.trim_prefix("--shot-delay=").to_float()
-	for a in args:
+	delay = maxf(0.1, delay - Time.get_ticks_msec() / 1000.0)
+	for a in all_args:
 		if a.begins_with("--screenshot="):
 			_shooting = true
 			_screenshot_later(a.trim_prefix("--screenshot="), delay)
@@ -171,9 +187,7 @@ func join(address: String) -> void:
 	multiplayer.multiplayer_peer = peer
 	for f in furniture.get_children():
 		f.freeze = true  # host owns the physics; we only display it
-	multiplayer.server_disconnected.connect(func() -> void:
-		_hint.text = "호스트와 연결이 끊김 — Esc 메뉴에서 \"메뉴로 나가기\""
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE)
+	multiplayer.server_disconnected.connect(_on_host_lost)
 	_close_menu()
 
 
@@ -181,6 +195,8 @@ func _spawn_player(id: int) -> Node:
 	var p := Player.new()
 	p.name = str(id)
 	p.set_multiplayer_authority(id)
+	if id == multiplayer.get_unique_id():
+		voice.me = p  # our mic talks through our own player node
 	# Spawns face each other across the sofa.
 	var left := players.get_child_count() % 2 == 0
 	p.position = Vector3(-2.5 if left else 2.5, 0, 3.0)
@@ -298,6 +314,11 @@ func _process(_delta: float) -> void:
 		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless" \
 		and not _shooting
 	_refresh_lan()
+	if me:
+		_mic_label.text = "마이크 꺼짐 (V)" if voice.muted else ("● 말하는 중" if me.talk_t > 0.0 else "마이크 켜짐 (V)")
+		_mic_label.modulate = Color(1, 0.45, 0.4) if voice.muted else (Color(0.6, 1, 0.6) if me.talk_t > 0.0 else Color(1, 1, 1, 0.7))
+	else:
+		_mic_label.text = ""
 	_tip.text = Tips.tip_for(run.day, run.phase, _tip_state(me)) if me and _menu == null else ""
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
 
@@ -713,7 +734,7 @@ func _build_hud() -> void:
 	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_aim.add_theme_font_size_override("font_size", 15)
 	layer.add_child(_aim)
-	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
+	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · V: 마이크 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
 	_tip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_tip.offset_top = -136
 	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -734,6 +755,12 @@ func _build_hud() -> void:
 	layer.add_child(_result)
 	_status.position = Vector2(16, 10)
 	layer.add_child(_status)
+	_mic_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_mic_label.offset_left = -220
+	_mic_label.offset_right = -16
+	_mic_label.offset_top = 10
+	_mic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	layer.add_child(_mic_label)
 	_addr.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	_addr.offset_left = 16
 	_addr.offset_right = 520
@@ -791,6 +818,13 @@ func _build_menu() -> void:
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.modulate = Color(1, 1, 1, 0.75)
 	box.add_child(sub)
+	if _menu_note != "":
+		var note := Label.new()
+		note.text = _menu_note
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		note.modulate = Color(1, 0.6, 0.5)
+		box.add_child(note)
+		_menu_note = ""
 	var host_btn := Button.new()
 	host_btn.text = "호스트"
 	host_btn.pressed.connect(host)
@@ -924,6 +958,7 @@ func _apply_settings() -> void:
 	_vhs.set_shader_parameter("pixel_size", lerpf(1.0, 3.0, e))   # 1 = full resolution
 	_vhs.set_shader_parameter("color_levels", lerpf(64.0, 20.0, e))
 	_vhs.set_shader_parameter("split", 0.0015 * e)
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(&"Voice"), linear_to_db(maxf(Settings.get_value("voice"), 0.0001)))
 	_vhs.set_shader_parameter("scanline", 0.05 * e)
 
 
@@ -935,6 +970,22 @@ func _toggle_fullscreen() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event.is_action_pressed("fullscreen"):
 		_toggle_fullscreen()
+	elif event.is_action_pressed("voice_mute"):
+		voice.muted = not voice.muted
+
+
+## Client: the host is gone. Drop the dead peer at once (it errors on every use), say so,
+## and go back to the menu shortly.
+func _on_host_lost() -> void:
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	for p in players.get_children():
+		p.queue_free()
+	voice.me = null
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	announce("호스트와 연결이 끊겼어요 — 곧 메뉴로 돌아가요")
+	_menu_note = "호스트와 연결이 끊겼어요"
+	await get_tree().create_timer(2.0).timeout
+	_leave_to_menu()
 
 
 ## Drops the connection (the router port mapping is removed on exit) and reloads to the menu.
@@ -981,7 +1032,7 @@ func _demo_load() -> void:
 
 
 func _setup_input() -> void:
-	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11, flashlight = KEY_F}
+	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11, flashlight = KEY_F, voice_mute = KEY_V}
 	for action in keys:
 		if InputMap.has_action(action):
 			continue
@@ -996,4 +1047,7 @@ func _screenshot_later(path: String, delay: float) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("screenshot: ", path)
+	for p in players.get_children():  # proof for automated voice runs: chunks heard per remote player
+		if not p.is_multiplayer_authority():
+			print("voice heard from %s: %d chunks" % [p.name, p.heard_chunks])
 	get_tree().quit()
