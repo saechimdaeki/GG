@@ -21,6 +21,8 @@ jobs:
             script: res://tests/smoke/run_check.gd
           - game: sunken-city
             script: res://tests/smoke/run_check.gd
+          - game: haunted-movers
+            script: res://tests/smoke/run_check.gd
     defaults:
       run:
         working-directory: ${{ matrix.game }}

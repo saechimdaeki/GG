@@ -1,0 +1,218 @@
+{
+  "walk_speed": 4.5,
+  "jump_velocity": 4.5,
+  "mouse_sensitivity": 0.0025,
+  "reach": 3.0,
+  "grab_spring": 2000.0,
+  "grab_damping": 150.0,
+  "grab_angular_damping": 8.0,
+  "player_strength": 450.0,
+  "slow_mass": 60.0,
+  "min_carry_speed": 0.35,
+  "grab_timeout_ms": 250,
+  "furniture": [
+    {
+      "name": "sofa",
+      "size": [
+        2.0,
+        0.85,
+        0.9
+      ],
+      "mass": 70,
+      "color": "#7a4e8c",
+      "pos": [
+        0.0,
+        0.43,
+        3.0
+      ],
+      "value": 300
+    },
+    {
+      "name": "chair",
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "mass": 8,
+      "color": "#c98b55",
+      "pos": [
+        -4.0,
+        0.45,
+        2.0
+      ],
+      "value": 40
+    },
+    {
+      "name": "fridge",
+      "size": [
+        0.8,
+        1.8,
+        0.7
+      ],
+      "mass": 80,
+      "color": "#d9e4e8",
+      "pos": [
+        -4.5,
+        0.9,
+        8.5
+      ],
+      "value": 350
+    },
+    {
+      "name": "piano",
+      "size": [
+        1.5,
+        1.2,
+        0.6
+      ],
+      "mass": 85,
+      "color": "#2b2026",
+      "pos": [
+        2.5,
+        0.6,
+        9.2
+      ],
+      "value": 500,
+      "curse": "buck"
+    },
+    {
+      "name": "wardrobe",
+      "size": [
+        1.0,
+        2.0,
+        0.6
+      ],
+      "mass": 45,
+      "color": "#5b3a29",
+      "pos": [
+        -4.0,
+        4.0,
+        8.5
+      ],
+      "value": 200,
+      "curse": "runaway"
+    },
+    {
+      "name": "lamp",
+      "size": [
+        0.35,
+        1.4,
+        0.35
+      ],
+      "mass": 5,
+      "color": "#e8d27a",
+      "pos": [
+        -2.0,
+        3.7,
+        2.0
+      ],
+      "value": 30
+    }
+  ],
+  "impact_threshold": 3.0,
+  "damage_per_impact": 0.15,
+  "truck": {
+    "bed_min": [
+      -2.0,
+      0.0,
+      -7.0
+    ],
+    "bed_size": [
+      4.0,
+      2.5,
+      4.0
+    ],
+    "cell": 0.5,
+    "bonus_rate": 0.5
+  },
+  "curses": {
+    "runaway": {
+      "radius": 3.5,
+      "hop_interval": 1.2,
+      "hop_speed": 2.0,
+      "hop_up": 1.8
+    },
+    "buck": {
+      "interval": 3.0,
+      "kick_up": 2.5,
+      "kick_spin": 1.5
+    }
+  },
+  "ghost": {
+    "speed": 2.2,
+    "sight": 7.0,
+    "hit_range": 0.9,
+    "cooldown": 4.0,
+    "stun": 4.0,
+    "carrier_bias": 3.0,
+    "noise_range": 6.0,
+    "start": [
+      3.0,
+      1.2,
+      8.0
+    ],
+    "patrol": [
+      [
+        3.0,
+        1.2,
+        8.0
+      ],
+      [
+        -3.0,
+        1.2,
+        8.0
+      ],
+      [
+        -3.0,
+        1.2,
+        2.5
+      ],
+      [
+        3.0,
+        1.2,
+        2.5
+      ],
+      [
+        0.0,
+        4.2,
+        5.0
+      ],
+      [
+        -4.0,
+        4.2,
+        8.0
+      ]
+    ],
+    "start_delay": 20.0
+  },
+  "run": {
+    "quotas": [
+      250,
+      450,
+      700
+    ],
+    "max_misses": 3,
+    "day_seconds": 300,
+    "tape_seconds": 30.0,
+    "tape_range": 4.0,
+    "shop": {
+      "cart": {
+        "label": "수레 — 팀 힘 +35%",
+        "price": 150,
+        "strength": 0.35
+      },
+      "rope": {
+        "label": "밧줄 — 손 닿는 거리 +1.5m",
+        "price": 100,
+        "reach": 1.5
+      },
+      "tape": {
+        "label": "퇴마 테이프 — E: 유령 30초 퇴치",
+        "price": 80,
+        "tapes": 1,
+        "stack": true
+      }
+    }
+  }
+}
