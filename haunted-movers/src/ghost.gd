@@ -43,6 +43,7 @@ func _init() -> void:
 	glow.light_color = Color("#9fd8ff")
 	glow.light_energy = 0.8
 	glow.omni_range = 3.5
+	glow.light_volumetric_fog_energy = 3.0  # a cold haze hangs around it
 	add_child(glow)
 	var black := StandardMaterial3D.new()
 	black.albedo_color = Color.BLACK

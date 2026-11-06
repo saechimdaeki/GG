@@ -68,6 +68,7 @@ func _ready() -> void:
 		lamp.light_color = Color("#ffc58a")
 		lamp.light_energy = BULB_ENERGY
 		lamp.shadow_enabled = true
+		lamp.light_volumetric_fog_energy = 1.5
 		add_child(lamp)
 		_bulbs.append(lamp)
 		# a bare bulb on a cord, so the light has a source
@@ -77,7 +78,8 @@ func _ready() -> void:
 		bulb.emission_energy_multiplier = 3.0
 		var b := Models.cylinder(self, 0.06, 0.06, 0.12, p + Vector3(0, 0.15, 0), bulb)
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		Models.cylinder(self, 0.01, 0.01, 0.3, p + Vector3(0, 0.36, 0), roof)
+		var cord := Models.cylinder(self, 0.01, 0.01, 0.3, p + Vector3(0, 0.36, 0), roof)
+		cord.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## Old wiring: bulbs hum, and now and then one browns out for a moment.

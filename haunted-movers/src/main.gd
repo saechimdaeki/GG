@@ -632,6 +632,7 @@ func _build_room() -> void:
 	sun.light_color = Color("#ff9a6a")
 	sun.light_energy = 0.8
 	sun.shadow_enabled = true
+	sun.light_volumetric_fog_energy = 0.3
 	add_child(sun)
 	var env := Environment.new()
 	var sky_mat := ProceduralSkyMaterial.new()  # dusk: violet top, burnt-orange horizon
@@ -650,6 +651,12 @@ func _build_room() -> void:
 	env.fog_light_color = Color("#6a4a5a")
 	env.fog_density = 0.012
 	env.fog_sky_affect = 0.3
+	# Volumetric fog: dust in the air, so the flashlight cuts a visible beam and bulbs get halos.
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.035
+	env.volumetric_fog_albedo = Color("#c8b8b0")
+	env.volumetric_fog_anisotropy = 0.6   # forward scattering: beams glow when you look along them
+	env.volumetric_fog_length = 40.0
 	env.ssao_enabled = true       # contact shadows in corners and under furniture
 	env.ssao_intensity = 1.6
 	env.glow_enabled = true       # bulbs, windows and headlights bloom a little

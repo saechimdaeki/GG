@@ -45,6 +45,7 @@ func _init() -> void:
 	flashlight.light_energy = 3.0
 	flashlight.light_color = Color("#fff2d6")
 	flashlight.shadow_enabled = true
+	flashlight.light_volumetric_fog_energy = 4.0  # visible beam in the dusty air
 	cam.add_child(flashlight)
 	ray.target_position = Vector3(0, 0, -t.reach)
 	cam.add_child(ray)
@@ -64,10 +65,10 @@ func _ready() -> void:
 	add_child(body)
 	var mine := is_multiplayer_authority()
 	cam.current = mine
-	# our own body would poke into the camera; keep only its shadow on the floor
+	# our own body would poke into the camera, and our flashlight (held at the body) would
+	# throw its shadow across the room as a long diagonal line, so it's fully hidden for us
 	if mine:
-		for mi in body.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		body.visible = false
 	if mine and _demo:
 		head.rotation.x = -0.5
 
