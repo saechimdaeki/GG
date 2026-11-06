@@ -77,6 +77,42 @@ static func furniture(kind: String, size: Vector3, color: Color) -> Node3D:
 			for sx in [-1, 1]:
 				box(root, Vector3(h.x - 0.08, size.y - 0.4, 0.02), Vector3(sx * h.x / 2, -0.05, -h.z - 0.005), dark)  # door panels
 				box(root, Vector3(0.03, 0.12, 0.03), Vector3(sx * 0.06, 0, -h.z - 0.03), metal())                     # handles
+		"bookshelf":
+			box(root, Vector3(size.x, size.y, 0.04), Vector3(0, 0, h.z - 0.02), dark)              # back panel
+			for sx in [-1, 1]:
+				box(root, Vector3(0.05, size.y, size.z), Vector3(sx * (h.x - 0.025), 0, 0), wood)  # sides
+			var spines := [Color("#7a2e2e"), Color("#2e4a6a"), Color("#6a5a2e"), Color("#3a5a3a"), Color("#5a3a5a")]
+			for i in 5:
+				var y := -h.y + i * size.y / 4.0
+				box(root, Vector3(size.x - 0.1, 0.04, size.z), Vector3(0, y + 0.02, 0), wood)       # shelves
+				if i < 4:
+					for b in 6:  # a row of book spines, irregular heights
+						var bh := 0.22 + fmod(b * 0.37 + i * 0.21, 0.12)
+						box(root, Vector3(0.1, bh, size.z - 0.1), Vector3(-h.x + 0.12 + b * 0.13, y + 0.04 + bh / 2, -0.02),
+							matte(spines[(b + i) % spines.size()]))
+		"tv":
+			var plastic := matte(Color("#2a2622"))
+			box(root, Vector3(size.x, size.y, size.z - 0.15), Vector3(0, 0, 0.075), plastic)          # deep CRT body
+			box(root, Vector3(size.x - 0.04, size.y - 0.04, 0.15), Vector3(0, 0, -h.z + 0.075), plastic)
+			var glass := StandardMaterial3D.new()
+			glass.albedo_color = Color("#1a2420")
+			glass.emission_enabled = true
+			glass.emission = Color("#3a5a50")  # faint static glow
+			glass.emission_energy_multiplier = 0.6
+			box(root, Vector3(size.x * 0.72, size.y * 0.7, 0.02), Vector3(-size.x * 0.08, 0.02, -h.z), glass)
+			for i in 2:
+				cylinder(root, 0.025, 0.025, 0.03, Vector3(h.x - 0.08, 0.1 - i * 0.12, -h.z - 0.01), metal()).rotation.x = PI / 2
+		"bed":
+			var sheet := matte(Color("#d8d0bc"))
+			var blanket := matte(color)
+			box(root, Vector3(size.x, 0.25, size.z), Vector3(0, -h.y + 0.25, 0), wood)              # frame
+			box(root, Vector3(size.x - 0.06, 0.18, size.z - 0.06), Vector3(0, -h.y + 0.46, 0), sheet)  # mattress
+			box(root, Vector3(size.x * 0.62, 0.06, size.z - 0.02), Vector3(-size.x * 0.18, -h.y + 0.57, 0), blanket)
+			box(root, Vector3(0.35, 0.1, size.z - 0.3), Vector3(h.x - 0.3, -h.y + 0.6, 0), sheet)   # pillow
+			box(root, Vector3(0.06, size.y, size.z), Vector3(h.x - 0.03, 0, 0), wood)               # headboard
+			for sx in [-1, 1]:
+				for sz in [-1, 1]:
+					box(root, Vector3(0.08, 0.14, 0.08), Vector3(sx * (h.x - 0.06), -h.y + 0.07, sz * (h.z - 0.06)), dark)
 		"box":
 			var card := matte(color)
 			box(root, size, Vector3.ZERO, card)
@@ -174,6 +210,12 @@ static func face_anchor(kind: String, size: Vector3) -> Vector3:
 			return Vector3(0, h.y * 0.45, -h.z + 0.25)
 		"wardrobe":
 			return Vector3(0, h.y * 0.55, -h.z - 0.016)
+		"bookshelf":
+			return Vector3(0, h.y - 0.15, -h.z)
+		"tv":
+			return Vector3(-size.x * 0.08, 0.06, -h.z - 0.012)
+		"bed":
+			return Vector3(-h.x + 0.2, -h.y + 0.6, -h.z)
 	return Vector3(0, h.y * 0.5, -h.z)
 
 
