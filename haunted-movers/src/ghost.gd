@@ -1,0 +1,126 @@
+extends Node3D
+## The house ghost. Host-only brain; everyone sees the synced position.
+## Floats through walls (it's a ghost), so it needs no navmesh.
+## patrol → chase (someone within sight; carriers count as closer) → attack (stun)
+## → cooldown → patrol. An exorcism tape (story 005) disables it for a while.
+
+const Tuning = preload("res://src/tuning.gd")
+
+var main: Node
+var state := "patrol"
+var _wp := 0
+var _cooldown := 0.0
+var _disabled := 0.0
+var _body := MeshInstance3D.new()
+
+
+## Pure transition. `target_dist` is INF when nobody is in sight.
+static func next_state(s: String, target_dist: float, cooldown_left: float, c: Dictionary) -> String:
+	match s:
+		"cooldown":
+			return "patrol" if cooldown_left <= 0.0 else "cooldown"
+		"patrol":
+			return "chase" if target_dist < c.sight else "patrol"
+		"chase":
+			if target_dist >= c.sight:
+				return "patrol"
+			return "attack" if target_dist <= c.hit_range else "chase"
+	return "patrol"
+
+
+func _init() -> void:
+	var m := SphereMesh.new()
+	m.radius = 0.45
+	m.height = 1.3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.9, 0.95, 1.0, 0.55)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color("#9fd8ff")
+	mat.emission_energy_multiplier = 0.8
+	m.material = mat
+	_body.mesh = m
+	add_child(_body)
+	var black := StandardMaterial3D.new()
+	black.albedo_color = Color.BLACK
+	for sx in [-1, 1]:
+		var eye := MeshInstance3D.new()
+		var em := SphereMesh.new()
+		em.radius = 0.07
+		em.height = 0.14
+		em.material = black
+		eye.mesh = em
+		eye.position = Vector3(sx * 0.15, 0.15, -0.4)
+		add_child(eye)
+
+	var cfg := SceneReplicationConfig.new()
+	for p in [".:position", ".:rotation", ".:visible"]:
+		cfg.add_property(NodePath(p))
+	var sync := MultiplayerSynchronizer.new()
+	sync.replication_config = cfg
+	add_child(sync)
+
+
+## Exorcism: the ghost fades out and does nothing for `sec` seconds.
+func exorcise(sec: float) -> void:
+	_disabled = sec
+	visible = sec <= 0.0
+	state = "patrol"
+
+
+func _physics_process(delta: float) -> void:
+	if main == null or not main.is_host_active() or main.run.phase != "day":
+		return
+	var c: Dictionary = Tuning.data.ghost
+	if _disabled > 0.0:
+		_disabled -= delta
+		visible = _disabled <= 0.0
+		return
+	_cooldown = maxf(0.0, _cooldown - delta)
+
+	var target := _pick_target(c)
+	var dist := INF
+	if target:
+		dist = global_position.distance_to(target.global_position + Vector3.UP)
+	state = next_state(state, dist, _cooldown, c)
+
+	match state:
+		"patrol":
+			var wp: Array = c.patrol[_wp]
+			var goal := Vector3(wp[0], wp[1], wp[2])
+			if _move_to(goal, c.speed * 0.6, delta):
+				_wp = (_wp + 1) % c.patrol.size()
+		"chase":
+			_move_to(target.global_position + Vector3.UP, c.speed, delta)
+		"attack":
+			main.stun_player(target.name.to_int(), c.stun)
+			_cooldown = c.cooldown
+			state = "cooldown"
+	position.y += sin(Time.get_ticks_msec() * 0.003) * 0.003  # bob
+
+
+## Nearest awake player in sight; someone carrying furniture counts as closer.
+func _pick_target(c: Dictionary) -> Node3D:
+	var best: Node3D
+	var best_score := INF
+	for p in main.players.get_children():
+		if main.is_stunned(p.name.to_int()):
+			continue
+		var d := global_position.distance_to(p.global_position + Vector3.UP)
+		if d >= c.sight:
+			continue
+		var score: float = d - (c.carrier_bias if main.grabs.has(p.name.to_int()) else 0.0)
+		if score < best_score:
+			best = p
+			best_score = score
+	return best
+
+
+## Moves toward `goal`; true when there.
+func _move_to(goal: Vector3, speed: float, delta: float) -> bool:
+	var to := goal - global_position
+	if to.length() < 0.2:
+		return true
+	global_position += to.limit_length(speed * delta)
+	look_at(global_position + to * Vector3(1, 0, 1) + Vector3(0.001, 0, 0), Vector3.UP)
+	return false

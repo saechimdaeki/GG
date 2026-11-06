@@ -1,0 +1,42 @@
+# Game Brief: 유령집 이삿짐센터 (Haunted Movers)
+
+**One-sentence pitch:** 친구 2~4명이 이삿짐센터 직원이 되어, 날뛰는 저주 가구를 유령집에서 끌어내 트럭에 테트리스처럼 꽉 채워 싣는 엉망진창 물리 협동 게임.
+
+## Core loop
+- 의뢰 받기 → 유령집 도착 (제한 시간)
+- 가구 찾고 같이 들어 옮기기 — 도망치는 옷장, 무는 피아노, 계단·좁은 문
+- 트럭에 싣기 — 칸을 적게 쓰고 덜 깨질수록 보수 많음
+- 번 돈으로 장비(수레·밧줄·퇴마 테이프) → 더 어려운 집
+
+## Player goal & fail state — what "working" looks like
+- 목표: 할당량 이상 보수를 벌고 출발
+- 실패: 시간 초과 또는 유령에게 전원 기절. 할당량 3회 미달 → 회사 파산(런 종료)
+
+## MVP — what must exist to be the game
+- 1인칭 3D 플레이어: 이동·줍기·물리 들기 (둘이 들면 무거운 게 가벼워짐)
+- 2~4인 온라인 협동 (Steam 로비)
+- 유령집 1채 + 가구 6종 (저주 행동 2종)
+- 트럭 적재: 칸 격자 + 파손 반영 보수 계산
+- 유령 1종: 순찰, 들고 있는 사람 방해
+- 상점 아이템 3개 + 할당량 3일 런
+
+## Out of scope — not building this
+- 절차적 맵 생성 (손으로 만든 집 1채)
+- 근접 음성 채팅, 스킨 커스터마이징, 싱글용 AI 동료
+- 콘솔, 런 간 저장
+
+## Build order
+1. 둘이서 물리 가구 하나 같이 들기 — 온라인 동기화 (가장 위험, 웃기면 진행)
+2. 트럭 적재 + 점수
+3. 집 1채 + 가구 6종
+4. 유령 AI
+5. 상점 + 할당량 런
+
+---
+**Who it's for / what they feel:** 디스코드에서 친구랑 싸게 웃고 싶은 사람들 — "야 그거 놓지 마!!"
+
+**Art & audio direction:** 로우폴리 3D, 따뜻한 VHS 색감, 가구에 붙은 귀여운 얼굴. 엘리베이터 재즈가 유령 등장 시 뒤틀림.
+
+**Reference game:** R.E.P.O. — 물리 운반 + 할당량 루프만. 전투·맵 생성 없음, 대신 트럭 적재 퍼즐.
+
+<!-- Research basis (2026-11): Sensor Tower 2026 — co-op "friendslop" = 46% of indie first-month sales; horror top Steam genre 3 years running (PokeIndie). -->
