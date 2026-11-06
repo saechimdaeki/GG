@@ -18,6 +18,7 @@ const Sfx = preload("res://src/sfx.gd")
 const Net = preload("res://src/net.gd")
 const UiTheme = preload("res://src/ui_theme.gd")
 const Settings = preload("res://src/settings.gd")
+const Tips = preload("res://src/tips.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
@@ -57,6 +58,8 @@ var _menu: Control
 var _hint := Label.new()
 var _result := Label.new()
 var _aim := Label.new()
+var _tip := Label.new()
+var _grabbed_once := false
 
 
 func _ready() -> void:
@@ -295,7 +298,22 @@ func _process(_delta: float) -> void:
 		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless" \
 		and not _shooting
 	_refresh_lan()
+	_tip.text = Tips.tip_for(run.day, run.phase, _tip_state(me)) if me and _menu == null else ""
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
+
+
+## What the first-day guide needs to know about the local player.
+func _tip_state(me: Node) -> Dictionary:
+	var held: RigidBody3D = me.held
+	_grabbed_once = _grabbed_once or held != null
+	var lift_kg: float = Tuning.data.player_strength * run.strength_mult / 9.8
+	var loaded := false
+	for f in furniture.get_children():
+		loaded = loaded or truck.bed.has_point(f.global_position)
+	return {captured = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or _shooting,
+		grabbed_once = _grabbed_once,
+		heavy_alone = held != null and held.holders <= 1 and held.mass > lift_kg,
+		loaded_any = loaded}
 
 
 ## What the local player is looking at (set by player.gd each frame).
@@ -684,6 +702,12 @@ func _build_hud() -> void:
 	_aim.add_theme_font_size_override("font_size", 15)
 	layer.add_child(_aim)
 	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
+	_tip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_tip.offset_top = -136
+	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tip.add_theme_font_size_override("font_size", 22)
+	_tip.add_theme_color_override("font_color", UiTheme.BRASS.lightened(0.2))
+	layer.add_child(_tip)
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -40
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
