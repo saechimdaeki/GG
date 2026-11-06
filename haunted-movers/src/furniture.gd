@@ -30,6 +30,8 @@ var _prev_vel := Vector3.ZERO
 ## | "buck" (every few seconds while held, jumps and shakes everyone off)
 var curse := ""
 var _curse_t := 0.0
+var _scrape := AudioStreamPlayer3D.new()
+var _last_pos := Vector3.ZERO
 
 
 ## Builds collision, mesh and network sync from one entry of tuning.json "furniture".
@@ -59,6 +61,11 @@ func setup(d: Dictionary) -> void:
 		(mi as MeshInstance3D).material_overlay = _mat
 
 	_add_face(Models.face_anchor(d.name, size))
+	_scrape.stream = preload("res://src/sfx.gd").cached("scrape")
+	_scrape.unit_size = 3.0
+	_scrape.volume_db = -60.0
+	_scrape.autoplay = true
+	add_child(_scrape)
 
 	var cfg := SceneReplicationConfig.new()
 	for p in [".:position", ".:rotation", ".:holders", ".:durability"]:
@@ -66,6 +73,19 @@ func setup(d: Dictionary) -> void:
 	var sync := MultiplayerSynchronizer.new()
 	sync.replication_config = cfg
 	add_child(sync)
+
+
+## Scrape louder the faster it slides along a floor (from position change, so clients hear it too).
+func _process(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	var v := (global_position - _last_pos) / delta
+	_last_pos = global_position
+	var bottom := global_position.y - size.y / 2.0
+	var on_floor := absf(bottom) < 0.12 or absf(bottom - 3.0) < 0.12  # ground floor or 2F
+	var speed := Vector2(v.x, v.z).length()
+	var loud := clampf((speed - 0.2) / 1.5, 0.0, 1.0) if on_floor and absf(v.y) < 0.5 else 0.0
+	_scrape.volume_db = lerpf(-60.0, -4.0, sqrt(loud))
 
 
 ## World-space box around the furniture (used for truck packing).

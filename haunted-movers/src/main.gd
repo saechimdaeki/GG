@@ -589,9 +589,14 @@ func use_tape(id: int) -> bool:
 
 func _build_audio() -> void:
 	_music.stream = Sfx.music()
-	_music.volume_db = -8.0
+	_music.volume_db = -16.0  # a radio somewhere in the house, not a soundtrack
 	add_child(_music)
 	_music.play()
+	var hum := AudioStreamPlayer.new()
+	hum.stream = Sfx.cached("drone")
+	hum.volume_db = -10.0
+	hum.autoplay = true
+	add_child(hum)
 	var streams := {thud = Sfx.thud(), horn = Sfx.horn(), whoosh = Sfx.whoosh(), coin = Sfx.coin()}
 	for n in streams:
 		var p := AudioStreamPlayer.new()

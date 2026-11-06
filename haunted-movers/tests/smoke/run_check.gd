@@ -9,7 +9,7 @@ extends SceneTree
 ## something, knocks them out, makes them let go, and fails the day.
 ## Story 005: run rules (quota, misses, bankrupt, clear, shop), next day resets the
 ## house, a tape exorcises a nearby ghost.
-## Audio: the music loop is 8 s and loops; it only warps near the ghost.
+## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
 ## Level: two bots lift the sofa, turn it, carry it out the front door onto the
 ## truck, and depart — the core loop is physically possible in this house.
 ## Net: join addresses parse with or without a port.
@@ -70,6 +70,7 @@ func _run() -> void:
 	_check_run_rules()
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
+	await _check_footsteps(main)
 	_check_address_parse()
 	_check_settings(main)
 	_check_tips()
@@ -216,6 +217,23 @@ func _check_next_day_and_tape(main: Node) -> void:
 	_expect(not main.use_tape(1), "tape used with none left")
 	main.run.tapes = 1
 	_expect(main.use_tape(1) and not main.ghost.visible and main.run.tapes == 0, "tape near ghost did nothing")
+	p.free()
+
+
+## A player who walks a step's length plays a footstep; standing still doesn't.
+func _check_footsteps(main: Node) -> void:
+	var p: CharacterBody3D = Player.new()
+	p.name = "77"
+	main.players.add_child(p)
+	await physics_frame
+	p._process(0.016)
+	p._steps.stop()
+	p._process(0.016)
+	_expect(not p._steps.playing, "footstep while standing still")
+	for i in 8:
+		p.global_position += Vector3(0.1, 0, 0)
+		p._process(0.016)
+	_expect(p._steps.playing, "no footstep after walking 0.8 m")
 	p.free()
 
 
