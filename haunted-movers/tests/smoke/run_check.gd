@@ -12,6 +12,7 @@ extends SceneTree
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost.
 ## Level: two bots lift the sofa, turn it, carry it out the front door onto the
 ## truck, and depart — the core loop is physically possible in this house.
+## Net: join addresses parse with or without a port.
 ## Prints PASS or FAIL n.
 ##   godot --headless --path . -s res://tests/smoke/run_check.gd
 
@@ -20,6 +21,8 @@ const Ghost = preload("res://src/ghost.gd")
 const Player = preload("res://src/player.gd")
 const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
+const Net = preload("res://src/net.gd")
+const Tuning = preload("res://src/tuning.gd")
 
 var _fails := 0
 
@@ -65,6 +68,7 @@ func _run() -> void:
 	_check_run_rules()
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
+	_check_address_parse()
 	await _check_carry_to_truck(main)
 
 	print("PASS" if _fails == 0 else "FAIL %d" % _fails)
@@ -145,6 +149,7 @@ func _check_ghost_states() -> void:
 func _check_ghost_attack(main: Node) -> void:
 	var failed := [false]
 	main.day_failed.connect(func() -> void: failed[0] = true)
+	main.run.time_left -= Tuning.data.ghost.start_delay  # past the morning grace period
 	var p: CharacterBody3D = Player.new()
 	p.name = "1"
 	main.players.add_child(p)
@@ -195,6 +200,10 @@ func _check_next_day_and_tape(main: Node) -> void:
 	_expect(main.run.phase == "day" and sofa.global_position.distance_to(Vector3(0, 0.43, 3)) < 0.05
 		and sofa.durability == 1.0, "next day did not reset the sofa")
 	_expect(main.ghost.visible, "ghost invisible after reset")
+	var g0: Vector3 = main.ghost.global_position
+	await _frames(main, 60)
+	_expect(main.ghost.global_position.distance_to(g0) < 0.1, "ghost moved during the morning grace period")
+	main.run.time_left -= Tuning.data.ghost.start_delay
 	var p: CharacterBody3D = Player.new()
 	p.name = "1"
 	main.players.add_child(p)
@@ -249,6 +258,13 @@ func _check_carry_to_truck(main: Node) -> void:
 	_expect(sofa.durability > 0.5, "sofa wrecked on the way: %.2f" % sofa.durability)
 	var r: Dictionary = main._depart()
 	_expect(r.get("loaded", 0) >= 1 and r.total > 0, "depart after carry %s" % r)
+
+
+func _check_address_parse() -> void:
+	_expect(Net.parse_address("192.168.0.5", 7777) == ["192.168.0.5", 7777], "plain ip")
+	_expect(Net.parse_address(" 1.2.3.4:9000 ", 7777) == ["1.2.3.4", 9000], "ip:port")
+	_expect(Net.parse_address("", 7777) == ["127.0.0.1", 7777], "empty -> localhost")
+	_expect(Net.parse_address("host.example:abc", 7777) == ["host.example:abc", 7777], "bad port kept as host")
 
 
 ## Each peer in `ids` pulls the body's centre toward 1 m above its start, for `n` frames.

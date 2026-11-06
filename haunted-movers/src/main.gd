@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host | --join [ip] | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
+## User args (after `--`): --host [--no-upnp] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -15,6 +15,7 @@ const House = preload("res://src/house.gd")
 const Ghost = preload("res://src/ghost.gd")
 const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
+const Net = preload("res://src/net.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
@@ -38,6 +39,11 @@ var _shop_buttons := {}
 var _next_btn := Button.new()
 var _sync_t := 0.0
 var _music := AudioStreamPlayer.new()
+var net := Net.new()
+var _addr := Label.new()
+var _lan_box := VBoxContainer.new()
+var _lan_seen := ""
+var _auto_join_lan := false
 var _sfx := {}
 var _last_thud := 0
 var _menu: Control
@@ -74,12 +80,18 @@ func _ready() -> void:
 	day_failed.connect(_on_day_failed)
 	_apply_run(run)
 
+	net.name = "Net"
+	add_child(net)
+	net.wan_ready.connect(_on_wan_ready)
 	var args := OS.get_cmdline_user_args()
 	if "--host" in args:
-		host()
+		host(not "--no-upnp" in args)
 	elif "--join" in args:
 		var i := args.find("--join")
 		join(args[i + 1] if i + 1 < args.size() and not args[i + 1].begins_with("--") else "127.0.0.1")
+	elif "--join-lan" in args:
+		_auto_join_lan = true
+		net.start_listening()
 	elif DisplayServer.get_name() != "headless":
 		_build_menu()
 	for a in args:
@@ -96,7 +108,9 @@ func _ready() -> void:
 			_screenshot_later(a.trim_prefix("--screenshot="), delay)
 
 
-func host() -> void:
+## Hosts on PORT, announces itself on the LAN, and (unless `upnp` is false) asks the
+## router to open the port for friends over the internet.
+func host(upnp := true) -> void:
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(PORT, 4)
 	if err != OK:
@@ -107,14 +121,32 @@ func host() -> void:
 	multiplayer.peer_disconnected.connect(_on_peer_left)
 	spawner.spawn(1)
 	_close_menu()
+	run = RunState.new_run(Tuning.data.run)  # the clock ran behind the menu; start fresh
+	_push_run()
+	net.start_beacon(PORT)
+	var lan := Net.local_ips()
+	_addr.text = "같은 와이파이 친구: %s\n인터넷 친구: %s" % [
+		", ".join(lan.map(func(a: String) -> String: return "%s:%d" % [a, PORT])) if not lan.is_empty() else "(없음)",
+		"공유기 포트 여는 중…" if upnp else "꺼짐 (--no-upnp)"]
+	if upnp:
+		net.open_wan(PORT)
 
 
-func join(ip: String) -> void:
+func _on_wan_ready(address: String, error: String) -> void:
+	var lines := _addr.text.split("\n")
+	lines[1] = "인터넷 친구: " + (address if address != "" else error)
+	_addr.text = "\n".join(lines)
+
+
+## Joins "ip" or "ip:port" (LAN address, or the host's internet address).
+func join(address: String) -> void:
+	var a := Net.parse_address(address, PORT)
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, PORT)
+	var err := peer.create_client(a[0], a[1])
 	if err != OK:
 		_hint.text = "참가 실패: %s" % error_string(err)
 		return
+	net.stop_listening()
 	multiplayer.multiplayer_peer = peer
 	for f in furniture.get_children():
 		f.freeze = true  # host owns the physics; we only display it
@@ -237,6 +269,7 @@ func _process(_delta: float) -> void:
 		var d: float = me.cam.global_position.distance_to(ghost.global_position)
 		amount = clampf(1.0 - d / Tuning.data.ghost.noise_range, 0.0, 1.0)
 	_vhs.set_shader_parameter("noise", amount)
+	_refresh_lan()
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
 
 
@@ -588,6 +621,15 @@ func _build_hud() -> void:
 	layer.add_child(_result)
 	_status.position = Vector2(16, 10)
 	layer.add_child(_status)
+	_addr.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_addr.offset_left = 16
+	_addr.offset_right = 520
+	_addr.offset_top = -120
+	_addr.offset_bottom = -48
+	_addr.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_addr.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_addr.add_theme_font_size_override("font_size", 14)
+	layer.add_child(_addr)
 
 	_shop.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_shop.offset_top = -250
@@ -614,27 +656,66 @@ func _build_menu() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	box.custom_minimum_size = Vector2(320, 0)
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
 	layer.add_child(box)
 	_menu = box
+	_status.visible = false
 	var title := Label.new()
-	title.text = "유령집 이삿짐센터 — 같이 들기 테스트"
+	title.text = "유령집 이삿짐센터"
 	box.add_child(title)
 	var host_btn := Button.new()
 	host_btn.text = "호스트"
 	host_btn.pressed.connect(host)
 	box.add_child(host_btn)
+	var lan_title := Label.new()
+	lan_title.text = "같은 와이파이에서 찾은 게임:"
+	box.add_child(lan_title)
+	_lan_box.add_child(_lan_placeholder())
+	box.add_child(_lan_box)
 	var ip := LineEdit.new()
-	ip.text = "127.0.0.1"
+	ip.placeholder_text = "호스트 주소 (예: 123.45.67.89:7777)"
 	box.add_child(ip)
 	var join_btn := Button.new()
-	join_btn.text = "참가"
+	join_btn.text = "주소로 참가"
 	join_btn.pressed.connect(func() -> void: join(ip.text))
 	box.add_child(join_btn)
+	if net.start_listening() != OK:
+		_lan_box.get_child(0).text = "(이 컴퓨터에서 이미 찾는 중 — 주소로 참가)"
+
+
+func _lan_placeholder() -> Label:
+	var l := Label.new()
+	l.text = "(찾는 중…)"
+	return l
+
+
+## Menu: keep the LAN host list current; --join-lan joins the first host heard.
+func _refresh_lan() -> void:
+	var keys: Array = net.found.keys()
+	keys.sort()
+	if _auto_join_lan and not keys.is_empty():
+		_auto_join_lan = false
+		join(keys[0])
+		return
+	if _menu == null or ",".join(keys) == _lan_seen:
+		return
+	_lan_seen = ",".join(keys)
+	for c in _lan_box.get_children():
+		c.queue_free()
+	if keys.is_empty():
+		_lan_box.add_child(_lan_placeholder())
+	for k in keys:
+		var b := Button.new()
+		b.text = "참가: " + k
+		b.pressed.connect(join.bind(k))
+		_lan_box.add_child(b)
 
 
 func _close_menu() -> void:
+	_status.visible = true
 	if _menu:
 		_menu.get_parent().queue_free()
 		_menu = null

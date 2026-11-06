@@ -2,7 +2,7 @@ extends Node3D
 ## The house ghost. Host-only brain; everyone sees the synced position.
 ## Floats through walls (it's a ghost), so it needs no navmesh.
 ## patrol → chase (someone within sight; carriers count as closer) → attack (stun)
-## → cooldown → patrol. An exorcism tape (story 005) disables it for a while.
+## → cooldown → patrol. Sleeps for `start_delay` s each morning. An exorcism tape disables it.
 
 const Tuning = preload("res://src/tuning.gd")
 
@@ -76,6 +76,8 @@ func _physics_process(delta: float) -> void:
 		_disabled -= delta
 		visible = _disabled <= 0.0
 		return
+	if Tuning.data.run.day_seconds - main.run.time_left < c.start_delay:
+		return  # sleeps through the first seconds of each day so movers can get going
 	_cooldown = maxf(0.0, _cooldown - delta)
 
 	var target := _pick_target(c)
