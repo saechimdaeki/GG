@@ -16,6 +16,15 @@ godot -- --host
 godot -- --join 127.0.0.1
 ```
 
+실행 파일 만들기 (Godot 4.7.2 export 템플릿 필요):
+
+```bash
+godot --headless --export-release "macOS" build/macos/HauntedMovers.zip
+godot --headless --export-release "Windows" build/windows/HauntedMovers.exe
+```
+
+릴리스 태그를 푸시하면 다른 게임과 함께 자동 빌드됨 (`.github/workflows/release.yml`).
+
 ## 조작
 
 클릭 누르고 있기: 잡기 · 빨간 버튼 클릭: 출발 · E: 퇴마 테이프 · WASD 이동 · Space 점프 · Esc 마우스 풀기

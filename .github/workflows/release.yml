@@ -26,6 +26,8 @@ jobs:
             name: DemonLordIsBusy
           - game: sunken-city
             name: SunkenCity
+          - game: haunted-movers
+            name: HauntedMovers
     defaults:
       run:
         working-directory: ${{ matrix.game }}
