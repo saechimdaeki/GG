@@ -25,7 +25,8 @@
         0.43,
         3.0
       ],
-      "value": 300
+      "value": 300,
+      "label": "소파"
     },
     {
       "name": "chair",
@@ -41,7 +42,8 @@
         0.45,
         2.0
       ],
-      "value": 40
+      "value": 40,
+      "label": "의자"
     },
     {
       "name": "fridge",
@@ -57,7 +59,8 @@
         0.9,
         8.5
       ],
-      "value": 350
+      "value": 350,
+      "label": "냉장고"
     },
     {
       "name": "piano",
@@ -74,7 +77,8 @@
         9.2
       ],
       "value": 500,
-      "curse": "buck"
+      "curse": "buck",
+      "label": "피아노"
     },
     {
       "name": "wardrobe",
@@ -91,7 +95,8 @@
         8.5
       ],
       "value": 200,
-      "curse": "runaway"
+      "curse": "runaway",
+      "label": "옷장"
     },
     {
       "name": "lamp",
@@ -107,7 +112,8 @@
         3.7,
         2.0
       ],
-      "value": 30
+      "value": 30,
+      "label": "스탠드"
     }
   ],
   "impact_threshold": 3.0,

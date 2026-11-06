@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -16,10 +16,13 @@ const Ghost = preload("res://src/ghost.gd")
 const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
 const Net = preload("res://src/net.gd")
+const UiTheme = preload("res://src/ui_theme.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
-const PORT := 7777
+const DEFAULT_PORT := 7777
+## Game port; `--port=N` overrides it (e.g. test copies next to a running game).
+var port := DEFAULT_PORT
 
 ## peer id -> {body, local, target, t}. Host only.
 var grabs := {}
@@ -45,14 +48,18 @@ var _lan_box := VBoxContainer.new()
 var _lan_seen := ""
 var _auto_join_lan := false
 var _pause := PanelContainer.new()
+var _shooting := false  # --screenshot: keep the Esc menu out of the picture
 var _sfx := {}
 var _last_thud := 0
 var _menu: Control
 var _hint := Label.new()
 var _result := Label.new()
+var _aim := Label.new()
 
 
 func _ready() -> void:
+	# Controls under CanvasLayers don't inherit a Window theme, so merge into the fallback theme.
+	ThemeDB.get_default_theme().merge_with(UiTheme.build())
 	_setup_input()
 	_build_room()
 	truck.name = "Truck"
@@ -85,6 +92,9 @@ func _ready() -> void:
 	add_child(net)
 	net.wan_ready.connect(_on_wan_ready)
 	var args := OS.get_cmdline_user_args()
+	for arg in args:
+		if arg.begins_with("--port="):
+			port = arg.trim_prefix("--port=").to_int()
 	if "--host" in args:
 		host(not "--no-upnp" in args)
 	elif "--join" in args:
@@ -106,16 +116,17 @@ func _ready() -> void:
 			delay = a.trim_prefix("--shot-delay=").to_float()
 	for a in args:
 		if a.begins_with("--screenshot="):
+			_shooting = true
 			_screenshot_later(a.trim_prefix("--screenshot="), delay)
 
 
-## Hosts on PORT, announces itself on the LAN, and (unless `upnp` is false) asks the
+## Hosts on `port`, announces itself on the LAN, and (unless `upnp` is false) asks the
 ## router to open the port for friends over the internet.
 func host(upnp := true) -> void:
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(PORT, 4)
+	var err := peer.create_server(port, 4)
 	if err != OK:
-		_hint.text = "호스트 실패: 포트 %d를 이미 쓰는 중 — 이 게임이 이미 켜져 있나요? (%s)" % [PORT, error_string(err)]
+		_hint.text = "호스트 실패: 포트 %d를 이미 쓰는 중 — 이 게임이 이미 켜져 있나요? (%s)" % [port, error_string(err)]
 		return
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_connected.connect(_on_peer_joined)
@@ -124,13 +135,13 @@ func host(upnp := true) -> void:
 	_close_menu()
 	run = RunState.new_run(Tuning.data.run)  # the clock ran behind the menu; start fresh
 	_push_run()
-	net.start_beacon(PORT)
+	net.start_beacon(port)
 	var lan := Net.local_ips()
 	_addr.text = "같은 와이파이 친구: %s\n인터넷 친구: %s" % [
-		", ".join(lan.map(func(a: String) -> String: return "%s:%d" % [a, PORT])) if not lan.is_empty() else "(없음)",
+		", ".join(lan.map(func(a: String) -> String: return "%s:%d" % [a, port])) if not lan.is_empty() else "(없음)",
 		"공유기 포트 여는 중…" if upnp else "꺼짐 (--no-upnp)"]
 	if upnp:
-		net.open_wan(PORT)
+		net.open_wan(port)
 
 
 func _on_wan_ready(address: String, error: String) -> void:
@@ -141,7 +152,7 @@ func _on_wan_ready(address: String, error: String) -> void:
 
 ## Joins "ip" or "ip:port" (LAN address, or the host's internet address).
 func join(address: String) -> void:
-	var a := Net.parse_address(address, PORT)
+	var a := Net.parse_address(address, port)
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(a[0], a[1])
 	if err != OK:
@@ -274,9 +285,33 @@ func _process(_delta: float) -> void:
 	_vhs.set_shader_parameter("noise", amount)
 	# Esc menu: whenever the mouse is free during play (no menu, no shop). The game keeps running.
 	_pause.visible = _menu == null and run.phase == "day" and players.get_child_count() > 0 \
-		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless"
+		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless" \
+		and not _shooting
 	_refresh_lan()
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
+
+
+## What the local player is looking at (set by player.gd each frame).
+func set_aim(target: Object) -> void:
+	if target == null:
+		_aim.text = ""
+	elif target is Node and target.name == "DepartButton":
+		_aim.text = "출발 버튼 — 클릭하면 오늘 일 끝"
+	elif target is Furniture:
+		var f: Furniture = target
+		var lift_kg: float = Tuning.data.player_strength * run.strength_mult / 9.8
+		var parts := ["%s · %dkg · %d원" % [f.label, roundi(f.mass), roundi(f.value * f.durability)]]
+		if f.mass > lift_kg:
+			parts.append("둘이 들어야 함")
+		if f.curse == "runaway":
+			parts.append("가까이 가면 도망감")
+		elif f.curse == "buck":
+			parts.append("들면 들썩임")
+		if f.durability < 1.0:
+			parts.append("파손 %d%%" % roundi((1.0 - f.durability) * 100))
+		_aim.text = " · ".join(parts)
+	else:
+		_aim.text = ""
 
 
 ## Host: a cursed piece shook everyone off.
@@ -574,21 +609,42 @@ func _build_room() -> void:
 	sun.shadow_enabled = true
 	add_child(sun)
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("#3a2a40")
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#7a6a80")
-	env.ambient_light_energy = 0.45
+	var sky_mat := ProceduralSkyMaterial.new()  # dusk: violet top, burnt-orange horizon
+	sky_mat.sky_top_color = Color("#2a2347")
+	sky_mat.sky_horizon_color = Color("#d9785a")
+	sky_mat.ground_horizon_color = Color("#4a3040")
+	sky_mat.ground_bottom_color = Color("#1a1420")
+	sky_mat.sun_angle_max = 20.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.16  # dark: the flashlight and bulbs do the work
 	env.fog_enabled = true
-	env.fog_light_color = Color("#3a2a40")
-	env.fog_density = 0.02
+	env.fog_light_color = Color("#6a4a5a")
+	env.fog_density = 0.012
+	env.fog_sky_affect = 0.3
+	env.ssao_enabled = true       # contact shadows in corners and under furniture
+	env.ssao_intensity = 1.6
+	env.glow_enabled = true       # bulbs, windows and headlights bloom a little
+	env.glow_intensity = 0.6
+	env.glow_hdr_threshold = 1.2
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.1
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var house := House.new()
 	house.name = "House"
 	add_child(house)
+	# Menu camera: the house at dusk from the road; a player's camera takes over on spawn.
+	var menu_cam := Camera3D.new()
+	menu_cam.name = "MenuCam"
+	add_child(menu_cam)
+	menu_cam.look_at_from_position(Vector3(-9, 2.2, -13), Vector3(0, 2.0, 4), Vector3.UP)
+	menu_cam.current = true
 
 	# VHS overlay: above the 3D view, below the HUD (layer 1).
 	var vhs_layer := CanvasLayer.new()
@@ -597,7 +653,7 @@ func _build_room() -> void:
 	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sm := ShaderMaterial.new()
-	sm.shader = preload("res://src/vhs.gdshader")
+	sm.shader = preload("res://src/canvas_post_vhs.gdshader")
 	rect.material = sm
 	_vhs = sm
 	vhs_layer.add_child(rect)
@@ -609,10 +665,18 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 	var cross := Label.new()
-	cross.text = "+"
+	cross.text = "•"
 	cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	cross.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	cross.grow_vertical = Control.GROW_DIRECTION_BOTH
 	layer.add_child(cross)
-	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
+	_aim.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_aim.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_aim.offset_top = 22
+	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_aim.add_theme_font_size_override("font_size", 15)
+	layer.add_child(_aim)
+	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -40
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -639,7 +703,8 @@ func _build_hud() -> void:
 
 	_shop.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	_shop.offset_top = -250
-	_shop.offset_bottom = -70
+	_shop.offset_bottom = -56
+	_shop.grow_vertical = Control.GROW_DIRECTION_BEGIN  # extra height goes up, clear of the hint
 	_shop.offset_left = -260
 	_shop.offset_right = 260
 	var box := VBoxContainer.new()
@@ -662,17 +727,26 @@ func _build_hud() -> void:
 func _build_menu() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	layer.add_child(panel)
 	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(320, 0)
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BOTH
-	layer.add_child(box)
-	_menu = box
+	box.custom_minimum_size = Vector2(380, 0)
+	panel.add_child(box)
+	_menu = panel
 	_status.visible = false
 	var title := Label.new()
-	title.text = "유령집 이삿짐센터  v%s" % ProjectSettings.get_setting("application/config/version", "")
+	title.text = "유령집 이삿짐센터"
+	title.add_theme_font_size_override("font_size", 40)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(title)
+	var sub := Label.new()
+	sub.text = "가구는 무겁고, 집은 귀신 들렸다   v%s" % ProjectSettings.get_setting("application/config/version", "")
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.modulate = Color(1, 1, 1, 0.75)
+	box.add_child(sub)
 	var host_btn := Button.new()
 	host_btn.text = "호스트"
 	host_btn.pressed.connect(host)
@@ -801,7 +875,7 @@ func _demo_load() -> void:
 
 
 func _setup_input() -> void:
-	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11}
+	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11, flashlight = KEY_F}
 	for action in keys:
 		if InputMap.has_action(action):
 			continue

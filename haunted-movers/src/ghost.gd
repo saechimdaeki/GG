@@ -32,15 +32,18 @@ func _init() -> void:
 	var m := SphereMesh.new()
 	m.radius = 0.45
 	m.height = 1.3
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.9, 0.95, 1.0, 0.55)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color("#9fd8ff")
-	mat.emission_energy_multiplier = 0.8
+	m.radial_segments = 24
+	m.rings = 16
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://src/spatial_char_ghost.gdshader")
 	m.material = mat
 	_body.mesh = m
 	add_child(_body)
+	var glow := OmniLight3D.new()  # casts its cold light on nearby walls
+	glow.light_color = Color("#9fd8ff")
+	glow.light_energy = 0.8
+	glow.omni_range = 3.5
+	add_child(glow)
 	var black := StandardMaterial3D.new()
 	black.albedo_color = Color.BLACK
 	for sx in [-1, 1]:
