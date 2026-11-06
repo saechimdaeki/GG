@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -17,6 +17,7 @@ const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
 const Net = preload("res://src/net.gd")
 const UiTheme = preload("res://src/ui_theme.gd")
+const Settings = preload("res://src/settings.gd")
 
 ## Host: everyone is knocked out at once — the day is lost (story 005 ends the day).
 signal day_failed
@@ -48,6 +49,7 @@ var _lan_box := VBoxContainer.new()
 var _lan_seen := ""
 var _auto_join_lan := false
 var _pause := PanelContainer.new()
+var _settings := PanelContainer.new()
 var _shooting := false  # --screenshot: keep the Esc menu out of the picture
 var _sfx := {}
 var _last_thud := 0
@@ -83,8 +85,10 @@ func _ready() -> void:
 	add_child(spawner)
 	spawner.spawn_path = spawner.get_path_to(players)
 	spawner.spawn_function = _spawn_player
+	Settings.load_or_default()
 	_build_hud()
 	_build_audio()
+	_apply_settings()
 	day_failed.connect(_on_day_failed)
 	_apply_run(run)
 
@@ -108,6 +112,8 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--cam="):
 			_place_cam(a.trim_prefix("--cam=").split_floats(","))
+	if "--settings" in args:
+		open_settings()
 	if "--demo-load" in args:
 		_demo_load()
 	var delay := 4.0
@@ -282,7 +288,8 @@ func _process(_delta: float) -> void:
 	if me and ghost.visible and run.phase == "day":
 		var d: float = me.cam.global_position.distance_to(ghost.global_position)
 		amount = clampf(1.0 - d / Tuning.data.ghost.noise_range, 0.0, 1.0)
-	_vhs.set_shader_parameter("noise", amount)
+	# ghost static stays a little even with effects off: it's a gameplay warning
+	_vhs.set_shader_parameter("noise", amount * lerpf(0.4, 1.0, Settings.get_value("effects")))
 	# Esc menu: whenever the mouse is free during play (no menu, no shop). The game keeps running.
 	_pause.visible = _menu == null and run.phase == "day" and players.get_child_count() > 0 \
 		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless" \
@@ -722,6 +729,7 @@ func _build_hud() -> void:
 	_shop.visible = false
 	layer.add_child(_shop)
 	_build_pause(layer)
+	_build_settings()
 
 
 func _build_menu() -> void:
@@ -763,6 +771,10 @@ func _build_menu() -> void:
 	join_btn.text = "주소로 참가"
 	join_btn.pressed.connect(func() -> void: join(ip.text))
 	box.add_child(join_btn)
+	var settings_btn := Button.new()
+	settings_btn.text = "설정"
+	settings_btn.pressed.connect(open_settings)
+	box.add_child(settings_btn)
 	var quit_btn := Button.new()
 	quit_btn.text = "게임 종료"
 	quit_btn.pressed.connect(get_tree().quit)
@@ -810,6 +822,7 @@ func _build_pause(layer: CanvasLayer) -> void:
 	note.text = "온라인이라 게임은 계속 돌아가요"
 	box.add_child(note)
 	for item in [["계속하기", func() -> void: Input.mouse_mode = Input.MOUSE_MODE_CAPTURED],
+			["설정", open_settings],
 			["전체 화면 (F11)", _toggle_fullscreen],
 			["메뉴로 나가기", _leave_to_menu],
 			["게임 종료", get_tree().quit]]:
@@ -819,6 +832,63 @@ func _build_pause(layer: CanvasLayer) -> void:
 		box.add_child(b)
 	_pause.visible = false
 	layer.add_child(_pause)
+
+
+## Settings panel (sliders from Settings.SPEC), on its own layer above every menu.
+func _build_settings() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	add_child(layer)
+	_settings.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_settings.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_settings.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_settings.add_theme_stylebox_override("panel", UiTheme._box(UiTheme.INK, UiTheme.BRASS, 2, 18))  # opaque: sits over menus
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(380, 0)
+	_settings.add_child(box)
+	var title := Label.new()
+	title.text = "설정"
+	title.add_theme_font_size_override("font_size", 26)
+	box.add_child(title)
+	for k in Settings.SPEC:
+		var spec: Array = Settings.SPEC[k]
+		var label := Label.new()
+		box.add_child(label)
+		var slider := HSlider.new()
+		slider.min_value = spec[1]
+		slider.max_value = spec[2]
+		slider.step = spec[3]
+		slider.value = Settings.get_value(k)
+		slider.custom_minimum_size = Vector2(0, 24)
+		var show := func(v: float) -> void: label.text = "%s  %d%%" % [spec[4], roundi(v * 100)]
+		show.call(slider.value)
+		slider.value_changed.connect(func(v: float) -> void:
+			Settings.values[k] = v
+			show.call(v)
+			_apply_settings())
+		box.add_child(slider)
+	var close := Button.new()
+	close.text = "닫기"
+	close.pressed.connect(func() -> void:
+		Settings.save()
+		_settings.visible = false)
+	box.add_child(close)
+	_settings.visible = false
+	layer.add_child(_settings)
+
+
+func open_settings() -> void:
+	_settings.visible = true
+
+
+## Pushes the current settings into the audio bus and the screen effect.
+func _apply_settings() -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(Settings.get_value("volume"), 0.0001)))
+	var e := Settings.get_value("effects")
+	_vhs.set_shader_parameter("pixel_size", lerpf(1.0, 3.0, e))   # 1 = full resolution
+	_vhs.set_shader_parameter("color_levels", lerpf(64.0, 20.0, e))
+	_vhs.set_shader_parameter("split", 0.0015 * e)
+	_vhs.set_shader_parameter("scanline", 0.05 * e)
 
 
 func _toggle_fullscreen() -> void:

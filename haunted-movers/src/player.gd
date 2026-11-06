@@ -5,6 +5,7 @@ extends CharacterBody3D
 const Tuning = preload("res://src/tuning.gd")
 const Furniture = preload("res://src/furniture.gd")
 const Models = preload("res://src/models.gd")
+const Settings = preload("res://src/settings.gd")
 
 var head := Node3D.new()
 var cam := Camera3D.new()
@@ -94,7 +95,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event is InputEventMouseMotion and captured:
-		var s: float = Tuning.data.mouse_sensitivity
+		var s: float = Tuning.data.mouse_sensitivity * Settings.get_value("sensitivity")
 		rotate_y(-event.relative.x * s)
 		head.rotation.x = clampf(head.rotation.x - event.relative.y * s, -1.4, 1.4)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
