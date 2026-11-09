@@ -6,12 +6,17 @@ const Tuning = preload("res://src/tuning.gd")
 const Furniture = preload("res://src/furniture.gd")
 const Models = preload("res://src/models.gd")
 const Settings = preload("res://src/settings.gd")
+const Sfx = preload("res://src/sfx.gd")
+const STEP_LENGTH := 0.7  # m walked per footstep
 
 var head := Node3D.new()
 var cam := Camera3D.new()
 var ray := RayCast3D.new()
 var body: Node3D
 var flashlight := SpotLight3D.new()
+var _steps := AudioStreamPlayer3D.new()
+var _walked := 0.0
+var _last_pos := Vector3.ZERO
 ## Flashlight on/off, owned by this player, synced so others see the beam.
 var flash_on := true
 var held: RigidBody3D
@@ -45,7 +50,12 @@ func _init() -> void:
 	flashlight.light_energy = 3.0
 	flashlight.light_color = Color("#fff2d6")
 	flashlight.shadow_enabled = true
+	flashlight.light_volumetric_fog_energy = 4.0  # visible beam in the dusty air
 	cam.add_child(flashlight)
+	_steps.stream = Sfx.cached("step")
+	_steps.unit_size = 4.0
+	_steps.max_polyphony = 2
+	add_child(_steps)
 	ray.target_position = Vector3(0, 0, -t.reach)
 	cam.add_child(ray)
 
@@ -64,10 +74,10 @@ func _ready() -> void:
 	add_child(body)
 	var mine := is_multiplayer_authority()
 	cam.current = mine
-	# our own body would poke into the camera; keep only its shadow on the floor
+	# our own body would poke into the camera, and our flashlight (held at the body) would
+	# throw its shadow across the room as a long diagonal line, so it's fully hidden for us
 	if mine:
-		for mi in body.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+		body.visible = false
 	if mine and _demo:
 		head.rotation.x = -0.5
 
@@ -81,6 +91,17 @@ func stun(sec: float) -> void:
 
 func _process(_delta: float) -> void:
 	flashlight.visible = flash_on and not stunned
+	# Footsteps from how far we moved on the ground (works for remote players too: synced position).
+	var moved := (global_position - _last_pos) * Vector3(1, 0, 1)
+	_last_pos = global_position
+	if moved.length() < 1.0 and not stunned:  # ignore teleports (respawn, --cam)
+		_walked += moved.length()
+		if _walked >= STEP_LENGTH:
+			_walked = 0.0
+			_steps.pitch_scale = randf_range(0.85, 1.15)
+			_steps.play()
+	if is_multiplayer_authority():
+		cam.position.y = sin(_walked / STEP_LENGTH * PI) * 0.035  # head bob, one dip per step
 	if is_multiplayer_authority() and is_inside_tree():
 		ray.target_position = Vector3(0, 0, -(Tuning.data.reach + _main().run.reach_bonus))
 		ray.force_raycast_update()

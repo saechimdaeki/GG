@@ -58,6 +58,65 @@ static func coin() -> AudioStreamWAV:
 		return sin(TAU * _hz(note) * t) * 0.35 * exp(-fmod(t, 0.1) * 12.0))
 
 
+## Cached: each stream is synthesized once and shared by every player/furniture/ghost.
+static var _cache := {}
+
+
+static func cached(sound: String) -> AudioStreamWAV:
+	if not _cache.has(sound):
+		match sound:
+			"step": _cache[sound] = step()
+			"moan": _cache[sound] = moan()
+			"scrape": _cache[sound] = scrape()
+			"drone": _cache[sound] = drone()
+	return _cache[sound]
+
+
+## One footstep on old boards: a dull knock plus a short grit of noise.
+static func step() -> AudioStreamWAV:
+	return _make(0.14, func(t: float) -> float:
+		return (sin(TAU * 95.0 * t) * 0.6 + (randf() * 2.0 - 1.0) * 0.35) * exp(-t * 38.0))
+
+
+## 4 s loop: a low wavering moan with breath. Starts and ends silent so the loop doesn't click.
+static func moan() -> AudioStreamWAV:
+	var len_s := 4.0
+	var s := PackedFloat32Array()
+	s.resize(int(len_s * RATE))
+	var lp := 0.0
+	for i in s.size():
+		var t := float(i) / RATE
+		var env := sin(PI * t / len_s)  # swell in and out over the loop
+		var f := 120.0 + 18.0 * sin(TAU * 0.5 * t) + 4.0 * sin(TAU * 5.5 * t)
+		lp += ((randf() * 2.0 - 1.0) - lp) * 0.05  # low-passed breath
+		s[i] = (sin(TAU * f * t) * 0.35 + sin(TAU * f * 1.5 * t) * 0.1 + lp * 0.5) * env
+	return _wav(s, true)
+
+
+## 1 s loop: wood dragged over boards — low-passed noise with a juddering grip.
+static func scrape() -> AudioStreamWAV:
+	var s := PackedFloat32Array()
+	s.resize(RATE)
+	var lp := 0.0
+	for i in s.size():
+		var t := float(i) / RATE
+		lp += ((randf() * 2.0 - 1.0) - lp) * 0.12
+		s[i] = lp * 1.4 * (0.6 + 0.4 * absf(sin(TAU * 7.0 * t)))
+	return _wav(s, true)
+
+
+## 8 s loop: the house hum — two detuned low tones beating slowly, plus air.
+static func drone() -> AudioStreamWAV:
+	var s := PackedFloat32Array()
+	s.resize(int(8.0 * RATE))
+	var lp := 0.0
+	for i in s.size():
+		var t := float(i) / RATE
+		lp += ((randf() * 2.0 - 1.0) - lp) * 0.02
+		s[i] = sin(TAU * 55.0 * t) * 0.18 + sin(TAU * 55.5 * t) * 0.18 + sin(TAU * 82.5 * t) * 0.05 + lp * 0.25
+	return _wav(s, true)
+
+
 ## Music pitch near the ghost: 1.0 when calm; wobbles and sags as `noise` (0..1) rises.
 static func music_pitch(noise: float, t: float) -> float:
 	return 1.0 - noise * (0.12 + 0.1 * sin(t * 7.0))

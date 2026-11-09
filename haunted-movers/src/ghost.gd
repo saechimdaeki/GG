@@ -12,6 +12,7 @@ var _wp := 0
 var _cooldown := 0.0
 var _disabled := 0.0
 var _body := MeshInstance3D.new()
+var _moan := AudioStreamPlayer3D.new()
 
 
 ## Pure transition. `target_dist` is INF when nobody is in sight.
@@ -43,7 +44,13 @@ func _init() -> void:
 	glow.light_color = Color("#9fd8ff")
 	glow.light_energy = 0.8
 	glow.omni_range = 3.5
+	glow.light_volumetric_fog_energy = 3.0  # a cold haze hangs around it
 	add_child(glow)
+	_moan.stream = preload("res://src/sfx.gd").cached("moan")
+	_moan.unit_size = 3.0
+	_moan.max_distance = 18.0
+	_moan.autoplay = true
+	add_child(_moan)
 	var black := StandardMaterial3D.new()
 	black.albedo_color = Color.BLACK
 	for sx in [-1, 1]:
@@ -57,7 +64,7 @@ func _init() -> void:
 		add_child(eye)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", ".:visible"]:
+	for p in [".:position", ".:rotation", ".:visible", ".:state"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.replication_config = cfg
@@ -69,6 +76,12 @@ func exorcise(sec: float) -> void:
 	_disabled = sec
 	visible = sec <= 0.0
 	state = "patrol"
+
+
+func _process(_delta: float) -> void:
+	# everyone hears it; louder and a little higher when it's hunting (state is synced)
+	_moan.volume_db = -60.0 if not visible else (-2.0 if state == "chase" else -10.0)
+	_moan.pitch_scale = 1.15 if state == "chase" else 1.0
 
 
 func _physics_process(delta: float) -> void:
