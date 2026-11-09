@@ -33,6 +33,18 @@ var _prev_vel := Vector3.ZERO
 ## | "mimic" (looks like a plain box; held too long, it bites and hops off)
 var curse := ""
 var _curse_t := 0.0
+## Damage multiplier (a CRT TV breaks far easier than a sofa).
+var fragile := 1.0
+## Part of today's job. Out-of-play pieces are hidden, collisionless and parked under the map.
+## Host sets it in main.layout_day; synced.
+var in_play := true:
+	set(v):
+		in_play = v
+		visible = v
+		collision_layer = 1 if v else 0
+		collision_mask = 1 if v else 0
+		if is_inside_tree() and is_multiplayer_authority() and multiplayer.is_server():
+			freeze = not v
 ## Mimic only: seconds left showing its teeth. Host sets it, synced so everyone sees the bite.
 var bite_show := 0.0
 var _teeth: Node3D
@@ -47,7 +59,8 @@ func setup(d: Dictionary) -> void:
 	value = d.value
 	label = d.get("label", d.name)
 	curse = d.get("curse", "")
-	position = Vector3(d.pos[0], d.pos[1], d.pos[2])
+	position = Vector3(0, -50, 0)  # main.layout_day puts it in the house
+	fragile = d.get("fragile", 1.0)
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	size = Vector3(d.size[0], d.size[1], d.size[2])
 
@@ -77,7 +90,7 @@ func setup(d: Dictionary) -> void:
 	add_child(_scrape)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", ".:holders", ".:durability", ".:bite_show"]:
+	for p in [".:position", ".:rotation", ".:holders", ".:durability", ".:bite_show", ".:in_play"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
@@ -129,11 +142,11 @@ func world_aabb() -> AABB:
 func _physics_process(delta: float) -> void:
 	var dv := (linear_velocity - _prev_vel).length()
 	_prev_vel = linear_velocity
-	if freeze:
+	if freeze or not in_play:
 		return
 	var t := Tuning.data
 	if durability > 0.0 and dv > t.impact_threshold:
-		durability = maxf(0.0, durability - (dv - t.impact_threshold) * t.damage_per_impact)
+		durability = maxf(0.0, durability - (dv - t.impact_threshold) * t.damage_per_impact * fragile)
 		hit.emit()
 	if curse != "":
 		_curse_step(delta, t.curses[curse])

@@ -6,7 +6,7 @@
 
 
 static func new_run(cfg: Dictionary) -> Dictionary:
-	return {day = 1, money = 0, misses = 0, phase = "day", time_left = float(cfg.day_seconds),
+	return {day = 1, money = 0, misses = 0, phase = "day", time_left = float(cfg.day_seconds), seed = randi(),
 		strength_mult = 1.0, reach_bonus = 0.0, tapes = 0, owned = [], cleared = false, text = ""}
 
 

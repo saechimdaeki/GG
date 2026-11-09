@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -90,6 +90,7 @@ func _ready() -> void:
 		f.bit.connect(_on_bit)
 		f.hit.connect(_on_furniture_hit)
 		furniture.add_child(f)
+	layout_day(run.day)  # offline/host view; a client gets positions from the host
 	players.name = "Players"
 	add_child(players)
 	spawner.name = "Spawner"
@@ -129,6 +130,15 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--cam="):
 			_place_cam(a.trim_prefix("--cam=").split_floats(","))
+	for a in args:
+		if a.begins_with("--seed=") and multiplayer.is_server():  # test tooling: a reproducible house
+			run.seed = a.trim_prefix("--seed=").to_int()
+			layout_day(run.day)
+	for a in args:
+		if a.begins_with("--day=") and multiplayer.is_server():  # test tooling: start on day N
+			run.day = clampi(a.trim_prefix("--day=").to_int(), 1, Tuning.data.days.size())
+			layout_day(run.day)
+			_push_run()
 	if "--settings" in args:
 		open_settings()
 	if "--demo-load" in args:
@@ -160,6 +170,7 @@ func host(upnp := true) -> void:
 	spawner.spawn(1)
 	_close_menu()
 	run = RunState.new_run(Tuning.data.run)  # the clock ran behind the menu; start fresh
+	layout_day(run.day)
 	_push_run()
 	net.start_beacon(port)
 	var lan := Net.local_ips()
@@ -458,7 +469,7 @@ func _rpc_depart() -> void:
 func _depart() -> Dictionary:
 	if run.phase != "day":
 		return {}
-	var r := truck.evaluate(furniture.get_children())
+	var r := truck.evaluate(furniture.get_children().filter(func(f: Node) -> bool: return f.in_play))
 	broadcast_sfx("horn")
 	var text := "출발! 실은 가구 %d개 · 파손 %d개 · 기본 %d원 + 적재 보너스 %d원 (빈틈 없이 %d%%) = %d원\n" % [
 		r.loaded, r.broken, r.base, r.bonus, roundi(r.efficiency * 100), r.total]
@@ -555,16 +566,48 @@ func next_day() -> void:
 	_push_run()
 
 
-func _reset_house() -> void:
-	grabs.clear()
-	stun_until.clear()
-	for d in Tuning.data.furniture:
-		var f: RigidBody3D = furniture.get_node(NodePath(d.name))
-		f.global_position = Vector3(d.pos[0], d.pos[1], d.pos[2])
-		f.rotation = Vector3.ZERO
+## Host: put today's furniture on shuffled spawn points (seeded by run + day, so a run
+## replays the same house); park everything else. Pieces with a "home" spawn keep it.
+func layout_day(day: int) -> void:
+	var cfg := Tuning.data
+	var names: Array = cfg.days[clampi(day, 1, cfg.days.size()) - 1]
+	var spawns: Array = cfg.spawns
+	var homes := {}
+	for d in cfg.furniture:
+		if d.has("home"):
+			homes[d.name] = int(d.home)
+	var order := []
+	for i in spawns.size():
+		if not homes.values().has(i):
+			order.append(i)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([run.get("seed", 0), day])
+	for i in range(order.size() - 1, 0, -1):  # Fisher-Yates
+		var j := rng.randi_range(0, i)
+		var tmp = order[i]
+		order[i] = order[j]
+		order[j] = tmp
+	var next := 0
+	for f in furniture.get_children():
+		var used: bool = names.has(String(f.name))
+		f.in_play = used
 		f.linear_velocity = Vector3.ZERO
 		f.angular_velocity = Vector3.ZERO
 		f.durability = 1.0
+		if not used:
+			f.global_position = Vector3(0, -50, 0)
+			continue
+		var sp: Array = spawns[homes[String(f.name)]] if homes.has(String(f.name)) else spawns[order[next]]
+		if not homes.has(String(f.name)):
+			next += 1
+		f.rotation = Vector3(0, deg_to_rad(sp[3]), 0)
+		f.global_position = Vector3(sp[0], sp[1] + f.size.y / 2.0 + 0.02, sp[2])
+
+
+func _reset_house() -> void:
+	grabs.clear()
+	stun_until.clear()
+	layout_day(run.day)
 	var gs: Array = Tuning.data.ghost.start
 	ghost.global_position = Vector3(gs[0], gs[1], gs[2])
 	ghost.exorcise(0.0)

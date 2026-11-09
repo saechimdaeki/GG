@@ -10,6 +10,8 @@ extends SceneTree
 ## Story 005: run rules (quota, misses, bankrupt, clear, shop), next day resets the
 ## house, a tape exorcises a nearby ghost.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
+## Layouts: each day has its own piece count; nothing spawns overlapping; a run's seed replays
+## the same house and a new day reshuffles it.
 ## Mimic: the moving box bites whoever holds it past the limit — knocked out, let go, teeth
 ## shown — but a bite never ends the day by itself.
 ## Animation: walking swings the legs; carrying puts both hands out in front.
@@ -41,6 +43,8 @@ func _initialize() -> void:
 func _run() -> void:
 	var main: Node = load("res://src/main.tscn").instantiate()
 	root.add_child(main)
+	await process_frame  # main._ready (and its day-1 layout) runs on the first frame
+	main.layout_day(3)  # day 3 has every piece in play (piano, mimic box, bed…)
 	await _frames(main, 40)  # let furniture settle on the floor
 
 	var sofa: RigidBody3D = main.furniture.get_node("sofa")
@@ -78,6 +82,7 @@ func _run() -> void:
 	await _check_footsteps(main)
 	await _check_animation(main)
 	await _check_mimic(main)
+	_check_layouts(main)
 	_check_address_parse()
 	_check_settings(main)
 	_check_tips()
@@ -228,7 +233,36 @@ func _check_next_day_and_tape(main: Node) -> void:
 	p.free()
 
 
+func _check_layouts(main: Node) -> void:
+	var counts := []
+	for day in [1, 2, 3]:
+		main.layout_day(day)
+		var live: Array = main.furniture.get_children().filter(func(f: Node) -> bool: return f.in_play)
+		counts.append(live.size())
+		for i in live.size():
+			for j in range(i + 1, live.size()):
+				var a: AABB = live[i].world_aabb().grow(-0.01)
+				var b: AABB = live[j].world_aabb().grow(-0.01)
+				_expect(not a.intersects(b), "day %d: %s spawns inside %s" % [day, live[i].name, live[j].name])
+	_expect(counts == [6, 9, 10], "pieces per day %s, expected [6, 9, 10]" % [counts])
+	var snap := func() -> Array:
+		return main.furniture.get_children().map(func(f: Node) -> Vector3: return f.global_position.snapped(Vector3.ONE * 0.01))
+	main.layout_day(2)
+	var a1: Array = snap.call()
+	main.layout_day(2)
+	_expect(snap.call() == a1, "same seed + day gave a different house")
+	main.layout_day(3)
+	var moved := 0
+	var a3: Array = snap.call()
+	for i in a1.size():
+		if a1[i].y > -10 and a3[i].y > -10 and a1[i] != a3[i]:
+			moved += 1
+	_expect(moved >= 3, "day 3 barely reshuffled (%d pieces moved)" % moved)
+
+
 func _check_mimic(main: Node) -> void:
+	main.layout_day(3)
+	await _frames(main, 30)
 	var box: RigidBody3D = main.furniture.get_node("box")
 	var bites := [0]
 	box.bit.connect(func(_b: RigidBody3D) -> void: bites[0] += 1)
