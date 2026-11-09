@@ -20,6 +20,9 @@ var _steps := AudioStreamPlayer3D.new()
 var _speaker := AudioStreamPlayer3D.new()
 var _gen := AudioStreamGenerator.new()
 ## Voice chunks received (for the smoke test) and a short "talking" timer for the HUD.
+## Holding something: arms go forward. Owner sets it, synced so everyone sees the pose.
+var carrying := false
+var _swing := 0.0
 var heard_chunks := 0
 var talk_t := 0.0
 var _talk_icon := Label3D.new()
@@ -85,7 +88,7 @@ func _init() -> void:
 	cam.add_child(ray)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:flash_on"]:
+	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:flash_on", ".:carrying"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
@@ -108,6 +111,25 @@ func _ready() -> void:
 		body.visible = false
 	if mine and _demo:
 		head.rotation.x = -0.5
+
+
+## Walk cycle from ground speed; arms forward while carrying. Pure visuals, runs on every peer.
+func _animate(speed: float, delta: float) -> void:
+	if is_multiplayer_authority():
+		carrying = held != null
+	if body == null or stunned:
+		return
+	var walking := speed > 0.3 and speed < 20.0
+	_swing += delta * clampf(speed, 0.0, 6.0) * 2.4 if walking else 0.0
+	var amp := 0.55 if walking else 0.0
+	var leg := sin(_swing) * amp
+	for side in ["L", "R"]:
+		var sgn := 1.0 if side == "L" else -1.0
+		var hip := body.get_node("Leg" + side) as Node3D
+		hip.rotation.x = lerpf(hip.rotation.x, leg * sgn, 0.3)
+		var arm := body.get_node("Arm" + side) as Node3D
+		var target := 1.35 if carrying else -leg * sgn * 0.7  # carrying: both arms reach forward
+		arm.rotation.x = lerpf(arm.rotation.x, target, 0.25)
 
 
 ## Local player: send one encoded voice chunk to everyone (the server relays for clients).
@@ -153,6 +175,7 @@ func _process(delta: float) -> void:
 	# Footsteps from how far we moved on the ground (works for remote players too: synced position).
 	var moved := (global_position - _last_pos) * Vector3(1, 0, 1)
 	_last_pos = global_position
+	_animate(moved.length() / maxf(delta, 0.0001), delta)
 	if moved.length() < 1.0 and not stunned:  # ignore teleports (respawn, --cam)
 		_walked += moved.length()
 		if _walked >= STEP_LENGTH:

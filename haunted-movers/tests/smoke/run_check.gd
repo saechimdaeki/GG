@@ -10,6 +10,7 @@ extends SceneTree
 ## Story 005: run rules (quota, misses, bankrupt, clear, shop), next day resets the
 ## house, a tape exorcises a nearby ghost.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
+## Animation: walking swings the legs; carrying puts both hands out in front.
 ## Level: two bots lift the sofa, turn it, carry it out the front door onto the
 ## truck, and depart — the core loop is physically possible in this house.
 ## Net: join addresses parse with or without a port.
@@ -73,6 +74,7 @@ func _run() -> void:
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
 	await _check_footsteps(main)
+	await _check_animation(main)
 	_check_address_parse()
 	_check_settings(main)
 	_check_tips()
@@ -220,6 +222,27 @@ func _check_next_day_and_tape(main: Node) -> void:
 	_expect(not main.use_tape(1), "tape used with none left")
 	main.run.tapes = 1
 	_expect(main.use_tape(1) and not main.ghost.visible and main.run.tapes == 0, "tape near ghost did nothing")
+	p.free()
+
+
+func _check_animation(main: Node) -> void:
+	var p: CharacterBody3D = Player.new()
+	p.name = "1"
+	main.players.add_child(p)
+	await physics_frame
+	var leg: Node3D = p.body.get_node("LegL")
+	var swung := 0.0
+	for i in 20:
+		p._animate(3.0, 0.05)
+		swung = maxf(swung, absf(leg.rotation.x))
+	_expect(swung > 0.2, "legs don't swing while walking (max %.2f rad)" % swung)
+	p.held = main.furniture.get_node("chair")
+	for i in 30:
+		p._animate(0.0, 0.05)
+	var hand: Node3D = p.body.get_node("ArmR").get_child(1)
+	_expect(p.carrying and hand.global_position.z < p.global_position.z - 0.3,
+		"carrying: hand should be out in front (-z), hand z %.2f vs body %.2f" % [hand.global_position.z, p.global_position.z])
+	p.held = null
 	p.free()
 
 
