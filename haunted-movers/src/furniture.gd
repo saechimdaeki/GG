@@ -7,6 +7,8 @@ const Models = preload("res://src/models.gd")
 
 ## Host: a "buck" curse just kicked; main releases everyone holding it.
 signal bucked(body: RigidBody3D)
+## Host: a "mimic" bit whoever holds it; main knocks them out.
+signal bit(body: RigidBody3D)
 ## Host: took impact damage (main plays a thud).
 signal hit
 
@@ -28,8 +30,12 @@ var _color := Color.WHITE
 var _prev_vel := Vector3.ZERO
 ## "" | "runaway" (hops away from nearby players while nobody holds it)
 ## | "buck" (every few seconds while held, jumps and shakes everyone off)
+## | "mimic" (looks like a plain box; held too long, it bites and hops off)
 var curse := ""
 var _curse_t := 0.0
+## Mimic only: seconds left showing its teeth. Host sets it, synced so everyone sees the bite.
+var bite_show := 0.0
+var _teeth: Node3D
 var _scrape := AudioStreamPlayer3D.new()
 var _last_pos := Vector3.ZERO
 
@@ -60,7 +66,10 @@ func setup(d: Dictionary) -> void:
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).material_overlay = _mat
 
-	_add_face(Models.face_anchor(d.name, size))
+	if curse == "mimic":
+		_teeth = _add_teeth()  # no face: it hides in plain sight
+	else:
+		_add_face(Models.face_anchor(d.name, size))
 	_scrape.stream = preload("res://src/sfx.gd").cached("scrape")
 	_scrape.unit_size = 3.0
 	_scrape.volume_db = -60.0
@@ -68,7 +77,7 @@ func setup(d: Dictionary) -> void:
 	add_child(_scrape)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", ".:holders", ".:durability"]:
+	for p in [".:position", ".:rotation", ".:holders", ".:durability", ".:bite_show"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
@@ -76,10 +85,31 @@ func setup(d: Dictionary) -> void:
 	add_child(sync)
 
 
+## Mimic: a jagged row of teeth along the lid seam, hidden until it bites.
+func _add_teeth() -> Node3D:
+	var root := Node3D.new()
+	var white := StandardMaterial3D.new()
+	white.albedo_color = Color("#f4ecd8")
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color("#2a0a0a")
+	Models.box(root, Vector3(size.x * 0.9, 0.12, 0.02), Vector3(0, size.y * 0.2, -size.z / 2 - 0.012), dark)  # maw
+	for i in 7:
+		var tooth := Models.box(root, Vector3(0.05, 0.07, 0.03),
+			Vector3(-size.x * 0.4 + i * size.x * 0.8 / 6.0, size.y * 0.2 + (0.03 if i % 2 == 0 else -0.03), -size.z / 2 - 0.02), white)
+		tooth.rotation.z = PI / 4
+	root.visible = false
+	add_child(root)
+	return root
+
+
 ## Scrape louder the faster it slides along a floor (from position change, so clients hear it too).
 func _process(delta: float) -> void:
 	if delta <= 0.0:
 		return
+	if _teeth:
+		_teeth.visible = bite_show > 0.0
+		if not freeze:  # host counts it down; clients follow the synced value
+			bite_show = maxf(0.0, bite_show - delta)
 	var v := (global_position - _last_pos) / delta
 	_last_pos = global_position
 	var bottom := global_position.y - size.y / 2.0
@@ -127,6 +157,14 @@ func _curse_step(delta: float, c: Dictionary) -> void:
 			apply_central_impulse(Vector3.UP * c.kick_up * mass)
 			apply_torque_impulse(Vector3(0, 0, c.kick_spin * mass))
 			bucked.emit(self)
+	elif curse == "mimic":
+		if holders == 0:
+			_curse_t = 0.0
+		elif _curse_t >= c.bite_after:
+			_curse_t = 0.0
+			bite_show = c.show_teeth
+			apply_central_impulse(Vector3(0.6, c.hop_up, 0.3) * mass)
+			bit.emit(self)
 
 
 func _nearest_player(radius: float) -> Node3D:

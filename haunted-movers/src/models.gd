@@ -77,6 +77,12 @@ static func furniture(kind: String, size: Vector3, color: Color) -> Node3D:
 			for sx in [-1, 1]:
 				box(root, Vector3(h.x - 0.08, size.y - 0.4, 0.02), Vector3(sx * h.x / 2, -0.05, -h.z - 0.005), dark)  # door panels
 				box(root, Vector3(0.03, 0.12, 0.03), Vector3(sx * 0.06, 0, -h.z - 0.03), metal())                     # handles
+		"box":
+			var card := matte(color)
+			box(root, size, Vector3.ZERO, card)
+			var tape := matte(Color("#d9c8a0"))
+			box(root, Vector3(0.1, 0.012, size.z + 0.01), Vector3(0, h.y, 0), tape)          # tape over the lid
+			box(root, Vector3(size.x + 0.01, 0.012, 0.01), Vector3(0, h.y * 0.4, -h.z), matte(color.darkened(0.25)))  # lid seam
 		_:
 			box(root, size, Vector3.ZERO, wood)
 	return root
