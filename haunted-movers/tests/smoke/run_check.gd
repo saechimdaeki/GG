@@ -14,6 +14,8 @@ extends SceneTree
 ## truck, and depart — the core loop is physically possible in this house.
 ## Net: join addresses parse with or without a port.
 ## Settings: defaults are in range; effects 0 turns pixelation off.
+## Voice: PCM round-trips, resampling keeps duration, a remote player plays its owner's
+## chunks and ignores chunks sent in someone else's name.
 ## Tips: the first-day guide walks click → grab → (too heavy) → load → depart, and is quiet after day 1.
 ## Prints PASS or FAIL n.
 ##   godot --headless --path . -s res://tests/smoke/run_check.gd
@@ -74,6 +76,7 @@ func _run() -> void:
 	_check_address_parse()
 	_check_settings(main)
 	_check_tips()
+	await _check_voice(main)
 	await _check_carry_to_truck(main)
 
 	print("PASS" if _fails == 0 else "FAIL %d" % _fails)
@@ -297,6 +300,32 @@ func _check_settings(main: Node) -> void:
 	_expect(is_equal_approx(main._vhs.get_shader_parameter("pixel_size"), 3.0), "effects 1 not pixelated")
 	Settings.values.effects = keep
 	main._apply_settings()
+
+
+func _check_voice(main: Node) -> void:
+	var Voice = load("res://src/voice.gd")
+	var tone := PackedFloat32Array()
+	for i in 640:
+		tone.append(sin(i * 0.2) * 0.5)
+	var back: PackedFloat32Array = Voice.decode(Voice.encode(tone))
+	var worst := 0.0
+	for i in tone.size():
+		worst = maxf(worst, absf(back[i] - tone[i]))
+	_expect(back.size() == tone.size() and worst < 0.001, "voice PCM round-trip error %f" % worst)
+	var stereo := PackedVector2Array()
+	stereo.resize(4410)  # 0.1 s at 44.1 kHz
+	_expect(absi(Voice.downmix(stereo, 44100.0, 16000.0).size() - 1600) <= 1, "0.1 s should resample to 1600 samples")
+	_expect(Voice.rms(tone) > Voice.GATE and Voice.rms(PackedFloat32Array([0.0, 0.001])) < Voice.GATE, "voice gate")
+	var friend: CharacterBody3D = Player.new()
+	friend.name = "55"
+	friend.set_multiplayer_authority(55)
+	main.players.add_child(friend)
+	await physics_frame
+	friend.receive_voice(Voice.encode(tone))
+	_expect(friend.heard_chunks == 1 and friend.talk_t > 0.0, "remote player did not take a voice chunk")
+	friend._rpc_voice(Voice.encode(tone))  # local call: sender 0, not peer 55 → ignored
+	_expect(friend.heard_chunks == 1, "voice sent in someone else's name was played")
+	friend.free()
 
 
 func _check_tips() -> void:

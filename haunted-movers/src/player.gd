@@ -7,6 +7,7 @@ const Furniture = preload("res://src/furniture.gd")
 const Models = preload("res://src/models.gd")
 const Settings = preload("res://src/settings.gd")
 const Sfx = preload("res://src/sfx.gd")
+const Voice = preload("res://src/voice.gd")
 const STEP_LENGTH := 0.7  # m walked per footstep
 
 var head := Node3D.new()
@@ -15,6 +16,13 @@ var ray := RayCast3D.new()
 var body: Node3D
 var flashlight := SpotLight3D.new()
 var _steps := AudioStreamPlayer3D.new()
+## This player's voice, heard where they stand (remote copies only).
+var _speaker := AudioStreamPlayer3D.new()
+var _gen := AudioStreamGenerator.new()
+## Voice chunks received (for the smoke test) and a short "talking" timer for the HUD.
+var heard_chunks := 0
+var talk_t := 0.0
+var _talk_icon := Label3D.new()
 var _walked := 0.0
 var _last_pos := Vector3.ZERO
 ## Flashlight on/off, owned by this player, synced so others see the beam.
@@ -52,6 +60,23 @@ func _init() -> void:
 	flashlight.shadow_enabled = true
 	flashlight.light_volumetric_fog_energy = 4.0  # visible beam in the dusty air
 	cam.add_child(flashlight)
+	_gen.mix_rate = Voice.RATE
+	_gen.buffer_length = 0.4  # jitter buffer: absorbs bursty packets
+	_speaker.stream = _gen
+	_speaker.position.y = 1.6
+	_speaker.unit_size = 6.0
+	_speaker.max_distance = 25.0
+	_speaker.bus = &"Voice"
+	add_child(_speaker)
+	_talk_icon.text = "♪"  # over a remote player's head while they talk
+	_talk_icon.font_size = 110
+	_talk_icon.outline_size = 12
+	_talk_icon.modulate = Color(0.75, 1.0, 0.75)
+	_talk_icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_talk_icon.no_depth_test = true
+	_talk_icon.position.y = 2.15
+	_talk_icon.visible = false
+	add_child(_talk_icon)
 	_steps.stream = Sfx.cached("step")
 	_steps.unit_size = 4.0
 	_steps.max_polyphony = 2
@@ -63,6 +88,7 @@ func _init() -> void:
 	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:flash_on"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
+	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
 	sync.replication_config = cfg
 	add_child(sync)
 
@@ -74,12 +100,43 @@ func _ready() -> void:
 	add_child(body)
 	var mine := is_multiplayer_authority()
 	cam.current = mine
+	if not mine:
+		_speaker.play()
 	# our own body would poke into the camera, and our flashlight (held at the body) would
 	# throw its shadow across the room as a long diagonal line, so it's fully hidden for us
 	if mine:
 		body.visible = false
 	if mine and _demo:
 		head.rotation.x = -0.5
+
+
+## Local player: send one encoded voice chunk to everyone (the server relays for clients).
+func send_voice(pcm: PackedByteArray) -> void:
+	talk_t = 0.25
+	var peer := multiplayer.multiplayer_peer
+	if peer == null or peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
+		return  # host left: nobody to talk to (and get_peers() would error)
+	if not multiplayer.get_peers().is_empty():
+		_rpc_voice.rpc(pcm)
+
+
+@rpc("any_peer", "unreliable_ordered")
+func _rpc_voice(pcm: PackedByteArray) -> void:
+	if multiplayer.get_remote_sender_id() == get_multiplayer_authority():  # only the owner speaks for itself
+		receive_voice(pcm)
+
+
+## Remote copy: queue the chunk on our 3D speaker.
+func receive_voice(pcm: PackedByteArray) -> void:
+	heard_chunks += 1
+	talk_t = 0.25
+	var pb := _speaker.get_stream_playback() as AudioStreamGeneratorPlayback
+	if pb == null:
+		return
+	for v in Voice.decode(pcm):
+		if not pb.can_push_buffer(1):
+			break  # buffer full: drop the rest rather than lag further behind
+		pb.push_frame(Vector2(v, v))
 
 
 ## Called on the owning peer when the ghost hits us.
@@ -89,7 +146,9 @@ func stun(sec: float) -> void:
 	held = null
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	talk_t = maxf(0.0, talk_t - delta)
+	_talk_icon.visible = talk_t > 0.0 and not is_multiplayer_authority()
 	flashlight.visible = flash_on and not stunned
 	# Footsteps from how far we moved on the ground (works for remote players too: synced position).
 	var moved := (global_position - _last_pos) * Vector3(1, 0, 1)

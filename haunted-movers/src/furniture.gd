@@ -71,6 +71,7 @@ func setup(d: Dictionary) -> void:
 	for p in [".:position", ".:rotation", ".:holders", ".:durability"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
+	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
 	sync.replication_config = cfg
 	add_child(sync)
 
