@@ -13,6 +13,8 @@ extends SceneTree
 ## Level: two bots lift the sofa, turn it, carry it out the front door onto the
 ## truck, and depart — the core loop is physically possible in this house.
 ## Net: join addresses parse with or without a port.
+## Settings: defaults are in range; effects 0 turns pixelation off.
+## Tips: the first-day guide walks click → grab → (too heavy) → load → depart, and is quiet after day 1.
 ## Prints PASS or FAIL n.
 ##   godot --headless --path . -s res://tests/smoke/run_check.gd
 
@@ -69,6 +71,8 @@ func _run() -> void:
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
 	_check_address_parse()
+	_check_settings(main)
+	_check_tips()
 	await _check_carry_to_truck(main)
 
 	print("PASS" if _fails == 0 else "FAIL %d" % _fails)
@@ -258,6 +262,44 @@ func _check_carry_to_truck(main: Node) -> void:
 	_expect(sofa.durability > 0.5, "sofa wrecked on the way: %.2f" % sofa.durability)
 	var r: Dictionary = main._depart()
 	_expect(r.get("loaded", 0) >= 1 and r.total > 0, "depart after carry %s" % r)
+
+
+func _check_settings(main: Node) -> void:
+	var Settings = load("res://src/settings.gd")
+	for k in Settings.SPEC:
+		var spec: Array = Settings.SPEC[k]
+		var v: float = Settings.get_value(k)
+		_expect(v >= spec[1] and v <= spec[2], "setting %s out of range: %f" % [k, v])
+	var keep: float = Settings.values.effects
+	Settings.values.effects = 0.0
+	main._apply_settings()
+	_expect(is_equal_approx(main._vhs.get_shader_parameter("pixel_size"), 1.0), "effects 0 still pixelates")
+	Settings.values.effects = 1.0
+	main._apply_settings()
+	_expect(is_equal_approx(main._vhs.get_shader_parameter("pixel_size"), 3.0), "effects 1 not pixelated")
+	Settings.values.effects = keep
+	main._apply_settings()
+
+
+func _check_tips() -> void:
+	var Tips = load("res://src/tips.gd")
+	var s := {captured = false, grabbed_once = false, heavy_alone = false, loaded_any = false}
+	var seen := []
+	seen.append(Tips.tip_for(1, "day", s))
+	s.captured = true
+	seen.append(Tips.tip_for(1, "day", s))
+	s.grabbed_once = true
+	s.heavy_alone = true
+	seen.append(Tips.tip_for(1, "day", s))
+	s.heavy_alone = false
+	seen.append(Tips.tip_for(1, "day", s))
+	s.loaded_any = true
+	seen.append(Tips.tip_for(1, "day", s))
+	var distinct := {}
+	for t in seen:
+		distinct[t] = true
+	_expect(distinct.size() == 5 and not distinct.has(""), "day-1 tips should be 5 distinct steps: %s" % [seen])
+	_expect(Tips.tip_for(2, "day", s) == "" and Tips.tip_for(1, "shop", s) == "", "tips after day 1 / in shop")
 
 
 func _check_address_parse() -> void:

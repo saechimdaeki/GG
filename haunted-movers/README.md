@@ -34,7 +34,9 @@ godot --headless --export-release "Windows" build/windows/HauntedMovers.exe
 
 ## 조작
 
-클릭 누르고 있기: 잡기 · 빨간 버튼 클릭: 출발 · E: 퇴마 테이프 · WASD 이동 · Space 점프 · Esc 마우스 풀기
+클릭 누르고 있기: 잡기 · 빨간 버튼 클릭: 출발 · E: 퇴마 테이프 · F: 손전등 · WASD 이동 · Space 점프 · F11 전체 화면 · Esc 메뉴(설정·나가기)
+
+설정(메인 메뉴·Esc 메뉴): 마우스 감도, 음량, 화면 효과(픽셀·노이즈를 0으로 하면 꺼짐). `user://settings.cfg`에 저장
 
 ## 진행
 
