@@ -6,9 +6,10 @@ extends SceneTree
 ## Story 003: the runaway wardrobe hops away from a nearby player; the piano bucks
 ## its holders off.
 ## Story 004: ghost state transitions; the ghost reaches a lone player carrying
-## something, knocks them out, makes them let go, and fails the day.
-## Story 005: run rules (quota, misses, bankrupt, clear, shop), next day resets the
-## house, a tape exorcises a nearby ghost.
+## something, kills them (dead for the day), makes them let go, and fails the day.
+## Story 005: run rules (endless growing quota over 3-day cycles, haul lost on a wipe,
+## fired on a miss, shop), next day resets the house, a tape exorcises a nearby ghost.
+## Truck: departing kills whoever is not at the truck, fines each death; nobody aboard wipes.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
 ## Layouts: each day has its own piece count; nothing spawns overlapping; a run's seed replays
 ## the same house and a new day reshuffles it.
@@ -76,7 +77,9 @@ func _run() -> void:
 	_expect(main.run.phase == "shop" and main.run.day == 2, "depart did not end day 1: %s" % main.run)
 	main.next_day()
 	await _check_ghost_attack(main)
+	_check_stun_reset(main)
 	_check_run_rules()
+	_check_left_behind(main)
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
 	await _check_footsteps(main)
@@ -179,33 +182,82 @@ func _check_ghost_attack(main: Node) -> void:
 			break
 		main.hold(1, "chair", Vector3.ZERO, chair.global_position)
 		await physics_frame
-	_expect(p.stunned, "ghost never knocked the player out")
+	_expect(p.stunned and p.dead and main.dead.has(1), "ghost never killed the player")
 	_expect(p.held == null and not main.grabs.has(1), "knocked-out player still holds the chair")
 	_expect(failed[0], "day did not fail with everyone knocked out")
 	_expect(main.ghost.state == "cooldown", "ghost state after attack: %s" % main.ghost.state)
 	p.free()
 
 
+## Late packets cannot re-grab after a stun; a new day clears the local stun too.
+func _check_stun_reset(main: Node) -> void:
+	var p: CharacterBody3D = Player.new()
+	p.name = "1"
+	main.players.add_child(p)
+	var chair: RigidBody3D = main.furniture.get_node("chair")
+	main.stun_player(1, 4.0, false)
+	main.hold(1, "chair", Vector3.ZERO, chair.global_position)
+	_expect(not main.grabs.has(1), "late grab packet reattached a stunned player")
+	main.run.phase = "shop"
+	main.next_day()
+	_expect(not p.stunned and is_zero_approx(p._stun_left) and not main.is_stunned(1),
+		"new day kept the player's stun")
+	main.hold(1, "chair", Vector3.ZERO, chair.global_position)
+	_expect(main.grabs.has(1), "recovered player cannot grab on the new day")
+	main.grabs.clear()
+	p.free()
+
+
 func _check_run_rules() -> void:
-	var cfg := {quotas = [100, 200, 300], max_misses = 2, day_seconds = 60,
+	var cfg := {quota_base = 100, quota_growth = 2.0, cycle_days = 2, start_money = 100, day_seconds = 60,
 		shop = {cart = {price = 50, strength = 0.35}, tape = {price = 45, tapes = 1, stack = true}}}
 	var r := RunState.new_run(cfg)
-	r = RunState.end_day(r, 150, cfg)
-	_expect(r.phase == "shop" and r.day == 2 and r.money == 150 and r.misses == 0, "quota met %s" % r)
-	_expect(RunState.buy(r, "cart", cfg) and r.money == 100 and is_equal_approx(r.strength_mult, 1.35), "buy cart %s" % r)
+	r = RunState.end_day(r, 60, cfg)
+	_expect(r.phase == "shop" and r.day == 2 and r.haul == 60 and r.money == 100, "day 1 goes to haul %s" % r)
+	_expect(RunState.buy(r, "cart", cfg) and r.money == 50 and is_equal_approx(r.strength_mult, 1.35), "buy cart %s" % r)
 	_expect(not RunState.buy(r, "cart", cfg), "cart bought twice")
-	_expect(RunState.buy(r, "tape", cfg) and RunState.buy(r, "tape", cfg) and r.tapes == 2, "tapes stack %s" % r)
-	_expect(not RunState.buy(r, "tape", cfg), "bought with %d money" % r.money)
+	_expect(RunState.buy(r, "tape", cfg) and r.tapes == 1 and not RunState.buy(r, "tape", cfg), "tape / no money %s" % r)
 	RunState.start_day(r, cfg)
 	_expect(not RunState.buy(r, "tape", cfg), "bought during a day")
-	var b := RunState.end_day(r, 0, cfg)
-	b = RunState.end_day(b, 0, cfg)
-	_expect(b.phase == "over" and not b.cleared and b.misses == 2, "two misses should bankrupt %s" % b)
-	var c := RunState.new_run(cfg)
-	for q in [100, 200, 300]:
-		c = RunState.end_day(c, q, cfg)
-		RunState.start_day(c, cfg) if c.phase == "shop" else null
-	_expect(c.phase == "over" and c.cleared and c.money == 600, "three quotas met should clear %s" % c)
+	r = RunState.end_day(r, 50, cfg)
+	_expect(r.phase == "shop" and r.cycle == 2 and r.haul == 0 and r.money == 115
+		and RunState.quota(r, cfg) == 200, "quota met pays haul, quota grows %s" % r)
+	RunState.start_day(r, cfg)
+	var w := RunState.end_day(r, 150, cfg)
+	w = RunState.end_day(w, 100, cfg, "", true)
+	_expect(w.phase == "over" and w.haul == 0, "a wipe loses the haul and misses the quota %s" % w)
+	var m := RunState.end_day(r, 150, cfg)
+	m = RunState.end_day(m, 49, cfg)
+	_expect(m.phase == "over" and m.money == 115, "199 of 200 gets fired %s" % m)
+
+
+## The truck leaves: a mover at the truck lives, one in the house dies and costs the fine;
+## all dead is a wipe.
+func _check_left_behind(main: Node) -> void:
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
+	var aboard: CharacterBody3D = Player.new()
+	aboard.name = "1"
+	var inside: CharacterBody3D = Player.new()
+	inside.name = "400"
+	inside.set_multiplayer_authority(400)
+	main.players.add_child(aboard)
+	main.players.add_child(inside)
+	aboard.global_position = main.truck.bed.get_center() * Vector3(1, 0, 1)
+	inside.global_position = Vector3(0, 0, 8)
+	main._depart()
+	_expect(aboard.dead == false and main.dead.has(400) and not main.dead.has(1), "left-behind rule %s" % main.dead)
+	_expect(main.run.haul == 0 and main.run.phase == "shop", "fine did not eat the empty-truck pay %s" % main.run)
+	main.next_day()
+	_expect(main.dead.is_empty() and not aboard.dead, "next day kept the dead")
+	aboard.global_position = Vector3(0, 0, 8)
+	main.run.haul = 77
+	main._depart()
+	_expect(main.run.haul == 0 and main.dead.size() == 2, "everyone left behind should wipe the haul %s" % main.run)
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
+	aboard.free()
+	inside.free()
 
 
 ## next_day from the shop puts the furniture back; a tape near the ghost hides it.

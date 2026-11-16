@@ -112,7 +112,7 @@ func _physics_process(delta: float) -> void:
 		"chase":
 			_move_to(target.global_position + Vector3.UP, c.speed, delta)
 		"attack":
-			main.stun_player(target.name.to_int(), c.stun)
+			main.kill_player(target.name.to_int())
 			_cooldown = c.cooldown
 			state = "cooldown"
 	position.y += sin(Time.get_ticks_msec() * 0.003) * 0.003  # bob

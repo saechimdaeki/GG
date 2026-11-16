@@ -38,6 +38,9 @@ var _age := 0.0
 ## Knocked out by the ghost: can't move or grab. Synced so others see us lying down.
 var stunned := false
 var _stun_left := 0.0
+## Dead until the next day (ghost, or left behind by the truck). The owner spectates a
+## living teammate. Synced so everyone sees who is gone.
+var dead := false
 
 
 func _init() -> void:
@@ -88,7 +91,7 @@ func _init() -> void:
 	cam.add_child(ray)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:flash_on", ".:carrying"]:
+	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:dead", ".:flash_on", ".:carrying"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
@@ -161,11 +164,35 @@ func receive_voice(pcm: PackedByteArray) -> void:
 		pb.push_frame(Vector2(v, v))
 
 
-## Called on the owning peer when the ghost hits us.
+## Called on the owning peer when knocked out; `sec` = INF means dead for the day.
 func stun(sec: float) -> void:
 	_stun_left = sec
 	stunned = true
 	held = null
+	if is_inf(sec) and not dead:
+		dead = true
+		if is_inside_tree():
+			_main()._result.text = "죽었습니다 — 동료 화면을 관전합니다. 다음 날 다시 출근해요."
+
+
+## Called on the owning peer when a new day starts; no old stun or death carries over.
+func recover() -> void:
+	stunned = false
+	_stun_left = 0.0
+	dead = false
+	held = null
+	carrying = false
+	cam.current = is_multiplayer_authority()
+
+
+## Dead owner: look through the first living teammate's camera (own body if nobody is left).
+func _spectate() -> void:
+	for p in get_tree().get_nodes_in_group("players"):
+		if p != self and not p.dead:
+			if not p.cam.current:
+				p.cam.current = true
+			return
+	cam.current = true
 
 
 func _process(delta: float) -> void:
@@ -184,6 +211,8 @@ func _process(delta: float) -> void:
 			_steps.play()
 	if is_multiplayer_authority():
 		cam.position.y = sin(_walked / STEP_LENGTH * PI) * 0.035  # head bob, one dip per step
+	if is_multiplayer_authority() and dead and is_inside_tree():
+		_spectate()
 	if is_multiplayer_authority() and is_inside_tree():
 		ray.target_position = Vector3(0, 0, -(Tuning.data.reach + _main().run.reach_bonus))
 		ray.force_raycast_update()

@@ -10,7 +10,7 @@
 
 ## Player goal & fail state — what "working" looks like
 - 목표: 할당량 이상 보수를 벌고 출발
-- 실패: 시간 초과 또는 유령에게 전원 기절. 할당량 3회 미달 → 회사 파산(런 종료)
+- 실패: 유령에게 잡히면 그날 사망(관전). 트럭이 떠날 때 못 탄 사람도 사망. 전원 사망 → 이번 할당량 기간에 모은 돈 전부 잃음. 3일 마감 할당량 미달 → 해고(런 종료). 할당량은 달성할 때마다 커짐(끝없음)
 
 ## MVP — what must exist to be the game
 - 1인칭 3D 플레이어: 이동·줍기·물리 들기 (둘이 들면 무거운 게 가벼워짐)
@@ -37,6 +37,6 @@
 
 **Art & audio direction:** 로우폴리 3D, 따뜻한 VHS 색감, 가구에 붙은 귀여운 얼굴. 엘리베이터 재즈가 유령 등장 시 뒤틀림.
 
-**Reference game:** R.E.P.O. — 물리 운반 + 할당량 루프만. 전투·맵 생성 없음, 대신 트럭 적재 퍼즐.
+**Reference game:** Lethal Company(리썰 컴퍼니) — 죽음·관전, 떠나는 트럭, 전멸 시 손실, 끝없이 커지는 할당량 규칙. R.E.P.O. — 물리 운반. 이름·캐릭터·그림·맵은 가져오지 않음. 전투·맵 생성 없음, 대신 트럭 적재 퍼즐.
 
 <!-- Research basis (2026-11): Sensor Tower 2026 — co-op "friendslop" = 46% of indie first-month sales; horror top Steam genre 3 years running (PokeIndie). -->

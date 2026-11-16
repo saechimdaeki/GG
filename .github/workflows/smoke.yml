@@ -42,3 +42,6 @@ jobs:
           godot --headless --path . -s ${{ matrix.script }} 2>&1 | tee smoke.log
           grep -q '^PASS' smoke.log
           ! grep -qE '^FAIL|SCRIPT ERROR' smoke.log
+      - name: Network integration (Haunted Movers)
+        if: matrix.game == 'haunted-movers'
+        run: python3 tests/integration/run_connection_checks.py

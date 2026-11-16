@@ -220,12 +220,13 @@
     "start_delay": 20.0
   },
   "run": {
-    "quotas": [
-      300,
-      600,
-      950
-    ],
-    "max_misses": 3,
+    "quota_base": 300,
+    "quota_growth": 1.5,
+    "cycle_days": 3,
+    "start_money": 100,
+    "death_fine": 50,
+    "depart_warning": 30.0,
+    "aboard_margin": 2.5,
     "day_seconds": 300,
     "tape_seconds": 30.0,
     "tape_range": 4.0,

@@ -33,14 +33,14 @@ Task:
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-11-05
-**Branch:** `main`
-**Current task:** 가라앉은 도시 M3 진행 — 펌프 밸브(물 채우기/빼기), 기둥 위 톱니(채워야 닿음), 게(마른 탑 층에만, 닿으면 조각 -1). 컷아웃 확정: GLB 2개는 art/raw3d/_shelved/
-**Next step:** M3 나머지 — 구역 2(수문 너머). 물 채운 상태 전용 괴물(해파리 jelly_ghost 그림 있음)
-**Blocked on:** 유저 플레이 평가
-**Files in progress:** none
-**Run result:** OBSERVED — m3-valve/01-refilled-pillar.png, 02-crab-dry-floor.png; smoke PASS, VIEW3D PASS
-**Open questions:** 커밋·푸시 여부
+**Updated:** 2026-11-17
+**Branch:** `feat/haunted-movers-layouts`
+**Current task:** 유령집 이삿짐센터에 리썰 컴퍼니 규칙 적용 — 사망+관전, 트럭 자동 출발(못 탄 사람 사망·벌금), 전원 사망 시 할당량 기간 수익 손실, 3일 마감 끝없는 할당량(×1.5, 미달=해고).
+**Next step:** 2명 이상 실제 플레이로 관전 카메라 확인. 이후 후보: 트럭에 남는 사람 역할(지도·문·무전), 어두운 실내·배터리·무게 감속.
+**Blocked on:** 없음
+**Files in progress:** haunted-movers/src/{main,player,ghost,run_state}.gd, data/tuning.json, tests/smoke/run_check.gd, tests/integration/connection_check.gd, README, design/game-brief.md + 11-09 작업분 (모두 미커밋)
+**Run result:** smoke PASS, network integration PASS, 실제 실행 스크린샷 2장(production/qa/evidence/lethal-*-2026-11-17.png). 관전 카메라는 실제 2인 플레이 미검증.
+**Open questions:** 없음. "러셀컴퍼니" = Lethal Company (메모리 저장).
 <!-- /CHECKPOINT -->
 
 ---
@@ -106,3 +106,17 @@ PROMPTS_3D.md의 지금 할 일에 따라 내장 image_gen 사용. S-0 스타일
 Godot 최초 샌드박스 실행은 user 로그 경로·macOS 인증서 접근 ERROR. /tmp 로그 지정 후 허용된 샌드박스 밖 실행으로 exit 0, ERROR 없음. 게임 코드 변경 없음.
 
 이전 게임 작업 이어받기: 넓은 맵·물고기·해초·빛줄기·하늘 반영 상태였음. 마을 물 빠진 화면의 회색 배경·건물 실루엣 개선, 빌딩 외벽을 건물답게 만드는 작업과 옥상↔바닥 도보 동선 플레이 확인이 남아 있음. 기존 진행 중 코드 변경은 보존.
+
+## 2026-11-09 Codex 개발 이어받기
+
+사용자 요청으로 Claude Code Game Studios 저장소의 최신 개발을 이어받음. 루트 ROADMAP.md가 없어 현재 확인한 범위의 진행표를 새로 작성. root README와 sunken-city README의 기존 미커밋 수정은 보존. 최신 체크포인트와 git 이력에 따라 haunted-movers를 작업 대상으로 선택.
+
+기절 직후 지연된 hold 요청이 강제 놓기를 취소하는 문제를 차단. 다음 날 로컬 플레이어 복귀에서 recover()로 기절 타이머·들기 상태 초기화. host와 client 모두 기존 _respawn_local 경로 사용. 회귀 테스트는 기절 중 재잡기 거부, 다음 날 즉시 회복, 회복 후 잡기 허용을 검사. 사람 플레이테스트·아트 사인오프·머지·릴리스 완료를 주장하지 않음.
+
+최종 검증: 전체 smoke PASS(exit 0), 60프레임 시작 exit 0, 두 실행 모두 ERROR 없음. git diff --check 통과. 상세 결과: haunted-movers/production/qa/evidence/stun-recovery-2026-11-09.md.
+
+### 온라인 참가 복구와 실제 네트워크 검증
+
+연결 완료 전 메뉴 유지, 연결 취소, @export 10초 타임아웃, 실패 안내 및 재시도/호스트 전환 구현. 시도 번호로 이전 타임아웃이 새 연결을 취소하지 않게 처리. 메뉴가 없는 headless 실행에서는 취소 버튼을 생성하지 않아 새 리소스 누수 방지.
+
+실제 두 Godot 프로세스 ENet 접속·플레이어 2명 복제·2일차 팀 돈/가구 9개 동기화·클라이언트 로컬 기절 회복 PASS. tests/integration/run_connection_checks.py로 재현 가능하며 smoke.yml에 haunted-movers 전용 단계 추가(원격 CI 미실행). 연결 중/실패 메뉴 PNG를 QA evidence에 저장하고 시각 확인. 전체 기존 smoke PASS, 기본 60프레임 ERROR 없음. 기존 RID/ObjectDB 경고는 남음.

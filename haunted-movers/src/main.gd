@@ -25,6 +25,10 @@ const Voice = preload("res://src/voice.gd")
 signal day_failed
 const DEFAULT_PORT := 7777
 ## Game port; `--port=N` overrides it (e.g. test copies next to a running game).
+@export var connect_timeout_seconds: float = 10.0
+var _connecting := false
+var _connect_attempt := 0
+var _cancel_join: Button
 var port := DEFAULT_PORT
 
 ## peer id -> {body, local, target, t}. Host only.
@@ -36,6 +40,8 @@ var truck := Truck.new()
 var ghost := Ghost.new()
 ## Host: peer id -> msec when their stun ends.
 var stun_until := {}
+## Host: peers dead for the rest of today (caught by the ghost, or left behind by the truck).
+var dead := {}
 ## The run (see run_state.gd). Host owns it; clients get copies via _rpc_run.
 var run: Dictionary = RunState.new_run(Tuning.data.run)
 var _vhs: ShaderMaterial
@@ -111,6 +117,8 @@ func _ready() -> void:
 
 	net.name = "Net"
 	add_child(net)
+	multiplayer.connected_to_server.connect(_on_connected)
+	multiplayer.connection_failed.connect(_on_connection_failed)
 	net.wan_ready.connect(_on_wan_ready)
 	var args := OS.get_cmdline_user_args() if not _args_used else PackedStringArray()
 	_args_used = true
@@ -159,6 +167,8 @@ func _ready() -> void:
 ## Hosts on `port`, announces itself on the LAN, and (unless `upnp` is false) asks the
 ## router to open the port for friends over the internet.
 func host(upnp := true) -> void:
+	if _connecting:
+		return
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(port, 4)
 	if err != OK:
@@ -189,6 +199,8 @@ func _on_wan_ready(address: String, error: String) -> void:
 
 ## Joins "ip" or "ip:port" (LAN address, or the host's internet address).
 func join(address: String) -> void:
+	if _connecting:
+		return
 	var a := Net.parse_address(address, port)
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(a[0], a[1])
@@ -199,8 +211,51 @@ func join(address: String) -> void:
 	multiplayer.multiplayer_peer = peer
 	for f in furniture.get_children():
 		f.freeze = true  # host owns the physics; we only display it
-	multiplayer.server_disconnected.connect(_on_host_lost)
+	if not multiplayer.server_disconnected.is_connected(_on_host_lost):
+		multiplayer.server_disconnected.connect(_on_host_lost)
+	_connecting = true
+	_connect_attempt += 1
+	if is_instance_valid(_cancel_join):
+		_cancel_join.visible = true
+	_hint.text = "연결 중: %s — 잠시 기다려 주세요" % address
+	_wait_for_connection(_connect_attempt)
+
+
+## A successful handshake is the point at which the menu gives way to play.
+func _on_connected() -> void:
+	if not _connecting:
+		return
+	_connecting = false
+	if is_instance_valid(_cancel_join):
+		_cancel_join.visible = false
+	_hint.text = "클릭: 잡기 · E: 퇴마 테이프 · F: 손전등 · V: 마이크 · Esc 메뉴"
 	_close_menu()
+
+
+func _wait_for_connection(attempt: int) -> void:
+	await get_tree().create_timer(connect_timeout_seconds).timeout
+	if _connecting and attempt == _connect_attempt:
+		_on_connection_failed()
+
+
+## Failed or cancelled joins keep the menu usable, including hosting afterwards.
+func _on_connection_failed() -> void:
+	if not _connecting:
+		return
+	_cancel_connection("연결 실패 — 호스트 주소와 게임 실행 상태를 확인하고 다시 참가해 주세요")
+
+
+func _cancel_connection(message: String) -> void:
+	_connecting = false
+	if is_instance_valid(_cancel_join):
+		_cancel_join.visible = false
+	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	for f in furniture.get_children():
+		f.freeze = not f.in_play
+	_hint.text = message
+	if _menu != null:
+		net.start_listening()
+
 
 
 func _spawn_player(id: int) -> Node:
@@ -223,7 +278,7 @@ func _on_peer_joined(id: int) -> void:
 
 func _on_day_failed() -> void:
 	if run.phase == "day":
-		_end_day(0, "전원 기절")
+		_end_day(0, "전원 사망", "", true)
 
 
 func _on_peer_left(id: int) -> void:
@@ -269,25 +324,39 @@ func is_host_active() -> bool:
 
 
 func is_stunned(id: int) -> bool:
-	return stun_until.get(id, 0) > Time.get_ticks_msec()
+	return dead.has(id) or stun_until.get(id, 0) > Time.get_ticks_msec()
 
 
-## Host: knock out peer `id` for `sec` seconds. Everyone out at once fails the day, unless
-## `can_fail_day` is false (the mimic's bite is a scare, not a run-ender when you play alone).
+## Host: knock out peer `id` for `sec` seconds (INF = dead until the next day). Everyone
+## out at once fails the day, unless `can_fail_day` is false (the mimic's bite is a scare,
+## not a run-ender when you play alone).
 func stun_player(id: int, sec: float, can_fail_day := true) -> void:
-	stun_until[id] = Time.get_ticks_msec() + int(sec * 1000)
+	_knock(id, sec)
+	var all_out := players.get_child_count() > 0
+	for p in players.get_children():
+		all_out = all_out and is_stunned(p.name.to_int())
+	if all_out and can_fail_day:
+		announce("전원 사망 — 오늘 모은 할당량이 전부 날아갑니다!")
+		day_failed.emit()
+
+
+## Host: the ghost caught `id`. Dead for the rest of the day; they spectate.
+func kill_player(id: int) -> void:
+	stun_player(id, INF)
+
+
+## Host: stun or kill without the everyone-out check (the truck leaving does its own).
+func _knock(id: int, sec: float) -> void:
+	if is_inf(sec):
+		dead[id] = true
+	else:
+		stun_until[id] = Time.get_ticks_msec() + int(sec * 1000)
 	broadcast_sfx("whoosh")
 	force_release(id)
 	if id == multiplayer.get_unique_id():
 		_stun_local(sec)
 	elif id in multiplayer.get_peers():
 		_rpc_stun.rpc_id(id, sec)
-	var all_out := players.get_child_count() > 0
-	for p in players.get_children():
-		all_out = all_out and is_stunned(p.name.to_int())
-	if all_out and can_fail_day:
-		announce("전원 기절 — 오늘은 실패!")
-		day_failed.emit()
 
 
 @rpc("authority", "reliable")
@@ -411,6 +480,8 @@ func _drop_local() -> void:
 
 ## Host: peer `id` wants `local_point` of `body_name` at `target` (world).
 func hold(id: int, body_name: String, local_point: Vector3, target: Vector3) -> void:
+	if is_stunned(id):
+		return  # late grab packets must not undo a forced release
 	var body := furniture.get_node_or_null(body_name)
 	if body:
 		grabs[id] = {body = body, local = local_point, target = target, t = Time.get_ticks_msec()}
@@ -421,9 +492,14 @@ func _physics_process(delta: float) -> void:
 		return
 	var t := Tuning.data
 	if run.phase == "day":
+		var warn: float = t.run.depart_warning
+		var before: float = run.time_left
 		run.time_left -= delta
+		if before > warn and run.time_left <= warn:
+			announce("트럭이 %d초 뒤에 떠납니다! 못 탄 사람은 죽어요 — 트럭으로!" % int(warn))
+			broadcast_sfx("horn")
 		if run.time_left <= 0.0:
-			_end_day(0, "시간 초과")
+			_depart()
 		_sync_t += delta
 		if _sync_t >= 1.0:  # clients only need the clock once a second
 			_sync_t = 0.0
@@ -465,23 +541,38 @@ func _rpc_depart() -> void:
 		_depart()
 
 
-## Host: score the truck and end the day with that pay. Only during a day.
+## Host: the truck leaves (button or clock). Anyone not at the truck is left behind and
+## dies; each dead mover costs a fine. Nobody aboard = the haul is lost. Only during a day.
 func _depart() -> Dictionary:
 	if run.phase != "day":
 		return {}
+	var cfg: Dictionary = Tuning.data.run
+	var zone := truck.bed.grow(cfg.aboard_margin)
+	var left_behind := 0
+	for p in players.get_children():
+		var id: int = p.name.to_int()
+		if not dead.has(id) and not zone.has_point(p.global_position + Vector3.UP * 0.5):
+			_knock(id, INF)
+			left_behind += 1
 	var r := truck.evaluate(furniture.get_children().filter(func(f: Node) -> bool: return f.in_play))
 	broadcast_sfx("horn")
 	var text := "출발! 실은 가구 %d개 · 파손 %d개 · 기본 %d원 + 적재 보너스 %d원 (빈틈 없이 %d%%) = %d원\n" % [
 		r.loaded, r.broken, r.base, r.bonus, roundi(r.efficiency * 100), r.total]
-	_end_day(r.total, "", text)
+	if left_behind > 0:
+		text += "못 탄 사람 %d명 사망\n" % left_behind
+	var fine: int = dead.size() * int(cfg.death_fine)
+	if fine > 0:
+		text += "사망자 %d명 벌금 -%d원\n" % [dead.size(), fine]
+	var wiped := players.get_child_count() > 0 and dead.size() >= players.get_child_count()
+	_end_day(maxi(0, r.total - fine), "", text, wiped)
 	return r
 
 
 # --- run: days, shop, reset --------------------------------------------------
 
 ## Host: close the day with `earned`, tell everyone, open the shop (or end the run).
-func _end_day(earned: int, why := "", prefix := "") -> void:
-	run = RunState.end_day(run, earned, Tuning.data.run, why)
+func _end_day(earned: int, why := "", prefix := "", wiped := false) -> void:
+	run = RunState.end_day(run, earned, Tuning.data.run, why, wiped)
 	for id in grabs.keys():
 		force_release(id)
 	announce(prefix + run.text)
@@ -505,9 +596,10 @@ func _apply_run(r: Dictionary) -> void:
 	var cfg: Dictionary = Tuning.data.run
 	var secs := maxi(0, ceili(r.time_left))
 	var clock := "남은 시간 %d:%02d" % [secs / 60, secs % 60] if r.phase == "day" else "상점"
-	_status.text = "%d일차 / %d · %s · 할당량 %d원 · 팀 돈 %d원 · 미달 %d/%d · 퇴마 테이프 %d (E)" % [
-		r.day, cfg.quotas.size(), clock, RunState.quota(r, cfg), r.money,
-		r.misses, cfg.max_misses, r.tapes]
+	var left := RunState.days_left(r, cfg)
+	_status.text = "%d일차 · %s · 할당량 %d / %d원 (%s) · 팀 돈 %d원 · 퇴마 테이프 %d (E)" % [
+		r.day, clock, r.haul, RunState.quota(r, cfg), "오늘 마감" if left == 0 else "마감까지 %d일" % (left + 1),
+		r.money, r.tapes]
 	var open: bool = r.phase != "day"
 	_shop.visible = open
 	for item in _shop_buttons:
@@ -607,6 +699,7 @@ func layout_day(day: int) -> void:
 func _reset_house() -> void:
 	grabs.clear()
 	stun_until.clear()
+	dead.clear()
 	layout_day(run.day)
 	var gs: Array = Tuning.data.ghost.start
 	ghost.global_position = Vector3(gs[0], gs[1], gs[2])
@@ -628,7 +721,7 @@ func _respawn_local() -> void:
 		var left := me.get_index() % 2 == 0
 		me.global_position = Vector3(-2.5 if left else 2.5, 0, 3.0)
 		me.velocity = Vector3.ZERO
-		me.held = null
+		me.recover()
 
 
 ## Exorcism tape: the local player pressed E.
@@ -894,6 +987,12 @@ func _build_menu() -> void:
 	join_btn.text = "주소로 참가"
 	join_btn.pressed.connect(func() -> void: join(ip.text))
 	box.add_child(join_btn)
+	_cancel_join = Button.new()
+	_cancel_join.text = "연결 취소"
+	if is_instance_valid(_cancel_join):
+		_cancel_join.visible = false
+	_cancel_join.pressed.connect(func() -> void: _cancel_connection("연결을 취소했어요 — 다시 참가하거나 호스트를 시작할 수 있어요"))
+	box.add_child(_cancel_join)
 	var settings_btn := Button.new()
 	settings_btn.text = "설정"
 	settings_btn.pressed.connect(open_settings)
