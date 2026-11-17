@@ -7,7 +7,7 @@ const SPEC := {
 	"sensitivity": [1.0, 0.25, 3.0, 0.05, "마우스 감도"],
 	"volume": [0.8, 0.0, 1.0, 0.05, "음량"],
 	"voice": [1.0, 0.0, 1.5, 0.05, "친구 목소리"],
-	"effects": [1.0, 0.0, 1.0, 0.05, "화면 효과 (픽셀·노이즈)"],
+	"effects": [0.25, 0.0, 1.0, 0.05, "화면 효과 (픽셀·노이즈)"],  # low by default: heavy pixels hid the textures
 }
 
 static var values := {}

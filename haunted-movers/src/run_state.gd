@@ -11,7 +11,7 @@
 static func new_run(cfg: Dictionary) -> Dictionary:
 	return {day = 1, cycle = 1, cycle_day = 1, haul = 0, money = int(cfg.start_money), phase = "day",
 		time_left = float(cfg.day_seconds), seed = randi(), battery_bonus = 0.0, speed_bonus = 0.0,
-		tapes = 0, owned = [], text = ""}
+		tapes = 0, flashes = 0, owned = [], text = "", site = "mansion"}
 
 
 ## Quota of the current cycle: grows by `quota_growth` every cycle.
@@ -55,7 +55,8 @@ static func end_day(run: Dictionary, earned: int, cfg: Dictionary, why := "", wi
 	return r
 
 
-## Buys `item` (a key of cfg.shop) if affordable. Flashlight/shoes once per run; tapes stack.
+## Buys `item` (a key of cfg.shop) if affordable. Tools (flashlight, shoes, shovel, walkie)
+## once per run; tapes and flashbangs stack.
 static func buy(run: Dictionary, item: String, cfg: Dictionary) -> bool:
 	var it: Dictionary = cfg.shop[item]
 	if run.phase != "shop" or run.money < it.price or (not it.get("stack", false) and item in run.owned):
@@ -65,10 +66,25 @@ static func buy(run: Dictionary, item: String, cfg: Dictionary) -> bool:
 	run.battery_bonus += it.get("battery", 0.0)
 	run.speed_bonus += it.get("speed", 0.0)
 	run.tapes += int(it.get("tapes", 0))
+	run.flashes = int(run.get("flashes", 0)) + int(it.get("flashes", 0))
+	return true
+
+
+## Shop: pick tomorrow's job site (a key of cfg.sites). Paid when the day starts. True if set.
+static func choose_site(run: Dictionary, site: String, cfg: Dictionary) -> bool:
+	if run.phase != "shop" or not cfg.sites.has(site) or run.money < int(cfg.sites[site].price):
+		return false
+	run.site = site
 	return true
 
 
 static func start_day(run: Dictionary, cfg: Dictionary) -> void:
+	var sites: Dictionary = cfg.get("sites", {})
+	var price: int = int(sites.get(run.get("site", "mansion"), {}).get("price", 0))
+	if run.money < price:
+		run.site = "mansion"  # can't afford the trip any more
+	else:
+		run.money -= price
 	run.phase = "day"
 	run.time_left = float(cfg.day_seconds)
 	run.text = ""

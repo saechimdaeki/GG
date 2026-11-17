@@ -19,6 +19,7 @@ var _flinch := 0.0
 var _flee_from := Vector3.ZERO
 var _arms: Array[Node3D] = []
 var _head := Node3D.new()
+var _strands: Array[Node3D] = []
 var _moan := AudioStreamPlayer3D.new()
 
 
@@ -79,7 +80,14 @@ func _process(delta: float) -> void:
 	var reach := 1.3 if state == "chase" else 0.15
 	for a in _arms:
 		a.rotation.x = lerpf(a.rotation.x, reach, delta * 3.0)
-	_head.rotation.z = 0.4 + sin(Time.get_ticks_msec() * 0.0013) * 0.12
+	var t := Time.get_ticks_msec() * 0.001
+	_head.rotation.z = 0.22 + sin(t * 1.3) * 0.08
+	for i in _strands.size():  # hair hangs straight down whatever the head does, and sways
+		_strands[i].rotation.z = -_head.rotation.z
+		_strands[i].rotation.x = sin(t * 1.7 + i * 0.9) * 0.08 + (0.15 if state == "chase" else 0.0)
+	# Now and then she glitches: a jump sideways for a frame or two (cosmetic, every peer).
+	var glitch := fmod(t + get_instance_id() % 7, 3.7) < 0.06
+	_head.position.x = randf_range(-0.12, 0.12) if glitch else 0.0
 	# everyone hears it; louder and a little higher when it's hunting (state is synced)
 	_moan.volume_db = -60.0 if not visible else (-2.0 if state == "chase" else -10.0)
 	_moan.pitch_scale = {"chase": 1.15, "flinch": 1.7}.get(state, 1.0)
@@ -157,6 +165,18 @@ func lit_by(p: Node3D) -> bool:
 	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 
+## Host: she heard a board creak at `pos`: on patrol she drifts over to see.
+func hear(pos: Vector3) -> void:
+	if state == "patrol" and _lure_left <= 0.0:
+		_goal = pos + Vector3.UP * 1.2
+
+
+## Host: something scared her (a flashbang at `from`): she backs away for `sec` s.
+func scare(from: Vector3, sec: float) -> void:
+	_flinch = sec
+	_flee_from = from
+
+
 ## A random room of today's mansion, at floating height.
 func _random_room() -> Vector3:
 	var rooms: Array = main.interior.maze.dist.keys()
@@ -190,59 +210,82 @@ func _move_to(goal: Vector3, speed: float, delta: float) -> bool:
 	return false
 
 
-## 소복 귀신 (the mourning maid): a long see-through white gown with a rippling hem, a pale face
-## hidden behind a curtain of black hair with one red eye showing, and over-long arms that rise
-## toward you when she hunts. Origin = her chest; she floats with the hem well off the floor.
+## 소복 귀신 (the mourning maid): a tall see-through white gown with a rippling hem, a pale
+## face with black hollow eyes and a long screaming mouth, wet black hair hanging in strands
+## that sway, and over-long jointed arms with long fingers that rise toward you when she hunts.
+## Origin = her chest; she floats with the hem well off the floor.
 func _build_look() -> void:
 	var gown := ShaderMaterial.new()
 	gown.shader = preload("res://src/spatial_char_ghost.gdshader")
 	var skin := StandardMaterial3D.new()
 	skin.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	skin.albedo_color = Color("#cfd8de")
+	skin.albedo_color = Color("#d6dde2")
+	var hollow := StandardMaterial3D.new()
+	hollow.albedo_color = Color.BLACK
+	hollow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var hair := StandardMaterial3D.new()
-	hair.albedo_color = Color("#060608")
-	hair.roughness = 0.4
-	var eye := StandardMaterial3D.new()
-	eye.emission_enabled = true
-	eye.emission = Color("#ff2a1a")
-	eye.emission_energy_multiplier = 5.0
+	hair.albedo_color = Color("#050507")
+	hair.roughness = 0.25  # wet sheen
 	var dress := CylinderMesh.new()  # narrow at the shoulders, flared and torn at the hem
-	dress.top_radius = 0.16
-	dress.bottom_radius = 0.5
-	dress.height = 1.7
-	dress.radial_segments = 20
-	dress.rings = 8
-	_part(dress, Vector3(0, -0.65, 0), gown, self)
+	dress.top_radius = 0.17
+	dress.bottom_radius = 0.55
+	dress.height = 1.8
+	dress.radial_segments = 40
+	dress.rings = 16
+	_part(dress, Vector3(0, -0.7, 0), gown, self)
+	_part(_sphere(0.2, 0.32), Vector3(0, 0.12, 0), gown, self)  # shoulders, rounded
 	add_child(_head)
-	_head.position = Vector3(0, 0.38, 0)
-	var face := SphereMesh.new()
-	face.radius = 0.15
-	face.height = 0.36
-	_part(face, Vector3(0, 0.06, 0), skin, _head)
-	var back := CapsuleMesh.new()  # hair down her back
-	back.radius = 0.17
-	back.height = 1.1
-	_part(back, Vector3(0, -0.3, 0.06), hair, _head)
-	var curtain := BoxMesh.new()  # hair hanging over the face, split down the middle
-	curtain.size = Vector3(0.15, 0.95, 0.04)
-	for sx in [-1, 1]:
-		_part(curtain, Vector3(sx * 0.085, -0.25, -0.15), hair, _head)
-	var e := SphereMesh.new()  # the one eye that shows through the gap
-	e.radius = 0.025
-	e.height = 0.05
-	_part(e, Vector3(0.02, 0.08, -0.14), eye, _head)
-	var arm := CapsuleMesh.new()
-	arm.radius = 0.035
-	arm.height = 1.0
-	var hand := BoxMesh.new()  # long fingers, a flat pale blade
-	hand.size = Vector3(0.07, 0.2, 0.025)
+	_head.position = Vector3(0, 0.42, 0)
+	var face := _part(_sphere(0.14, 0.4), Vector3.ZERO, skin, _head)
+	face.scale = Vector3(0.85, 1.0, 0.8)  # a long, narrow face
+	for sx in [-1, 1]:  # hollow eyes
+		var e := _part(_sphere(0.035, 0.07), Vector3(sx * 0.05, 0.04, -0.108), hollow, _head)
+		e.scale = Vector3(1.0, 1.4, 0.5)
+	var mouth := _part(_sphere(0.04, 0.08), Vector3(0, -0.07, -0.1), hollow, _head)
+	mouth.scale = Vector3(0.8, 2.2, 0.5)  # stretched open in a scream
+	_part(_sphere(0.15, 0.34), Vector3(0, 0.07, 0.06), hair, _head).scale = Vector3(1.0, 1.0, 0.85)  # scalp, behind the face
+	for i in 18:  # long strands, mostly behind and beside the face, two falling across it
+		var a := PI * (0.05 + 0.9 * i / 17.0)
+		var front := i == 8 or i == 10
+		var strand := Node3D.new()
+		strand.position = Vector3(cos(a) * 0.13, 0.1, (-0.1 if front else 0.02 + sin(a) * 0.1))
+		_head.add_child(strand)
+		var len_ := randf_range(0.8, 1.25)
+		var m := CapsuleMesh.new()
+		m.radius = 0.03
+		m.height = len_
+		m.radial_segments = 6
+		_part(m, Vector3(0, -len_ / 2, 0), hair, strand)
+		_strands.append(strand)
+	var upper := CapsuleMesh.new()
+	upper.radius = 0.035
+	upper.height = 0.6
+	var finger := CapsuleMesh.new()
+	finger.radius = 0.012
+	finger.height = 0.2
 	for sx in [-1, 1]:
 		var shoulder := Node3D.new()
-		shoulder.position = Vector3(sx * 0.2, 0.15, 0)
+		shoulder.position = Vector3(sx * 0.21, 0.15, 0)
 		add_child(shoulder)
-		_part(arm, Vector3(0, -0.5, 0), skin, shoulder)
-		_part(hand, Vector3(0, -1.08, 0), skin, shoulder)
+		_part(upper, Vector3(0, -0.3, 0), skin, shoulder)
+		var elbow := Node3D.new()  # a second joint, bent a little the wrong way
+		elbow.position = Vector3(0, -0.58, 0)
+		elbow.rotation.x = -0.25
+		shoulder.add_child(elbow)
+		_part(upper, Vector3(0, -0.3, 0), skin, elbow)
+		for f in 4:  # long fingers
+			var fm := _part(finger, Vector3((f - 1.5) * 0.02, -0.68, 0), skin, elbow)
+			fm.rotation.z = (f - 1.5) * 0.12
 		_arms.append(shoulder)
+
+
+func _sphere(r: float, h: float) -> SphereMesh:
+	var m := SphereMesh.new()
+	m.radius = r
+	m.height = h
+	m.radial_segments = 24
+	m.rings = 12
+	return m
 
 
 func _part(m: Mesh, at: Vector3, mat: Material, parent: Node3D) -> MeshInstance3D:

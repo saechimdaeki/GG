@@ -49,12 +49,19 @@ func _run() -> void:
 		if local_player != null:
 			_expect(not local_player.stunned, "next day did not recover the remote owner")
 		var lying: Array = main.loot.get_children().filter(func(n: Node) -> bool: return n.lying())
-		_expect(lying.size() == int(load("res://src/tuning.gd").data.loot_per_day[1]), "day-2 scrap did not replicate (%d)" % lying.size())
+		var vault_room: Vector2i = main.interior.vault.get("room", Vector2i(-1, -1))
+		var floor_pieces := lying.filter(func(n: Node) -> bool: return n.kind != "key" and main.interior.cell_of(n.global_position) != vault_room)
+		_expect(floor_pieces.size() == int(load("res://src/tuning.gd").data.loot_per_day[1]), "day-2 scrap did not replicate (%d)" % floor_pieces.size())
 		_expect(not main._connecting, "client handshake still pending")
 		_expect(main.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,
 			"client did not connect")
 		_expect(main.players.get_child_count() == 2, "client did not receive both players")
 		_expect(main.loot.get_child(0).freeze, "client simulates host scrap")
+		# Stay clear of today's mimics (they'd bite and knock us down mid-test).
+		var mimics: Array = main.monsters.filter(func(m: Node) -> bool: return m.kind == "mimic" and m.active())
+		var safe := func(at: Vector3) -> bool:
+			return mimics.all(func(m: Node) -> bool: return m.global_position.distance_to(at) > 4.0)
+		lying = lying.filter(func(n: Node) -> bool: return safe.call(n.global_position))
 		# Pick a piece up through the host: walk to it, ask, and it lands in our slot.
 		if local_player != null and not lying.is_empty():
 			local_player.global_position = lying[0].global_position + Vector3(0.4, 0, 0)
@@ -64,13 +71,18 @@ func _run() -> void:
 			_expect(local_player.slots.has(String(lying[0].name)) and lying[0].holder == main.multiplayer.get_unique_id(),
 				"client pickup through the host failed (slots %s, holder %d)" % [local_player.slots, lying[0].holder])
 		# Search a wardrobe/drawer through the host: every peer learns it's been searched.
-		if local_player != null and not main.interior.containers.is_empty():
-			var c: Dictionary = main.interior.containers[0]
+		var ci: int = -1
+		for i in main.interior.containers.size():
+			if safe.call(main.interior.containers[i].at):
+				ci = i
+				break
+		if local_player != null and ci >= 0:
+			var c: Dictionary = main.interior.containers[ci]
 			local_player.global_position = c.at + c.front
 			await create_timer(0.3).timeout
-			main.request_search(0)
+			main.request_search(ci)
 			await create_timer(0.5).timeout
-			_expect(main.opened.has(0), "client search through the host was not confirmed")
+			_expect(main.opened.has(ci), "client search through the host was not confirmed")
 		if local_player != null:
 			for frame in 200:
 				if local_player.dead:

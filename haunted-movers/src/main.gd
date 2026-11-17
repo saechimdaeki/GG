@@ -55,7 +55,10 @@ var stun_until := {}
 ## Host: peers dead for the rest of today (caught by the ghost, or left behind by the truck).
 var dead := {}
 ## Host: peer id → true once the ghost has caught them today (a second catch kills).
-var ghost_marked := {}
+## Host: health per peer today (missing = full). Every peer: our own, for the HUD.
+var health := {}
+var my_health := 100.0
+var _hurt_t := 0.0
 ## Host: container index → name of the pool piece hidden in it today.
 var container_loot := {}
 ## Containers searched today (every peer).
@@ -66,6 +69,7 @@ var _vhs: ShaderMaterial
 var _status := Label.new()
 var _shop := PanelContainer.new()
 var _shop_buttons := {}
+var _site_buttons := {}
 var _next_btn := Button.new()
 var _sync_t := 0.0
 var _music := AudioStreamPlayer.new()
@@ -88,6 +92,22 @@ var _hint := Label.new()
 var _result := Label.new()
 var _aim := Label.new()
 var _tip := Label.new()
+## Always-on objective line + an arrow (top centre) pointing at where to go next.
+var _goal := Label.new()
+var _arrow := Label.new()
+## Flashbang whiteout (fades over a second) and per-peer shovel cooldowns (host).
+var _flash := ColorRect.new()
+## Danger feedback: a heartbeat that speeds up and a red edge that pulses as something
+## hunting gets close (local, cosmetic).
+var _heart := AudioStreamPlayer.new()
+var _heart_t := 0.0
+var _vignette := ColorRect.new()
+var _flash_t := 0.0
+var _swing_ready := {}
+## Host: today's sprung bear traps and creaky-board cooldowns; every peer: their sound.
+var _snapped := {}
+var _creak_ready := {}
+var _creak := AudioStreamPlayer3D.new()
 var _picked_once := false
 var _entered_once := false
 ## Scan (right click): seconds left on screen, and what it found [{node, text, color}].
@@ -99,6 +119,7 @@ var _scan_total := Label.new()
 ## Inventory slots along the bottom, the stamina bar over them, the carried weight.
 var _slot_boxes: Array[PanelContainer] = []
 var _stamina := ProgressBar.new()
+var _health_bar := ProgressBar.new()
 var _weight := Label.new()
 var _clock := Label.new()
 ## Seconds left for the big centre message and the small note under the crosshair.
@@ -448,16 +469,43 @@ func stun_player(id: int, sec: float, can_fail_day := true) -> void:
 		day_failed.emit()
 
 
-## Host: the ghost caught `id`. First catch of the day = knocked down (`ghost.stun` s) and
-## marked; caught again while marked = dead for the rest of the day (they spectate).
+## Host: the ghost caught `id`: half your health and knocked down for a while.
 func ghost_hit(id: int) -> void:
-	if ghost_marked.has(id):
+	var c: Dictionary = Tuning.data.damage
+	hurt(id, c.ghost, c.ghost_stun, "유령에게 홀렸어요")
+
+
+## Host: `id` takes `amount` damage (and is knocked down `stun` s). At 0 health they die.
+## Health is full again each day. True if that killed them.
+func hurt(id: int, amount: float, stun: float, why: String) -> bool:
+	var hp: float = health.get(id, float(Tuning.data.damage.max_health)) - amount
+	health[id] = maxf(0.0, hp)
+	_send_health(id)
+	if hp <= 0.0:
 		kill_player(id)
-		return
-	ghost_marked[id] = true
-	stun_player(id, Tuning.data.ghost.stun, false)
-	var who := "호스트" if id == 1 else "동료"
-	announce("유령에게 홀렸어요 (%s) — 오늘 한 번 더 잡히면 죽어요" % who)
+		return true
+	if stun > 0.0:
+		stun_player(id, stun, false)
+	_note_to(id, "%s! 체력 %d" % [why, roundi(hp)])
+	return false
+
+
+func _send_health(id: int) -> void:
+	if id == multiplayer.get_unique_id():
+		_set_my_health(health[id])
+	elif id in multiplayer.get_peers():
+		_rpc_health.rpc_id(id, health[id])
+
+
+@rpc("authority", "reliable")
+func _rpc_health(hp: float) -> void:
+	_set_my_health(hp)
+
+
+func _set_my_health(hp: float) -> void:
+	if hp < my_health:
+		_hurt_t = 1.0  # red flash
+	my_health = hp
 
 
 ## Host: dead for the rest of the day; they spectate.
@@ -536,7 +584,60 @@ func _process(delta: float) -> void:
 	_note.modulate.a = clampf(_note_t * 2.0, 0.0, 1.0)
 	_interior_lights()
 	_tip.text = Tips.tip_for(run.day, run.phase, _tip_state(me)) if me and _menu == null else ""
+	_update_goal(me)
+	_update_danger(delta, me)
+	_flash_t = maxf(0.0, _flash_t - delta)
+	_hurt_t = maxf(0.0, _hurt_t - delta * 2.0)
+	_flash.color = Color(1, 1, 1, _flash_t) if _flash_t > 0.0 else Color(0.6, 0.0, 0.0, _hurt_t * 0.45)
 	_music.pitch_scale = Sfx.music_pitch(amount, Time.get_ticks_msec() / 1000.0)
+
+
+## Pure: the current objective for a mover, as [text, where]. `where` is "front_door",
+## "exit" (nearest door out of the mansion), "truck" or "" (nothing to point at).
+static func objective(inside: bool, carrying: bool, at_truck_now: bool, dead_now: bool) -> Array:
+	if dead_now:
+		return ["관전 중 — 동료가 트럭으로 돌아오길 기다려요", ""]
+	if carrying and inside:
+		return ["목표: 고물을 들고 밖으로 — 현관이나 비상구", "exit"]
+	if carrying and not at_truck_now:
+		return ["목표: 트럭 짐칸에 싣기 — G로 내려놓기", "truck"]
+	if carrying:
+		return ["목표: 짐칸에 G로 내려놓기 → 더 가져오거나 레버로 출발", ""]
+	if inside:
+		return ["목표: 고물 찾기 — 우클릭 스캔, 가구는 E로 뒤지기", ""]
+	return ["목표: 저택 현관으로 들어가기 (E)", "front_door"]
+
+
+## Local HUD: the objective line and the arrow toward its target.
+func _update_goal(me: Node) -> void:
+	var show: bool = me != null and _menu == null and run.phase == "day"
+	_goal.visible = show
+	_arrow.visible = false
+	if not show:
+		return
+	var inside := interior.contains(me.global_position)
+	var o := objective(inside, me.active_item() != "" or me.slots.any(func(n: String) -> bool: return n != ""),
+		at_truck(me.global_position), me.dead)
+	_goal.text = o[0]
+	var target := Vector3.INF
+	match o[1]:
+		"front_door":
+			target = interior.doors[0].at
+		"truck":
+			target = truck.bed.get_center()
+		"exit":
+			var a: Vector3 = interior.doors[1].at
+			var b: Vector3 = interior.doors[3].at
+			target = a if me.global_position.distance_to(a) < me.global_position.distance_to(b) else b
+	if target == Vector3.INF or me.global_position.distance_to(target) < 2.5:
+		return
+	var fwd: Vector3 = -me.cam.global_basis.z * Vector3(1, 0, 1)
+	var to: Vector3 = (target - me.global_position) * Vector3(1, 0, 1)
+	_arrow.visible = true
+	_arrow.pivot_offset = _arrow.size / 2
+	_arrow.rotation = fwd.signed_angle_to(to, Vector3.DOWN)  # 0 = straight ahead, clockwise = right
+	_arrow.text = "▲"
+	_goal.text += "  ·  %dm" % roundi(to.length())  # distance stays upright; only the arrow turns
 
 
 ## What the first-day guide needs to know about the local player.
@@ -558,6 +659,8 @@ func set_aim(target: Object) -> void:
 		_aim.text = "[E] 출발 레버 — 오늘 일 끝내고 떠나기"
 	elif target.has_meta("door"):
 		_aim.text = "[E] " + interior.doors[target.get_meta("door")].label
+	elif target.has_meta("vault"):
+		_aim.text = "[E] 금고방 열기 — 열쇠가 있어야 해요"
 	elif target.has_meta("container"):
 		var i: int = target.get_meta("container")
 		_aim.text = "(이미 뒤졌어요)" if opened.has(i) else "[E] 뒤지기 — " + str(interior.containers[i].label)
@@ -581,6 +684,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var t := Tuning.data
 	if run.phase == "day":
+		_check_traps()
 		var warn: float = t.run.depart_warning
 		var before: float = run.time_left
 		run.time_left -= delta
@@ -691,7 +795,7 @@ func _apply_run(r: Dictionary) -> void:
 	var left := RunState.days_left(r, cfg)
 	_status.text = "할당량 %d / %d원 · %s\n팀 돈 %d원%s" % [
 		r.haul, RunState.quota(r, cfg), "오늘 마감!" if left == 0 else "마감까지 %d일" % (left + 1),
-		r.money, " · 퇴마 테이프 %d (Q)" % r.tapes if r.tapes > 0 else ""]
+		r.money, _gear_text(r)]
 	var open: bool = r.phase != "day"
 	_shop.visible = open
 	for item in _shop_buttons:
@@ -700,6 +804,11 @@ func _apply_run(r: Dictionary) -> void:
 		var once_owned: bool = item in r.owned and not it.get("stack", false)
 		b.text = "%s  (%d원)%s" % [it.label, it.price, "  ✓" if once_owned else ""]
 		b.disabled = r.phase != "shop" or r.money < it.price or once_owned
+	for site in _site_buttons:
+		var sb: Button = _site_buttons[site]
+		var st: Dictionary = cfg.sites[site]
+		sb.text = "%s%s%s" % ["▶ " if r.get("site", "mansion") == site else "   ", st.label, "  (%d원)" % st.price if int(st.price) > 0 else ""]
+		sb.disabled = r.phase != "shop" or r.money < int(st.price)
 	_next_btn.text = "새 런 시작 →" if r.phase == "over" else "%d일차 시작 →" % r.day
 	if open and DisplayServer.get_name() != "headless":
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -757,8 +866,9 @@ func layout_day(day: int) -> void:
 	var cfg := Tuning.data
 	var seed: int = run.get("seed", 0)
 	_build_interior(seed, day)
+	var site: Dictionary = _site()
 	var counts: Array = cfg.loot_per_day
-	var n: int = counts[clampi(day, 1, counts.size()) - 1]
+	var n: int = roundi(counts[clampi(day, 1, counts.size()) - 1] * float(site.loot))
 	var spots: Array = interior.loot_spots(hash([seed, day, "spots"]), n)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([seed, day, "loot"])
@@ -773,6 +883,8 @@ func layout_day(day: int) -> void:
 			break
 		it.in_play = true
 		it.place(spot[0])
+	_stock_vault(rng, free)  # before the furniture takes its share of the pool
+	_hide_mimics(rng, day)
 	# Some wardrobes, drawers, fridges and boxes hide a piece: it stays parked until searched.
 	container_loot.clear()
 	opened.clear()
@@ -785,6 +897,151 @@ func layout_day(day: int) -> void:
 		if it == null:
 			break
 		container_loot[i] = str(it.name)
+	_snapped.clear()
+	_creak_ready.clear()
+
+
+## Host: today's mimics lie among the scrap, disguised, away from the entrance.
+func _hide_mimics(rng: RandomNumberGenerator, day: int) -> void:
+	var per: Array = Tuning.data.monsters.mimic.per_day
+	var n: int = per[clampi(day, 1, per.size()) - 1]
+	var lying: Array = loot.get_children().filter(func(it: Node) -> bool: return it.lying())
+	var spots: Array = interior.loot_spots(rng.randi(), n + 6).filter(func(sp: Array) -> bool:
+		return interior.maze.dist.get(sp[1], 0) >= 2 and lying.all(func(it: Node) -> bool: return it.global_position.distance_to(sp[0]) > 1.2))
+	for m in monsters:  # yesterday's (or a re-laid day's) mimics go back in the box first
+		if m.kind == "mimic":
+			m.park()
+	var free: Array = monsters.filter(func(m: Node) -> bool: return m.kind == "mimic")
+	for i in mini(n, mini(spots.size(), free.size())):
+		free[i].wake(spots[i][0])
+		free[i].rotation.y = rng.randf() * TAU
+
+
+## Host: fill today's vault (if any) with a few rich pieces, and hide its key somewhere else
+## in the house (on the floor, in a room away from the vault).
+func _stock_vault(rng: RandomNumberGenerator, free: Array) -> void:
+	if interior.vault.is_empty():
+		return
+	var vc: Dictionary = Tuning.data.interior.vault
+	var c: Vector3 = interior.cell_center(interior.vault.room)
+	for k in int(vc.pieces):
+		var kind: String = vc.kinds[rng.randi_range(0, vc.kinds.size() - 1)]
+		var pick: Array = free.filter(func(it: Node) -> bool: return it.kind == kind)
+		if pick.is_empty():
+			continue
+		var it: Loot = pick[0]
+		free.erase(it)
+		var d: Dictionary = Tuning.data.scrap.filter(func(e: Dictionary) -> bool: return e.name == kind)[0]
+		it.value = roundi(int(d.value[1]) * float(vc.value_mult) * float(_site().value))
+		it.in_play = true
+		it.place(c + Vector3(-1.2 + k * 1.2, 0, 0.6 * (k % 2)))
+	var key: Array = free.filter(func(it: Node) -> bool: return it.kind == "key")
+	var lying: Array = loot.get_children().filter(func(n: Node) -> bool: return n.lying())
+	var spots: Array = interior.loot_spots(rng.randi(), 8).filter(func(sp: Array) -> bool:
+		return lying.all(func(n: Node) -> bool: return n.global_position.distance_to(sp[0]) > 1.2))
+	spots.sort_custom(func(a: Array, b: Array) -> bool: return a[0].distance_to(c) > b[0].distance_to(c))
+	if not key.is_empty() and not spots.is_empty():
+		var it: Loot = key[0]
+		free.erase(it)
+		it.value = 5
+		it.in_play = true
+		it.place(spots[0][0])  # the far side of the house from the vault
+
+
+## Local player pressed E on the vault door.
+func request_unlock() -> void:
+	if multiplayer.is_server():
+		unlock_vault(multiplayer.get_unique_id())
+	else:
+		_rpc_unlock.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_unlock() -> void:
+	if multiplayer.is_server():
+		unlock_vault(multiplayer.get_remote_sender_id())
+
+
+## Host: peer `id` opens the vault if they carry the key and stand at its door. True if opened.
+func unlock_vault(id: int) -> bool:
+	var p := players.get_node_or_null(str(id))
+	if p == null or interior.vault.is_empty() or not is_instance_valid(interior.vault.node) or is_stunned(id):
+		return false
+	if p.global_position.distance_to(interior.vault.at) > Tuning.data.reach + 2.0:
+		return false
+	var has_key := loot.get_children().any(func(it: Node) -> bool: return it.kind == "key" and it.holder == id)
+	if not has_key:
+		_note_to(id, "잠겨 있어요 — 집 어딘가의 금고방 열쇠가 필요해요")
+		return false
+	_vault_opened()
+	if not multiplayer.get_peers().is_empty():
+		_rpc_vault_opened.rpc()
+	return true
+
+
+@rpc("authority", "reliable")
+func _rpc_vault_opened() -> void:
+	_vault_opened()
+
+
+func _vault_opened() -> void:
+	interior.open_vault()
+	play_sfx("thud")
+	flash_note("금고방이 열렸어요!")
+
+
+## Host: a note under one peer's crosshair.
+func _note_to(id: int, text: String) -> void:
+	if id == multiplayer.get_unique_id():
+		flash_note(text)
+	elif id in multiplayer.get_peers():
+		_rpc_note.rpc_id(id, text)
+
+
+@rpc("authority", "reliable")
+func _rpc_note(text: String) -> void:
+	flash_note(text)
+
+
+## Host, every physics frame of a day: movers stepping on floor traps. A creaky board calls
+## the ghost over (and creaks for everyone); a bear trap snaps shut and holds you a while.
+func _check_traps() -> void:
+	var c: Dictionary = Tuning.data.interior.traps
+	var now := Time.get_ticks_msec()
+	for p in players.get_children():
+		var id: int = p.name.to_int()
+		if is_stunned(id):
+			continue
+		for i in interior.traps.size():
+			var t: Dictionary = interior.traps[i]
+			if (p.global_position * Vector3(1, 0, 1)).distance_to(t.at * Vector3(1, 0, 1)) > c.trigger or absf(p.global_position.y - t.at.y) > 1.0:
+				continue
+			if t.kind == "bear" and not _snapped.has(i):
+				_snapped[i] = true
+				stun_player(id, c.bear_stun, false)
+				_trap_fx(i, t.at, true)
+				if not multiplayer.get_peers().is_empty():
+					_rpc_trap_fx.rpc(i, t.at, true)
+			elif t.kind == "creak" and now >= int(_creak_ready.get(i, 0)):
+				_creak_ready[i] = now + int(c.creak_cooldown * 1000)
+				ghost.hear(t.at)
+				_trap_fx(i, t.at, false)
+				if not multiplayer.get_peers().is_empty():
+					_rpc_trap_fx.rpc(i, t.at, false)
+
+
+@rpc("authority", "unreliable")
+func _rpc_trap_fx(i: int, at: Vector3, bear: bool) -> void:
+	_trap_fx(i, at, bear)
+
+
+## Every peer: the sound (at the spot) and, for a bear trap, its jaws closing.
+func _trap_fx(i: int, at: Vector3, bear: bool) -> void:
+	_creak.global_position = at
+	_creak.pitch_scale = 1.6 if bear else randf_range(0.45, 0.55)
+	_creak.play()
+	if bear:
+		interior.snap_trap(i)
 
 
 ## Host: takes a free pool piece of a kind drawn by rarity (any free piece if that kind ran
@@ -803,13 +1060,13 @@ func _roll_piece(rng: RandomNumberGenerator, free: Array, depth: int) -> Loot:
 			break
 	var pick: Array = free.filter(func(it: Node) -> bool: return it.kind == kind)
 	if pick.is_empty():
-		pick = free  # that kind's pool is used up: take any free piece
+		pick = free.filter(func(it: Node) -> bool: return it.kind != "key")  # that kind ran out: any free piece
 	if pick.is_empty():
 		return null
 	var it: Loot = pick[0]
 	free.erase(it)
 	var d: Dictionary = cfg.scrap.filter(func(e: Dictionary) -> bool: return e.name == it.kind)[0]
-	it.value = roundi(rng.randi_range(int(d.value[0]), int(d.value[1])) * (1.0 + cfg.loot_depth_bonus * depth))
+	it.value = roundi(rng.randi_range(int(d.value[0]), int(d.value[1])) * (1.0 + cfg.loot_depth_bonus * depth) * float(_site().value))
 	it.rotation = Vector3(0, rng.randf() * TAU, 0)
 	return it
 
@@ -856,6 +1113,7 @@ func _rpc_opened(i: int, id: int, found: String) -> void:
 
 func _set_opened(i: int, id: int, found: String) -> void:
 	opened[i] = true
+	interior.mark_searched(i)
 	if id == multiplayer.get_unique_id():
 		play_sfx("thud")
 		flash_note("%s 발견!" % found if found != "" else "아무것도 없어요")
@@ -867,7 +1125,7 @@ func _spawn_monsters() -> void:
 	var c: Dictionary = Tuning.data.monsters
 	var plan: Array = c.schedule[clampi(run.day, 1, c.schedule.size()) - 1]
 	var elapsed: float = Tuning.data.run.day_seconds - run.time_left
-	while _next_spawn < plan.size() and elapsed >= float(plan[_next_spawn][0]):
+	while _next_spawn < plan.size() and elapsed >= float(plan[_next_spawn][0]) * float(_site().danger):
 		var kind: String = plan[_next_spawn][1]
 		_next_spawn += 1
 		var free: Array = monsters.filter(func(m: Node) -> bool: return m.kind == kind and not m.active())
@@ -926,9 +1184,10 @@ func free_player(target: int) -> bool:
 
 ## Builds today's mansion inside if it isn't already (host in layout_day, clients from the run).
 func _build_interior(seed: int, day: int) -> void:
-	if _interior_key != [seed, day]:
-		_interior_key = [seed, day]
-		interior.build(seed, day)
+	var site: String = run.get("site", "mansion")
+	if _interior_key != [seed, day, site]:
+		_interior_key = [seed, day, site]
+		interior.build(seed, day, site)
 
 
 ## Interior bulbs flicker on old wiring and die at the blackout (the red fire-exit lamp stays).
@@ -947,7 +1206,10 @@ func _interior_lights() -> void:
 func _reset_house() -> void:
 	stun_until.clear()
 	dead.clear()
-	ghost_marked.clear()
+	health.clear()
+	for p in players.get_children():
+		health[p.name.to_int()] = float(Tuning.data.damage.max_health)
+		_send_health(p.name.to_int())
 	_lure_ready_at = 0
 	_next_spawn = 0
 	for m in monsters:
@@ -1048,6 +1310,174 @@ func _rpc_tape() -> void:
 		use_tape(multiplayer.get_remote_sender_id())
 
 
+## Today's (or tomorrow's, in the shop) job site settings from tuning.
+func _site() -> Dictionary:
+	var sites: Dictionary = Tuning.data.run.sites
+	return sites.get(run.get("site", "mansion"), sites.mansion)
+
+
+func request_site(site: String) -> void:
+	if multiplayer.is_server():
+		if RunState.choose_site(run, site, Tuning.data.run):
+			_push_run()
+	else:
+		_rpc_site.rpc_id(1, site)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_site(site: String) -> void:
+	if multiplayer.is_server() and RunState.choose_site(run, site, Tuning.data.run):
+		_push_run()
+
+
+## Pure: how close danger is, 0..1, from the distance to the nearest thing hunting you.
+static func danger_level(dist: float, radius: float) -> float:
+	return clampf(1.0 - dist / radius, 0.0, 1.0)
+
+
+## Local: heartbeat rate/volume and the red pulse follow the nearest hunting monster (not
+## a disguised mimic or a dust ghost waiting on the ceiling) or a chasing ghost.
+func _update_danger(delta: float, me: Node) -> void:
+	var near := INF
+	if me and not me.dead and run.phase == "day":
+		for m in monsters:
+			if m.active() and not m.state in ["disguised", "ceiling"]:
+				near = minf(near, m.global_position.distance_to(me.global_position))
+		if ghost.visible and ghost.state in ["chase", "attack"]:
+			near = minf(near, ghost.global_position.distance_to(me.global_position))
+	var k := danger_level(near, 12.0)
+	_heart_t -= delta
+	if k > 0.0 and _heart_t <= 0.0:
+		_heart_t = lerpf(1.1, 0.38, k)  # 55 → 160 bpm
+		_heart.volume_db = lerpf(-14.0, 2.0, k)
+		_heart.play()
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.001 * lerpf(5.0, 16.0, k))
+	(_vignette.material as ShaderMaterial).set_shader_parameter("strength", k * (0.55 + 0.45 * pulse))
+
+
+## Status-line list of the team's gear: tapes, flashbangs, shovel, walkies.
+static func _gear_text(r: Dictionary) -> String:
+	var g := ""
+	if r.tapes > 0:
+		g += " · 퇴마 테이프 %d (Q)" % r.tapes
+	if int(r.get("flashes", 0)) > 0:
+		g += " · 섬광탄 %d (T)" % r.flashes
+	if "shovel" in r.owned:
+		g += " · 삽 (R)"
+	if "walkie" in r.owned:
+		g += " · 무전기"
+	return g
+
+
+## Local player swung the shovel (R) / threw a flashbang (T).
+func request_swing() -> void:
+	if multiplayer.is_server():
+		swing(multiplayer.get_unique_id())
+	else:
+		_rpc_swing.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_swing() -> void:
+	if multiplayer.is_server():
+		swing(multiplayer.get_remote_sender_id())
+
+
+func request_flashbang() -> void:
+	if multiplayer.is_server():
+		flashbang(multiplayer.get_unique_id())
+	else:
+		_rpc_flashbang.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_flashbang() -> void:
+	if multiplayer.is_server():
+		flashbang(multiplayer.get_remote_sender_id())
+
+
+## Host: peer `id` swings their weapon — a crowbar, or the team's rusty spade once bought —
+## at every monster within reach in front of them. Killable ones (dust ghost, boar, mimic)
+## lose health and die at 0, spitting out scrap; the stone mannequin only rocks back.
+## Returns how many were hit (-1 = can't swing: knocked down or too soon).
+func swing(id: int) -> int:
+	var p := players.get_node_or_null(str(id))
+	var w: Dictionary = Tuning.data.weapons.shovel if "shovel" in run.owned else Tuning.data.weapons.crowbar
+	var now := Time.get_ticks_msec()
+	if p == null or is_stunned(id) or run.phase != "day" or now < int(_swing_ready.get(id, 0)):
+		return -1
+	_swing_ready[id] = now + int(w.cooldown * 1000)
+	var fwd: Vector3 = -p.global_basis.z
+	var hits := 0
+	for m in monsters:
+		if not m.active():
+			continue
+		var to: Vector3 = (m.global_position - p.global_position) * Vector3(1, 0, 1)
+		if absf(m.global_position.y - p.global_position.y) > 2.0:
+			continue  # a dust ghost up on the ceiling is out of reach
+		if to.length() <= w.range and (to.length() < 0.6 or fwd.dot(to.normalized()) > 0.3):
+			hits += 1
+			if m.hit(int(w.damage), w.stun):
+				_monster_killed(m, id)
+	broadcast_sfx("thud" if hits > 0 else "whoosh")
+	return hits
+
+
+## Host: monster `m` was beaten to death by `id`: it spits out scrap and is gone for the day.
+func _monster_killed(m: Node, id: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var free: Array = loot.get_children().filter(func(n: Node) -> bool: return not n.in_play and n.kind != "key")
+	var at: Vector3 = m.global_position * Vector3(1, 0, 1) + Vector3(0, interior.ORIGIN.y, 0)
+	for k in {mimic = 2, boar = 2}.get(m.kind, 1):
+		var it := _roll_piece(rng, free, interior.maze.dist.get(interior.cell_of(at), 0))
+		if it:
+			it.in_play = true
+			it.place(at + Vector3(0.4 * k, 0, 0.3 * k))
+	_note_to(id, "%s 처치! 고물을 떨궜어요" % m.get_meta("label", "괴물"))
+	m.park()
+
+
+## Host: a mimic bit `id`.
+func bite(id: int) -> void:
+	var c: Dictionary = Tuning.data.damage
+	hurt(id, c.mimic, c.mimic_stun, "미믹에게 물렸어요 — R로 때려요")
+
+
+## Host: peer `id` sets off a flashbang (team stock): monsters within `radius` are knocked
+## senseless and the ghost flees; everyone near sees a white flash. True if one was used.
+func flashbang(id: int) -> bool:
+	var p := players.get_node_or_null(str(id))
+	var c: Dictionary = Tuning.data.weapons.flashbang
+	if p == null or is_stunned(id) or run.phase != "day" or int(run.get("flashes", 0)) <= 0:
+		return false
+	run.flashes -= 1
+	var at: Vector3 = p.global_position
+	for m in monsters:
+		if m.active() and m.global_position.distance_to(at) <= c.radius:
+			m.stun(c.stun)
+	if ghost.visible and ghost.global_position.distance_to(at) <= c.radius:
+		ghost.scare(at, c.ghost_flinch)
+	_show_flash(at)
+	if not multiplayer.get_peers().is_empty():
+		_rpc_show_flash.rpc(at)
+	_push_run()
+	return true
+
+
+@rpc("authority", "reliable")
+func _rpc_show_flash(at: Vector3) -> void:
+	_show_flash(at)
+
+
+## Every peer: a white flash on screen if we're near the bang.
+func _show_flash(at: Vector3) -> void:
+	play_sfx("thud")
+	var me := players.get_node_or_null(str(multiplayer.get_unique_id()))
+	if me and me.global_position.distance_to(at) <= Tuning.data.weapons.flashbang.radius:
+		_flash_t = 1.0
+
+
 ## Host: spend a tape if peer `id` is close enough to the visible ghost. True if used.
 func use_tape(id: int) -> bool:
 	var p := players.get_node_or_null(str(id))
@@ -1065,6 +1495,11 @@ func use_tape(id: int) -> bool:
 # --- audio --------------------------------------------------------------------
 
 func _build_audio() -> void:
+	_creak.stream = load("res://assets/audio/footsteps/wood03.ogg")  # a board giving underfoot
+	_creak.unit_size = 6.0
+	_creak.max_distance = 30.0
+	_creak.volume_db = 8.0
+	add_child(_creak)
 	_music.stream = Sfx.music()
 	_music.volume_db = -16.0  # a radio somewhere in the house, not a soundtrack
 	add_child(_music)
@@ -1109,13 +1544,13 @@ func _build_room() -> void:
 	var moon := DirectionalLight3D.new()  # low cold moon
 	moon.rotation = Vector3(-0.5, 2.6, 0)
 	moon.light_color = Color("#9fb4d8")
-	moon.light_energy = 0.35
+	moon.light_energy = 0.6
 	moon.shadow_enabled = true
 	moon.light_volumetric_fog_energy = 0.4
 	add_child(moon)
 	var env := Environment.new()
 	var sky_mat := ProceduralSkyMaterial.new()  # dusk gone to night: ink top, a last bruise on the horizon
-	sky_mat.sky_top_color = Color("#0a0c16")
+	sky_mat.sky_top_color = Color("#161c30")
 	sky_mat.sky_horizon_color = Color("#3a2a3a")
 	sky_mat.ground_horizon_color = Color("#1a141c")
 	sky_mat.ground_bottom_color = Color("#08080a")
@@ -1139,6 +1574,8 @@ func _build_room() -> void:
 	env.volumetric_fog_length = 40.0
 	env.ssao_enabled = true       # contact shadows in corners and under furniture
 	env.ssao_intensity = 1.8
+	env.ssil_enabled = true       # light bounces off walls: lit rooms glow warm, not flat
+	env.ssil_intensity = 1.2
 	env.glow_enabled = true       # bulbs, lamps and headlights bloom a little
 	env.glow_intensity = 0.7
 	env.glow_hdr_threshold = 1.0
@@ -1254,14 +1691,64 @@ func _build_hud() -> void:
 	_stamina.max_value = 1.0
 	_stamina.add_theme_stylebox_override("background", UiTheme._box(Color(0, 0, 0, 0.5), Color(0, 0, 0, 0), 0, 0))
 	_stamina.add_theme_stylebox_override("fill", UiTheme._box(Color("#e8d8a8"), Color(0, 0, 0, 0), 0, 0))
+	_health_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)  # red, just above stamina
+	_health_bar.offset_left = -205
+	_health_bar.offset_right = 205
+	_health_bar.offset_top = -112
+	_health_bar.offset_bottom = -105
+	_health_bar.show_percentage = false
+	_health_bar.max_value = 100.0
+	_health_bar.add_theme_stylebox_override("background", UiTheme._box(Color(0, 0, 0, 0.5), Color(0, 0, 0, 0), 0, 0))
+	_health_bar.add_theme_stylebox_override("fill", UiTheme._box(Color("#c83a30"), Color(0, 0, 0, 0), 0, 0))
+	layer.add_child(_health_bar)
 	layer.add_child(_stamina)
-	_hint.text = "E 줍기·문·레버 · G 내려놓기 · 우클릭 스캔 · 1~4/휠 손 바꾸기 · Shift 달리기 · F 손전등 · Q 퇴마 테이프 · Tab 무전 · V 마이크 · Esc 메뉴"
+	_hint.text = "E 줍기·문·레버 · G 내려놓기 · 우클릭 스캔 · 1~4/휠 손 바꾸기 · Shift 달리기 · F 손전등 · Q 퇴마 테이프 · R 공격 · T 섬광탄 · Tab 무전 · V 마이크 · Esc 메뉴"
 	_tip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_tip.offset_top = -150
 	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tip.add_theme_font_size_override("font_size", 20)
 	_tip.add_theme_color_override("font_color", UiTheme.BRASS.lightened(0.2))
 	layer.add_child(_tip)
+	_goal.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_goal.offset_top = 14
+	_goal.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_goal.add_theme_font_size_override("font_size", 20)
+	_goal.add_theme_color_override("font_color", Color("#f0e2b6"))
+	_goal.add_theme_constant_override("outline_size", 6)
+	_goal.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	layer.add_child(_goal)
+	_vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vs := Shader.new()
+	vs.code = """shader_type canvas_item;
+// Red danger edge: transparent in the middle, dark red toward the corners. strength 0..1.
+uniform float strength : hint_range(0.0, 1.0) = 0.0;
+void fragment() {
+	float d = distance(UV, vec2(0.5)) * 1.4142;
+	COLOR = vec4(0.45, 0.0, 0.02, smoothstep(0.45, 1.0, d) * strength * 0.85);
+}"""
+	var vm := ShaderMaterial.new()
+	vm.shader = vs
+	_vignette.material = vm
+	layer.add_child(_vignette)
+	_heart.stream = Sfx.heartbeat()
+	add_child(_heart)
+	_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash.color = Color(1, 1, 1, 0)
+	layer.add_child(_flash)
+	_arrow.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_arrow.offset_top = 46
+	_arrow.offset_left = -30
+	_arrow.offset_right = 30
+	_arrow.offset_bottom = 110
+	_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_arrow.add_theme_font_size_override("font_size", 22)
+	_arrow.add_theme_color_override("font_color", Color("#f0e2b6"))
+	_arrow.add_theme_constant_override("outline_size", 6)
+	_arrow.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	layer.add_child(_arrow)
 	_hint.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_hint.offset_top = -16
 	_hint.offset_bottom = -2
@@ -1282,7 +1769,7 @@ func _build_hud() -> void:
 	_blind.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_blind.visible = false
 	var bl := Label.new()
-	bl.text = "먼지귀신이 머리에 붙었어요! 앞이 안 보여요 — 동료가 나를 보고 E를 눌러야 떼져요"
+	bl.text = "먼지귀신이 머리에 붙었어요! 체력이 빠져요\nR을 마구 눌러 떼어내거나, 동료가 나를 보고 E"
 	bl.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	bl.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -1320,6 +1807,14 @@ func _build_hud() -> void:
 		b.pressed.connect(request_buy.bind(item))
 		box.add_child(b)
 		_shop_buttons[item] = b
+	var where := Label.new()
+	where.text = "내일 갈 곳"
+	box.add_child(where)
+	for site in Tuning.data.run.sites:
+		var sb := Button.new()
+		sb.pressed.connect(request_site.bind(site))
+		box.add_child(sb)
+		_site_buttons[site] = sb
 	_next_btn.pressed.connect(request_next_day)
 	box.add_child(_next_btn)
 	_shop.visible = false
@@ -1332,6 +1827,8 @@ func _build_hud() -> void:
 func _update_inventory_hud(me: Node) -> void:
 	var show: bool = me != null and not me.dead and _menu == null
 	_stamina.visible = show
+	_health_bar.visible = show
+	_health_bar.value = my_health
 	_weight.visible = show
 	_hint.visible = show and run.day == 1 and run.phase == "day"
 	for i in _slot_boxes.size():
@@ -1381,9 +1878,12 @@ func scan() -> void:
 		if n is Loot:
 			total += n.value
 			_scan_hits.append({node = n, text = "%s\n%d원" % [n.label, n.value], color = Color("#9fe8a0")})
+		elif n.get("state") == "disguised":  # a mimic passes for scrap, even on the scanner
+			total += 74
+			_scan_hits.append({node = n, text = "오르골\n74원", color = Color("#9fe8a0")})
 		else:
 			_scan_hits.append({node = n, text = n.get_meta("label", "유령"), color = Color("#ff7060")})
-	_scan_total.text = "스캔: 고물 %d개 · %d원" % [_scan_hits.filter(func(h: Dictionary) -> bool: return h.node is Loot).size(), total]
+	_scan_total.text = "스캔: 고물 %d개 · %d원" % [_scan_hits.filter(func(h: Dictionary) -> bool: return h.color == Color("#9fe8a0")).size(), total]
 
 
 func _update_scan(delta: float, me: Node) -> void:
@@ -1720,7 +2220,7 @@ func _demo_load() -> void:
 
 func _setup_input() -> void:
 	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE,
-		sprint = KEY_SHIFT, interact = KEY_E, drop = KEY_G, use_tape = KEY_Q, fullscreen = KEY_F11,
+		sprint = KEY_SHIFT, interact = KEY_E, drop = KEY_G, use_tape = KEY_Q, swing = KEY_R, flashbang = KEY_T, fullscreen = KEY_F11,
 		flashlight = KEY_F, voice_mute = KEY_V, radio = KEY_TAB, lure = KEY_H}
 	for action in keys:
 		if InputMap.has_action(action):

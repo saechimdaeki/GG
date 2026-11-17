@@ -11,7 +11,9 @@ const Tuning = preload("res://src/tuning.gd")
 
 ## Grid corner (room (0, 0) starts here, +x columns, +z rows).
 const ORIGIN := Vector3(-20, -40, 30)
-## Room wallpaper themes: [paper, wainscot].
+## Hung on walls (CC0 Poly Haven models): two kinds of framed picture and a clock.
+const WALL_PROPS := ["hanging_picture_frame_01", "hanging_picture_frame_02", "hanging_picture_frame_01", "wall_clock"]
+## Room wallpaper themes (tints): [paper, wainscot].
 const THEMES := [["#4a6a46", "#2a1e16"], ["#7a3036", "#2a1a14"], ["#3a4a78", "#1e1a18"],
 	["#8a7440", "#2e2218"], ["#6a4a6a", "#22181c"]]
 
@@ -26,22 +28,30 @@ var room_kinds := {}
 ## Searchable furniture today: [{at (its centre on the floor), front (centre → just past its face), label}].
 ## Index = the `container` meta on its StaticBody; same order on every peer.
 var containers: Array = []
+## Doorways knocked through into one big hall today: {edge_key: true} (no wall at all).
+var merged := {}
+## Floor traps today: [{at, kind ("creak" | "bear"), node}]. Same on every peer.
+var traps: Array = []
+## The locked vault room (a dead end) and its door, or empty: {room, at, node}.
+var vault := {}
 ## Floor footprints (xz) of today's furniture; loot spots avoid them.
 var blocked: Array[Rect2] = []
 var _built: Node3D
 var _papers: Array = []
 var _trim := Models.grain(Color("#2a1c14"))
-var _floor := Models.surface(0, Color("#4a3424"), Color.BLACK)
-var _ceiling := Models.matte(Color("#1a1716"))
+var _floor := Models.pbr("dark_wooden_planks", Color(0.8, 0.75, 0.7), 2.5)
+var _ceiling := Models.pbr("damaged_plaster", Color(0.45, 0.42, 0.4), 3.0)
+var _bulb := Color("#ffc888")
+var _hollow := Models.matte(Color("#050404"))
+var _carpet := Models.pbr("dirty_carpet", Color(0.75, 0.6, 0.6), 1.5)
+var _panel := Models.pbr("dark_wooden_planks", Color(0.45, 0.35, 0.3), 1.0)  # wainscot boards
+var _wood := Models.grain(Color("#3a2618"))
 var _sheet := Models.matte(Color("#c9c4b6"))
-var _gilt := Models.matte(Color("#6a5228"))
 
 
 func _init() -> void:
-	for t in THEMES:
-		var m := Models.surface(1, Color(t[0]), Color(t[1]), ORIGIN.y)
-		m.set_shader_parameter("interior_rect", Vector4(-1e4, -1e4, 1e4, 1e4))  # always wallpaper
-		_papers.append(m)
+	for t in THEMES:  # one worn wallpaper texture, tinted per room theme
+		_papers.append(Models.pbr("decrepit_wallpaper", Color(t[0]).lerp(Color.WHITE, 0.45), 2.0))
 
 
 static func height() -> float:
@@ -129,7 +139,7 @@ func loot_spots(seed: int, n: int) -> Array:
 	var rooms: Array = []
 	for x in maze.cols:
 		for y in maze.rows:
-			if Vector2i(x, y) != Vector2i.ZERO:
+			if Vector2i(x, y) != Vector2i.ZERO and (vault.is_empty() or Vector2i(x, y) != vault.room):
 				rooms.append(Vector2i(x, y))
 	var out := []
 	var i := 0
@@ -149,12 +159,19 @@ func loot_spots(seed: int, n: int) -> Array:
 	return out
 
 
-## Rebuilds rooms, decor, lights and doors for (seed, day). Same inputs → same mansion on every peer.
-func build(seed: int, day: int) -> void:
+## Rebuilds rooms, decor, lights and doors for (seed, day, site). Same inputs → same house on
+## every peer. The site (cottage / mansion / hospital) changes its size, wallpaper and bulbs.
+func build(seed: int, day: int, site := "mansion") -> void:
 	var c: Dictionary = Tuning.data.interior
+	var st: Dictionary = Tuning.data.run.sites.get(site, Tuning.data.run.sites.mansion)
 	var sizes: Array = c.sizes
 	var sz: Array = sizes[clampi(day, 1, sizes.size()) - 1]
-	maze = generate(hash([seed, day, "interior"]), int(sz[0]), int(sz[1]), float(c.cell), float(c.extra_openings))
+	var cols := maxi(3, int(sz[0]) + int(st.size))
+	var rows := maxi(3, int(sz[1]) + int(st.size))
+	maze = generate(hash([seed, day, "interior"]), cols, rows, float(c.cell), float(c.extra_openings))
+	_bulb = Color(st.light)
+	for i in THEMES.size():
+		_papers[i].albedo_color = Color(THEMES[i][0]).lerp(Color.WHITE, 0.45) * Color(st.paper)
 	if _built:
 		_built.free()
 	_built = Node3D.new()
@@ -163,6 +180,9 @@ func build(seed: int, day: int) -> void:
 	room_kinds.clear()
 	blocked.clear()
 	containers.clear()
+	traps.clear()
+	vault = {}
+	merged.clear()
 	var s: float = maze.cell
 	var h := height()
 	var w: float = maze.cols * s
@@ -173,6 +193,13 @@ func build(seed: int, day: int) -> void:
 	for x in maze.cols:
 		for y in maze.rows:
 			theme[Vector2i(x, y)] = rng.randi_range(0, _papers.size() - 1)
+	# Some doorways become no wall at all: two rooms read as one long hall (same wallpaper).
+	for key: String in maze.open:
+		var ab: Array = _edge_rooms(key)
+		if Vector2i.ZERO in ab or maze.exit in ab or rng.randf() >= float(c.merge_chance):
+			continue
+		merged[key] = true
+		theme[ab[1]] = theme[ab[0]]
 	_box(Vector3(w, 0.2, d), ORIGIN + Vector3(w / 2, -0.1, d / 2), _floor)
 	_box(Vector3(w, 0.2, d), ORIGIN + Vector3(w / 2, h + 0.1, d / 2), _ceiling)
 	# Every wall segment: a collision box, plus a thin wallpaper skin on each face in that
@@ -186,11 +213,20 @@ func build(seed: int, day: int) -> void:
 				if not outside and (dir == Vector2i.LEFT or dir == Vector2i.UP):
 					continue  # inner walls are built once, from their left/top room
 				var mid := cell_center(here) + Vector3(dir.x, 0, dir.y) * (s / 2)
+				if not outside and merged.has(edge_key(here, n)):
+					continue  # one hall: no wall between these two
 				var gap: float = 0.0 if outside or not maze.open.has(edge_key(here, n)) else float(c.door_width)
 				_wall(mid, dir, s, gap, theme[here], -1 if outside else theme[n])
+	_pick_vault(rng)
 	for x in maze.cols:
 		for y in maze.rows:
-			_dress_room(Vector2i(x, y), rng, c)
+			var room := Vector2i(x, y)
+			if not vault.is_empty() and room == vault.room:
+				room_kinds[room] = "vault"  # bare: only what's locked in it
+				continue
+			_dress_room(room, rng, c)
+			if room != Vector2i.ZERO and room != maze.exit and rng.randf() < float(c.traps.chance):
+				_trap(room, rng, c)
 	_make_doors()
 
 
@@ -207,12 +243,134 @@ func _wall(mid: Vector3, dir: Vector2i, s: float, gap: float, near_theme: int, f
 		var at: Vector3 = mid + off + Vector3(0, h / 2, 0)
 		_box(size, at, _trim)
 		var skin := Vector3(len_ - 0.02, h, 0.02) if along_x else Vector3(0.02, h, len_ - 0.02)
-		Models.box(_built, skin, at - normal * 0.11, _papers[near_theme])
-		if far_theme >= 0:
-			Models.box(_built, skin, at + normal * 0.11, _papers[far_theme])
-	if gap > 0.0:  # lintel over the doorway
+		for side in ([-1.0, 1.0] if far_theme >= 0 else [-1.0]):
+			Models.box(_built, skin, at + normal * 0.11 * side, _papers[near_theme if side < 0 else far_theme])
+			_mouldings(at + normal * 0.11 * side, normal * side, len_, along_x)
+	if gap > 0.0:  # lintel over the doorway, and a moulded casing round it on both faces
 		var lintel := Vector3(gap, h - 2.3, 0.2) if along_x else Vector3(0.2, h - 2.3, gap)
 		_box(lintel, mid + Vector3(0, 2.3 + (h - 2.3) / 2, 0), _trim)
+		var across := Vector3.RIGHT if along_x else Vector3.BACK
+		for side in [-1.0, 1.0]:
+			var face: Vector3 = mid + normal * 0.13 * side
+			for e in [-1.0, 1.0]:  # side jambs
+				Models.box(_built, _sized(Vector3(0.12, 2.35, 0.05), along_x), face + across * e * (gap / 2 + 0.06) + Vector3(0, 1.175, 0), _wood)
+			Models.box(_built, _sized(Vector3(gap + 0.36, 0.14, 0.06), along_x), face + Vector3(0, 2.37, 0), _wood)  # head
+
+
+## The two rooms an edge key joins.
+func _edge_rooms(key: String) -> Array:
+	for x in maze.cols:
+		for y in maze.rows:
+			for d in [Vector2i.RIGHT, Vector2i.DOWN]:
+				if edge_key(Vector2i(x, y), Vector2i(x, y) + d) == key:
+					return [Vector2i(x, y), Vector2i(x, y) + d]
+	return [Vector2i(-1, -1), Vector2i(-1, -1)]
+
+
+## Every peer: container `i` has been searched — its front now gapes open (dark inside).
+func mark_searched(i: int) -> void:
+	if i >= containers.size() or not is_instance_valid(containers[i].node):
+		return
+	var c: Dictionary = containers[i]
+	var hole := Models.box(c.node, Vector3(c.size.x * 0.7, c.size.y * 0.55, 0.02), Vector3(0, 0.05, -c.size.z / 2 - 0.015), _hollow)
+	hole.name = "Opened"
+
+
+## The vault: the deepest dead-end room (one doorway) that isn't the entrance or the fire exit.
+## Its doorway gets a heavy locked door (meta "vault"); main.unlock_vault opens it.
+func _pick_vault(rng: RandomNumberGenerator) -> void:
+	var best := Vector2i(-1, -1)
+	for room: Vector2i in maze.dist:
+		if room == Vector2i.ZERO or room == maze.exit:
+			continue
+		var ways: Array = []
+		for dir in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
+			if maze.open.has(edge_key(room, room + dir)):
+				ways.append(dir)
+		if ways.size() == 1 and not merged.has(edge_key(room, room + ways[0])) and (best.x < 0 or maze.dist[room] > maze.dist[best]):
+			best = room
+			vault = {room = room, dir = ways[0]}
+	if best.x < 0:
+		vault = {}
+		return
+	var out := Vector3(vault.dir.x, 0, vault.dir.y)
+	var at: Vector3 = cell_center(best) + out * (maze.cell / 2)
+	var door := StaticBody3D.new()
+	door.position = at + Vector3(0, 1.15, 0)
+	door.set_meta("vault", true)
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	var along_x := absf(out.z) > 0.5
+	shape.size = _sized(Vector3(float(Tuning.data.interior.door_width), 2.3, 0.25), along_x)
+	col.shape = shape
+	door.add_child(col)
+	var iron := Models.metal()
+	iron.albedo_color = Color("#4a4a50")
+	Models.box(door, shape.size, Vector3.ZERO, iron)
+	for k in 3:  # rivet bands
+		Models.box(door, _sized(Vector3(shape.size.x if along_x else shape.size.z, 0.08, 0.3), along_x), Vector3(0, -0.8 + k * 0.8, 0), Models.metal())
+	_built.add_child(door)
+	vault.at = at
+	vault.node = door
+
+
+## One floor trap somewhere in `room`, clear of furniture: a creaky board (calls the ghost)
+## or a rusty bear trap (snaps shut: stuck for a few seconds).
+func _trap(room: Vector2i, rng: RandomNumberGenerator, c: Dictionary) -> void:
+	var center := cell_center(room)
+	for attempt in 8:
+		var p := center + Vector3(rng.randf_range(-2.0, 2.0), 0, rng.randf_range(-2.0, 2.0))
+		if blocked.any(func(b: Rect2) -> bool: return b.grow(0.4).has_point(Vector2(p.x, p.z))):
+			continue
+		var bear := rng.randf() < float(c.traps.bear_share)
+		var node := Node3D.new()
+		node.position = p
+		_built.add_child(node)
+		if bear:  # two toothed jaws, open
+			var rust := Models.metal()
+			rust.albedo_color = Color("#5a4030")
+			Models.cylinder(node, 0.22, 0.22, 0.03, Vector3(0, 0.015, 0), rust)
+			for sx in [-1, 1]:
+				var jaw := Models.box(node, Vector3(0.44, 0.1, 0.03), Vector3(0, 0.05, sx * 0.2), rust)
+				jaw.set_meta("jaw", sx)
+		else:  # a loose, darker board
+			Models.box(node, Vector3(1.2, 0.025, 0.22), Vector3(0, 0.012, 0), Models.grain(Color("#2a1a10")))
+		traps.append({at = p, kind = "bear" if bear else "creak", node = node})
+		blocked.append(Rect2(p.x - 0.35, p.z - 0.35, 0.7, 0.7))  # no loot on top of it
+		return
+
+
+## Every peer: the vault door swings away (opened with the key).
+func open_vault() -> void:
+	if not vault.is_empty() and is_instance_valid(vault.node):
+		vault.node.queue_free()
+
+
+## Every peer: bear trap `i` snaps shut (jaws stand up).
+func snap_trap(i: int) -> void:
+	if i < traps.size() and is_instance_valid(traps[i].node):
+		for j in traps[i].node.get_children():
+			if j.has_meta("jaw"):
+				j.rotation.x = j.get_meta("jaw") * 1.2
+				j.position.z *= 0.2
+
+
+## Old-house wall trim on one wall face (`at` = the face's centre at mid-height, `out` = the
+## direction it faces): dark wood wainscot to 1 m with a rail, a skirting board and a crown
+## moulding under the ceiling. Mesh only.
+func _mouldings(at: Vector3, out: Vector3, len_: float, along_x: bool) -> void:
+	var h := height()
+	var base := Vector3(at.x, ORIGIN.y, at.z)
+	var l := len_ - 0.04
+	Models.box(_built, _sized(Vector3(l, 1.0, 0.03), along_x), base + out * 0.02 + Vector3(0, 0.5, 0), _panel)
+	Models.box(_built, _sized(Vector3(l, 0.06, 0.06), along_x), base + out * 0.04 + Vector3(0, 1.0, 0), _wood)   # rail
+	Models.box(_built, _sized(Vector3(l, 0.16, 0.05), along_x), base + out * 0.04 + Vector3(0, 0.08, 0), _wood)  # skirting
+	Models.box(_built, _sized(Vector3(l, 0.14, 0.08), along_x), base + out * 0.05 + Vector3(0, h - 0.07, 0), _wood)  # crown
+
+
+## A box sized for a wall running along x (as given) or along z (x and z swapped).
+static func _sized(v: Vector3, along_x: bool) -> Vector3:
+	return v if along_x else Vector3(v.z, v.y, v.x)
 
 
 ## Furnishes one room by its type (living room, bedroom, kitchen, study, storage, bath — see
@@ -262,25 +420,21 @@ func _dress_room(room: Vector2i, rng: RandomNumberGenerator, c: Dictionary) -> v
 			var off := Vector3(sin(a), 0, cos(a)) * (maxf(size.x, size.z) / 2 + 0.35)
 			_solid(chair, csize, center + off, a, rng, c, false)
 	if rng.randf() < 0.5:
-		var rug := Models.matte(Color(THEMES[rng.randi_range(0, THEMES.size() - 1)][0]).darkened(0.2))
-		Models.box(_built, Vector3(2.6, 0.02, 1.8), center + Vector3(0, 0.01, 0), rug)
+		Models.box(_built, Vector3(2.6, 0.02, 1.8), center + Vector3(0, 0.01, 0), _carpet)
 	var exit: bool = room == maze.exit
 	if room == Vector2i.ZERO or exit or rng.randf() < c.light_chance:
 		var l := OmniLight3D.new()
-		l.position = center + Vector3(0, height() - 0.5, 0)
+		l.position = center + Vector3(0, height() - 1.0, 0)  # just under the chandelier, so it does not shadow itself
 		l.omni_range = s * 0.95
 		l.light_energy = 1.0 if not exit else 0.9
-		l.light_color = Color("#ff2a1a") if exit else Color("#ffc888")
+		l.light_color = Color("#ff2a1a") if exit else _bulb
 		l.shadow_enabled = true
 		l.set_meta("emergency", exit)
 		_built.add_child(l)
 		lights.append(l)
-		var bulb := StandardMaterial3D.new()
-		bulb.emission_enabled = true
-		bulb.emission = l.light_color
-		bulb.emission_energy_multiplier = 3.0
-		Models.cylinder(_built, 0.07, 0.07, 0.14, l.position + Vector3(0, 0.15, 0), bulb)
-		Models.cylinder(_built, 0.01, 0.01, 0.35, l.position + Vector3(0, 0.38, 0), _ceiling)
+		var lamp: Node3D = (load("res://assets/models/polyhaven/chinese_chandelier/chinese_chandelier.gltf") as PackedScene).instantiate()
+		lamp.position = Vector3(center.x, ORIGIN.y + height() - 0.75, center.z)  # hangs from the ceiling
+		_built.add_child(lamp)
 
 
 ## True if one of the two teleport doors sits on this room's wall `dir`.
@@ -331,7 +485,7 @@ func _solid(item: Dictionary, size: Vector3, at: Vector3, yaw: float, rng: Rando
 	if item.get("label", "") != "":  # searchable: E opens it (main.search)
 		sb.set_meta("container", containers.size())
 		var front := Vector3(-sin(yaw), 0, -cos(yaw))  # its -z, out into the room
-		containers.append({at = Vector3(at.x, ORIGIN.y, at.z), front = front * (size.z / 2 + 0.1), label = item.label})
+		containers.append({at = Vector3(at.x, ORIGIN.y, at.z), front = front * (size.z / 2 + 0.1), label = item.label, node = sb, size = tall})
 	_built.add_child(sb)
 	var r := maxf(tall.x, tall.z) / 2  # ponytail: a square around the piece, fine for spawn checks
 	blocked.append(Rect2(at.x - r, at.z - r, r * 2, r * 2))
@@ -339,15 +493,11 @@ func _solid(item: Dictionary, size: Vector3, at: Vector3, yaw: float, rng: Rando
 
 ## A framed painting on the wall facing into the room: dark oils in a gilt frame.
 func _painting(at: Vector3, out: Vector3, rng: RandomNumberGenerator) -> void:
-	var w := rng.randf_range(0.6, 1.2)
-	var h := rng.randf_range(0.5, 0.9)
-	var along_x := absf(out.z) > 0.5
-	var y := ORIGIN.y + rng.randf_range(1.6, 1.9)
-	var frame := Vector3(w + 0.12, h + 0.12, 0.05) if along_x else Vector3(0.05, h + 0.12, w + 0.12)
-	var canvas := Vector3(w, h, 0.06) if along_x else Vector3(0.06, h, w)
-	Models.box(_built, frame, Vector3(at.x, y, at.z), _gilt)
-	var oil := Models.matte(Color.from_hsv(rng.randf(), rng.randf_range(0.3, 0.6), rng.randf_range(0.15, 0.35)))
-	Models.box(_built, canvas, Vector3(at.x, y, at.z) - out * 0.01, oil)
+	var pick: String = WALL_PROPS[rng.randi_range(0, WALL_PROPS.size() - 1)]
+	var m: Node3D = (load("res://assets/models/polyhaven/%s/%s.gltf" % [pick, pick]) as PackedScene).instantiate()
+	m.position = Vector3(at.x, ORIGIN.y + rng.randf_range(1.5, 1.8), at.z) - out * 0.02
+	m.rotation.y = atan2(-out.x, -out.z)  # model front (+z) faces into the room
+	_built.add_child(m)
 
 
 func _door_wall(room: Vector2i, dir: Vector2i) -> bool:

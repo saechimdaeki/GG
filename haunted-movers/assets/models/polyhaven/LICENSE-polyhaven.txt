@@ -1,0 +1,3 @@
+Poly Haven assets (https://polyhaven.com) — CC0 1.0 Universal (public domain).
+Models: assets/models/polyhaven/<name>/  Textures: assets/textures/polyhaven/
+https://polyhaven.com/license

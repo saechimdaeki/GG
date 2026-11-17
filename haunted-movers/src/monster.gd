@@ -5,6 +5,9 @@ extends Node3D
 ##            looking at it. Touch = death. Keep eyes on it and back away together.
 ##   dust   — 먼지귀신: hangs on a ceiling. Walk under it and it drops onto your head: you are
 ##            blind, and dead in `latch_kill` s unless a teammate clicks you to pull it off.
+##   mimic  — 미믹: lies among the scrap looking like a music box (even on the scan). Come close
+##            and it springs open, all teeth, and chases you: each bite knocks you down, the
+##            `bites_to_kill`-th kills. It can be beaten to death (it spits out scrap).
 ##   boar   — 박제 멧돼지: wanders; sees a mover down a straight line → snorts, then charges in
 ##            that straight line. Hit = death. It slams into the wall and is dazed for a bit.
 ## Parked (hidden, far away) until `wake` spawns it.
@@ -12,9 +15,10 @@ extends Node3D
 const Tuning = preload("res://src/tuning.gd")
 const Sfx = preload("res://src/sfx.gd")
 const Interior = preload("res://src/interior.gd")
+const Models = preload("res://src/models.gd")
 
 const PARKED := Vector3(0, -80, 0)
-const KINDS := {statue = "마네킹", dust = "먼지귀신", boar = "박제 멧돼지"}
+const KINDS := {statue = "마네킹", dust = "먼지귀신", boar = "박제 멧돼지", mimic = "미믹"}
 
 var main: Node
 var kind := "statue"
@@ -30,6 +34,13 @@ var _heard_state := "idle"
 var _steps := AudioStreamPlayer3D.new()
 var _walked := 0.0
 var _last_pos := Vector3.ZERO
+## Host: seconds left knocked senseless (shovel, flashbang). Does nothing meanwhile.
+var _stun_left := 0.0
+## Host: hits left before it dies (0 = can't be killed: the stone-hard mannequin).
+var health := 0
+var _bite_ready := 0.0
+var _lid: Node3D
+var _jaws: Node3D
 
 
 func setup(k: String) -> void:
@@ -42,13 +53,13 @@ func setup(k: String) -> void:
 	_cry.stream = Sfx.cached("moan")
 	_cry.unit_size = 4.0
 	_cry.max_distance = 22.0
-	_cry.pitch_scale = {statue = 1.6, dust = 2.2, boar = 0.55}[k]
+	_cry.pitch_scale = {statue = 1.6, dust = 2.2, boar = 0.55, mimic = 0.8}[k]
 	add_child(_cry)
-	_steps.stream = Sfx.cached("step")
+	_steps.stream = Sfx.footsteps(true)
 	_steps.unit_size = 5.0
 	_steps.max_distance = 26.0
 	_steps.volume_db = 4.0
-	_steps.pitch_scale = {statue = 0.55, dust = 1.0, boar = 0.4}[k]
+	_steps.pitch_scale = {statue = 0.55, dust = 1.0, boar = 0.4, mimic = 1.3}[k]
 	add_child(_steps)
 	var cfg := SceneReplicationConfig.new()
 	for p in [".:position", ".:rotation", ".:visible", ".:state"]:
@@ -64,7 +75,11 @@ func wake(at: Vector3) -> void:
 	visible = true
 	_victim = 0
 	_t = 0.0
+	health = int(Tuning.data.monsters.health.get(kind, 0))
 	match kind:
+		"mimic":
+			state = "disguised"
+			position = at
 		"statue":
 			state = "hunt"
 			position = at
@@ -82,6 +97,7 @@ func park() -> void:
 	visible = false
 	state = "idle"
 	_victim = 0
+	_stun_left = 0.0
 	position = PARKED
 
 
@@ -97,8 +113,19 @@ func _process(_delta: float) -> void:
 			_steps.play()
 	if state != _heard_state:
 		_heard_state = state
-		if state in ["latched", "windup"]:
+		if state in ["latched", "windup", "chase"]:
 			_cry.play()
+	if kind == "dust":  # on a head the legs would dangle in front of the eyes: tuck them away
+		for l in get_children():
+			if l.has_meta("leg"):
+				l.visible = state != "latched"
+	if _lid:  # the mimic's lid gapes and chomps once it's awake
+		var awake := state != "disguised"
+		_lid.rotation.x = 0.0 if not awake else -0.6 - absf(sin(Time.get_ticks_msec() * 0.012)) * 0.6
+		_jaws.visible = awake
+		for t in _lid.get_children():
+			if t.has_meta("tooth"):
+				t.visible = awake
 
 
 func active() -> bool:
@@ -109,6 +136,9 @@ func _physics_process(delta: float) -> void:
 	if main == null or not main.is_host_active() or not active() or main.run.phase != "day":
 		return
 	var c: Dictionary = Tuning.data.monsters[kind]
+	if _stun_left > 0.0:
+		_stun_left -= delta
+		return
 	_t += delta
 	match kind:
 		"statue":
@@ -117,6 +147,27 @@ func _physics_process(delta: float) -> void:
 			_dust(c, delta)
 		"boar":
 			_boar(c, delta)
+		"mimic":
+			_mimic(c, delta)
+
+
+# --- mimic ---------------------------------------------------------------------
+
+func _mimic(c: Dictionary, delta: float) -> void:
+	var target := _nearest_alive()
+	if target == null:
+		return
+	var d := _flat_dist(target.global_position)
+	if state == "disguised":
+		if d < c.sight and absf(target.global_position.y - global_position.y) < 1.5:
+			state = "chase"  # springs open
+		return
+	_bite_ready = maxf(0.0, _bite_ready - delta)
+	if d > c.hit_range:
+		_walk_toward(target.global_position, c.speed, delta)
+	elif _bite_ready <= 0.0:
+		_bite_ready = c.bite_cooldown
+		main.bite(target.name.to_int())
 
 
 # --- statue -------------------------------------------------------------------
@@ -127,7 +178,9 @@ func _statue(c: Dictionary, delta: float) -> void:
 		return
 	_walk_toward(target.global_position, c.speed, delta)
 	if _flat_dist(target.global_position) < c.hit_range:
-		main.kill_player(target.name.to_int())
+		var dmg: Dictionary = Tuning.data.damage
+		main.hurt(target.name.to_int(), dmg.statue, dmg.statue_stun, "마네킹에게 맞았어요 — 계속 쳐다봐요")
+		_stun_left = dmg.statue_rest  # freezes a moment after it strikes, so you can get up
 
 
 ## True if any living mover inside has this statue in view: within `sight` m,
@@ -169,10 +222,36 @@ func _dust(c: Dictionary, _delta: float) -> void:
 			park()
 			return
 		global_position = p.global_position + Vector3.UP * 1.75  # sitting on the head
-		if _t >= c.latch_kill:
-			main.blind_player(_victim, false)
-			main.kill_player(_victim)
-			park()
+		if _t >= 1.0:  # chews on you once a second
+			_t = 0.0
+			if main.hurt(_victim, Tuning.data.damage.dust_per_second, 0.0, "먼지귀신이 갉아먹어요"):
+				main.blind_player(_victim, false)
+				park()
+
+
+## Host: struck for `damage` (crowbar 1, shovel 2) and knocked back for `sec` s. True if that
+## killed it. The mannequin is stone: it only rocks back. A disguised mimic wakes up angry.
+func hit(damage: int, sec: float) -> bool:
+	if state == "disguised":
+		state = "chase"
+	stun(sec)
+	if health <= 0:
+		return false
+	health -= damage
+	return health <= 0
+
+
+## Host: knocked senseless for `sec` s (shovel, flashbang). A dust ghost on someone's head
+## lets go and is gone.
+func stun(sec: float) -> void:
+	if kind == "dust" and state == "latched":
+		free_from(_victim)
+		return
+	_stun_left = sec
+
+
+func stunned() -> bool:
+	return _stun_left > 0.0
 
 
 ## Host: a teammate pulled us off `id`'s head. True if we were on it.
@@ -214,7 +293,11 @@ func _boar(c: Dictionary, delta: float) -> void:
 				var id: int = p.name.to_int()
 				if not main.is_stunned(id) and _flat_dist(p.global_position) < c.hit_range \
 						and absf(p.global_position.y - global_position.y) < 2.0:
-					main.kill_player(id)
+					var dmg: Dictionary = Tuning.data.damage
+					main.hurt(id, dmg.boar, dmg.boar_stun, "멧돼지에 받혔어요")
+					state = "dazed"  # it stops after goring someone
+					_t = 0.0
+					return
 		"dazed":
 			if _t >= c.daze:
 				state = "wander"
@@ -278,9 +361,21 @@ func _arrive(goal: Vector3, speed: float, delta: float) -> bool:
 	var to := (goal - global_position) * Vector3(1, 0, 1)
 	if to.length() < 0.15:
 		return true
-	global_position += to.limit_length(speed * delta)
+	global_position += _around_furniture(to.limit_length(speed * delta))
 	look_at(global_position + to + Vector3(0.001, 0, 0), Vector3.UP)
 	return false
+
+
+## A step that doesn't walk into furniture: the step as is, or turned up to 120° either way
+## (ponytail: local steering, no navmesh — good enough to skirt a table or a bed).
+func _around_furniture(step: Vector3) -> Vector3:
+	var blocked: Array = main.interior.blocked
+	for turn in [0.0, 0.8, -0.8, 1.6, -1.6, 2.1, -2.1]:
+		var s := step.rotated(Vector3.UP, turn)
+		var p := global_position + s * 6.0  # look a little ahead
+		if not blocked.any(func(b: Rect2) -> bool: return b.grow(0.2).has_point(Vector2(p.x, p.z))):
+			return s
+	return step
 
 
 func _random_neighbour(c: Vector2i) -> Vector2i:
@@ -322,6 +417,58 @@ func _wall_ahead(dist: float) -> bool:
 
 func _build_look() -> void:
 	match kind:
+		"mimic":  # an old music box on the floor… whose lid hides rows of teeth and a tongue
+			var wood := StandardMaterial3D.new()
+			wood.albedo_color = Color("#6a3e22")
+			var brass := Models.metal()
+			var mouth := StandardMaterial3D.new()
+			mouth.albedo_color = Color("#3a0808")
+			var tooth := StandardMaterial3D.new()
+			tooth.albedo_color = Color("#efe6cc")
+			var box := BoxMesh.new()
+			box.size = Vector3(0.5, 0.26, 0.38)
+			_mesh(box, Vector3(0, 0.13, 0), wood)
+			var inside := BoxMesh.new()
+			inside.size = Vector3(0.44, 0.04, 0.32)
+			_mesh(inside, Vector3(0, 0.25, 0), mouth)
+			_lid = Node3D.new()  # hinge at the back edge
+			_lid.position = Vector3(0, 0.26, 0.19)
+			add_child(_lid)
+			var lid := MeshInstance3D.new()
+			var lm := BoxMesh.new()
+			lm.size = Vector3(0.5, 0.06, 0.38)
+			lid.mesh = lm
+			lid.material_override = wood
+			lid.position = Vector3(0, 0.03, -0.19)
+			_lid.add_child(lid)
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0
+			cone.bottom_radius = 0.025
+			cone.height = 0.07
+			_jaws = Node3D.new()  # teeth and tongue only show once it's awake
+			add_child(_jaws)
+			for i in 7:  # teeth on the box rim and under the lid
+				var lower := MeshInstance3D.new()
+				lower.mesh = cone
+				lower.material_override = tooth
+				lower.position = Vector3(-0.21 + i * 0.07, 0.29, -0.17)
+				_jaws.add_child(lower)
+				var upper := MeshInstance3D.new()
+				upper.mesh = cone
+				upper.material_override = tooth
+				upper.position = Vector3(-0.21 + i * 0.07, -0.01, -0.36)
+				upper.rotation.x = PI
+				upper.position = Vector3(-0.21 + i * 0.07, 0.03, -0.34)
+				_lid.add_child(upper)
+				upper.set_meta("tooth", true)
+			var tongue := _mesh(_capsule(0.05, 0.3), Vector3(0, 0.28, -0.05), mouth)
+			tongue.rotation.x = PI / 2
+			tongue.reparent(_jaws, false)  # not in the tree yet: keep the local transform
+			var corner := BoxMesh.new()
+			corner.size = Vector3(0.06, 0.27, 0.06)
+			for sx in [-1, 1]:
+				for sz in [-1, 1]:
+					_mesh(corner, Vector3(sx * 0.23, 0.13, sz * 0.17), brass)
 		"statue":  # a dressmaker's mannequin: cracked porcelain face with a painted grin, ball joints
 			var plaster := StandardMaterial3D.new()
 			plaster.albedo_color = Color("#e6dccb")
@@ -374,6 +521,7 @@ func _build_look() -> void:
 				var a := i * TAU / 8.0 + 0.2
 				var l := _mesh(_capsule(0.018, 0.6), Vector3(cos(a) * 0.3, -0.25, sin(a) * 0.3), leg)
 				l.rotation = Vector3(sin(a) * 0.7, 0, -cos(a) * 0.7)
+				l.set_meta("leg", true)
 			var white := StandardMaterial3D.new()
 			white.albedo_color = Color("#e8e4d0")
 			white.emission_enabled = true

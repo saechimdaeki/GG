@@ -156,6 +156,7 @@ const SCRAP_SIZE := {
 	music_box = Vector3(0.3, 0.2, 0.22), silver_tray = Vector3(0.5, 0.06, 0.36), vase = Vector3(0.26, 0.5, 0.26),
 	portrait = Vector3(0.6, 0.75, 0.08), typewriter = Vector3(0.45, 0.22, 0.4), pocket_watch = Vector3(0.12, 0.03, 0.14),
 	crystal_ball = Vector3(0.26, 0.32, 0.26), gramophone = Vector3(0.5, 0.75, 0.5), safe = Vector3(0.55, 0.6, 0.55),
+	key = Vector3(0.22, 0.04, 0.08),
 }
 
 
@@ -212,6 +213,12 @@ static func scrap(kind: String, color: Color) -> Node3D:
 			box(root, Vector3(size.x * 0.7, 0.12, 0.01), Vector3(0, h.y, h.z - 0.02), matte(Color("#efe9d8")))  # paper
 			for i in 8:
 				_sphere(root, 0.015, Vector3(-0.15 + i * 0.043, -h.y + size.y * 0.62, -h.z + 0.08), matte(Color("#d8d0bc")))
+		"key":  # an old brass key: a ring bow, a shaft and two teeth
+			var ring := cylinder(root, 0.04, 0.04, 0.02, Vector3(-h.x + 0.04, 0, 0), shiny)
+			ring.scale = Vector3(1, 1, 1)
+			box(root, Vector3(size.x - 0.07, 0.02, 0.02), Vector3(0.035, 0, 0), shiny)
+			box(root, Vector3(0.025, 0.02, 0.04), Vector3(h.x - 0.02, 0, 0.025), shiny)
+			box(root, Vector3(0.025, 0.02, 0.03), Vector3(h.x - 0.06, 0, 0.02), shiny)
 		"pocket_watch":
 			cylinder(root, h.x, h.x, size.y, Vector3.ZERO, shiny)
 			cylinder(root, h.x * 0.8, h.x * 0.8, 0.005, Vector3(0, h.y, 0), matte(Color("#f4ecd8")))
@@ -353,6 +360,24 @@ static func surface(mode: int, base: Color, accent: Color, floor_y := 0.0) -> Sh
 	return m
 
 
+## A CC0 Poly Haven texture set (assets/textures/polyhaven/<name>_diff/_nor/_rough.jpg) as a
+## world-space triplanar material, so boxes need no UVs. `tile` = metres per texture repeat.
+static func pbr(name: String, tint := Color.WHITE, tile := 2.0) -> StandardMaterial3D:
+	var base := "res://assets/textures/polyhaven/%s_" % name
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load(base + "diff.jpg")
+	m.albedo_color = tint
+	if ResourceLoader.exists(base + "nor.jpg"):
+		m.normal_enabled = true
+		m.normal_texture = load(base + "nor.jpg")
+	if ResourceLoader.exists(base + "rough.jpg"):
+		m.roughness_texture = load(base + "rough.jpg")
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3.ONE / tile
+	return m
+
+
 static func matte(color: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
@@ -382,6 +407,8 @@ static func _fitted(path: String, size: Vector3, yaw: float, glow: bool) -> Node
 	m.scale = Vector3.ONE * s
 	m.position = -(box.position + box.size * Vector3(0.5, 0, 0.5)) * s - Vector3(0, size.y / 2, 0)
 	for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+		if not path.contains("/furniture/"):
+			break  # only the toy-coloured Kenney kit needs ageing; Poly Haven is already worn
 		for i in mi.mesh.get_surface_count():  # bright toy colours → dusty, faded, old
 			var src := mi.mesh.surface_get_material(i) as StandardMaterial3D
 			if src:
