@@ -40,7 +40,7 @@ void fragment() {
 	// small palette: quantize each channel, dithering the rounding per block
 	c = floor(c * color_levels + bayer4(block)) / color_levels;
 	c *= 1.0 - scanline * (0.5 + 0.5 * sin(block.y * 3.14159));
-	c *= vec3(1.06, 1.0, 0.88);  // warm tape tint
+	c *= vec3(0.97, 1.0, 1.04);  // cold night tint
 	vec2 d = SCREEN_UV - 0.5;
 	c *= 1.0 - 0.6 * dot(d, d);  // vignette
 	c = mix(c, vec3(hash(block + fract(TIME) * 100.0)), 0.35 * noise);

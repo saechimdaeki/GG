@@ -1,9 +1,8 @@
 extends Node3D
-## Truck bed (open at the house side) and the depart button. Pure geometry plus
-## `evaluate`, which turns what is on the bed into a payout via payout.gd.
+## Truck bed (open at the house side) and the depart lever. Pure geometry: main.gd counts
+## the scrap on the bed (`truck_value`).
 
 const Tuning = preload("res://src/tuning.gd")
-const Payout = preload("res://src/payout.gd")
 const Models = preload("res://src/models.gd")
 
 var bed := AABB()
@@ -31,22 +30,21 @@ func _ready() -> void:
 
 	var button := _wall(Vector3(0.4, 0.4, 0.2), Vector3(bed.end.x + 0.6, 1.1, bed.end.z + 0.3), "#d0302a")
 	button.name = "DepartButton"
-	var label := Label3D.new()
-	label.text = "출발"
-	label.font_size = 48
-	label.position = Vector3(0, 0.4, 0)
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	button.add_child(label)
-
-
-## Payout for every piece of furniture whose centre is on the bed.
-func evaluate(bodies: Array) -> Dictionary:
-	var t: Dictionary = Tuning.data.truck
-	var items := []
-	for b in bodies:
-		if bed.has_point(b.global_position):
-			items.append({value = b.value, durability = b.durability, aabb = b.world_aabb()})
-	return Payout.compute(items, t.cell, t.bonus_rate)
+	var lever := MeshInstance3D.new()  # a stubby lever with a red knob
+	var lm := CylinderMesh.new()
+	lm.top_radius = 0.03
+	lm.bottom_radius = 0.03
+	lm.height = 0.4
+	lever.mesh = lm
+	lever.position = Vector3(0, 0.3, -0.05)
+	lever.rotation.x = -0.4
+	button.add_child(lever)
+	var glow := OmniLight3D.new()
+	glow.light_color = Color("#ff4030")
+	glow.light_energy = 0.6
+	glow.omni_range = 2.0
+	glow.position = Vector3(0, 0.3, -0.3)
+	button.add_child(glow)
 
 
 ## Mesh-only: cargo roof, cab, wheels, bumper, lights and the company name.
