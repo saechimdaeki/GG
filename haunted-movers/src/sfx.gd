@@ -79,9 +79,53 @@ static func cached(sound: String) -> AudioStreamWAV:
 
 
 ## One footstep on old boards: a dull knock plus a short grit of noise.
+## One heartbeat, "lub-dub": two muffled low thumps (a 48/40 Hz sine body with a soft
+## attack, no click) and silence after, so playing it faster just shortens the gap.
+static func heartbeat() -> AudioStreamWAV:
+	var len_s := 0.42
+	var s := PackedFloat32Array()
+	s.resize(int(len_s * RATE))
+	for i in s.size():
+		var t := float(i) / RATE
+		var lub := minf(1.0, t / 0.012) * exp(-t * 22.0) * sin(TAU * 48.0 * t)
+		var t2 := t - 0.16
+		var dub := 0.0 if t2 < 0.0 else 0.7 * minf(1.0, t2 / 0.012) * exp(-t2 * 26.0) * sin(TAU * 40.0 * t2)
+		s[i] = (lub + dub) * 0.9
+	return _wav(s, false)
+
+
+## Recorded footsteps (CC0, assets/audio/footsteps): wooden boards inside the mansion,
+## gravel and dry leaves outside. A randomizer picks a take and nudges pitch each step.
+static func footsteps(indoor: bool) -> AudioStreamRandomizer:
+	var key := "steps_in" if indoor else "steps_out"
+	if not _cache.has(key):
+		var r := AudioStreamRandomizer.new()
+		r.random_pitch = 1.08
+		r.random_volume_offset_db = 2.0
+		for f in (["wood01", "wood02", "wood03"] if indoor else ["gravel", "leaves01", "leaves02"]):
+			r.add_stream(-1, load("res://assets/audio/footsteps/%s.ogg" % f))
+		_cache[key] = r
+	return _cache[key]
+
+
+## (Synthesized fallback, unused in play: recorded footsteps sound far better.)
 static func step() -> AudioStreamWAV:
-	return _make(0.14, func(t: float) -> float:
-		return (sin(TAU * 95.0 * t) * 0.6 + (randf() * 2.0 - 1.0) * 0.35) * exp(-t * 38.0))
+	# A shoe on old boards, not a knock: mostly a soft scuff (low-passed noise, eased in over
+	# 6 ms), a muffled heel weight under it, then a quieter toe roll 45 ms later.
+	var len_s := 0.22
+	var s := PackedFloat32Array()
+	s.resize(int(len_s * RATE))
+	var lp := 0.0
+	var lp2 := 0.0
+	for i in s.size():
+		var t := float(i) / RATE
+		lp += ((randf() * 2.0 - 1.0) - lp) * 0.18   # ~700 Hz low-pass: scuff, no click
+		lp2 += (lp - lp2) * 0.35
+		var heel := minf(1.0, t / 0.006) * exp(-t * 30.0)
+		var toe := 0.0 if t < 0.045 else 0.55 * minf(1.0, (t - 0.045) / 0.008) * exp(-(t - 0.045) * 26.0)
+		var weight := sin(TAU * 55.0 * t) * 0.18 * exp(-t * 45.0)
+		s[i] = (lp2 * 1.6 * (heel + toe) + weight) * 0.7
+	return _wav(s, false)
 
 
 ## 4 s loop: a low wavering moan with breath. Starts and ends silent so the loop doesn't click.

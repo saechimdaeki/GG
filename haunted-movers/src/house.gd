@@ -11,18 +11,22 @@ const D := 14.0
 const H := 7.5
 const PORCH_ENERGY := 1.2
 
-var grass := Models.surface(2, Color("#2a3a26"), Color("#3a4630"))
-var siding := Models.surface(1, Color("#3a3f3c"), Color("#22201c"))
-var roof := Models.matte(Color("#1c1a1e"))
+var grass := Models.pbr("leafy_grass", Color(0.55, 0.6, 0.5), 3.0)
+var siding := Models.pbr("exterior_wall_cladding", Color(0.6, 0.62, 0.6), 3.0)
+var roof := Models.pbr("grey_roof_tiles", Color(0.5, 0.5, 0.55), 2.0)
 var trim := Models.grain(Color("#2a2420"))
+var stone := Models.pbr("castle_brick_07", Color(0.55, 0.52, 0.5), 2.0)
+var _shutter := Models.matte(Color("#1e2a24"))
+var _dark_glass := Models.matte(Color("#0c0c12"))
+var _turret_glass := _lit_glass()
 var _porch := OmniLight3D.new()
 var _porch_mat := StandardMaterial3D.new()
 
 
 func _ready() -> void:
-	siding.set_shader_parameter("siding_color", Color("#4a504c"))
 	_box(Vector3(200, 0.2, 200), Vector3(0, -0.1, 0), grass)                  # yard
 	_box(Vector3(W, H, D), Vector3(0, H / 2, D / 2), siding)                  # the shell
+	_trimmings()
 	# Gable roof: two slabs meeting over the middle (mesh only).
 	var rise := 3.2
 	var half := D / 2 + 0.6
@@ -55,7 +59,7 @@ func _ready() -> void:
 			n += 1
 	_window(Vector3(0, 5.0, -0.02), Vector3.RIGHT, true)  # over the door
 	# Gravel path from the truck to the porch.
-	Models.box(self, Vector3(2.2, 0.02, 12.0), Vector3(0, 0.01, -7.0), Models.matte(Color("#4a4640")))
+	Models.box(self, Vector3(2.2, 0.02, 12.0), Vector3(0, 0.01, -7.0), Models.pbr("gravel", Color(0.7, 0.7, 0.7), 1.5))
 	# Porch lantern: dies with the blackout.
 	_porch_mat.albedo_color = Color("#2a241e")
 	_porch_mat.emission_enabled = true
@@ -80,6 +84,53 @@ func _ready() -> void:
 			post.rotation.z = sin(i * 2.7) * 0.12
 
 
+## Breaks up the box: stone foundation, corner boards and a storey band, a round corner
+## turret with a witch-hat roof, two roof dormers, porch steps and a railing.
+func _trimmings() -> void:
+	Models.box(self, Vector3(W + 0.3, 0.8, D + 0.3), Vector3(0, 0.4, D / 2), stone)        # foundation
+	Models.box(self, Vector3(W + 0.25, 0.22, D + 0.25), Vector3(0, 3.6, D / 2), trim)     # storey band
+	for sx in [-1, 1]:
+		for z in [0.0, D]:
+			Models.box(self, Vector3(0.3, H, 0.3), Vector3(sx * W / 2, H / 2, z), trim)  # corner boards
+	# Turret on the front-right corner (solid, so you can't walk through it).
+	var tc := Vector3(W / 2 - 0.4, 0, 0.4)
+	var r := 2.1
+	var th := H + 1.6
+	var body := StaticBody3D.new()
+	body.position = tc + Vector3(0, th / 2, 0)
+	var col := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = r
+	cyl.height = th
+	col.shape = cyl
+	body.add_child(col)
+	add_child(body)
+	Models.cylinder(self, r, r, th, tc + Vector3(0, th / 2, 0), siding)
+	Models.cylinder(self, r + 0.15, r + 0.15, 0.8, tc + Vector3(0, 0.4, 0), stone)
+	Models.cylinder(self, r + 0.12, r + 0.12, 0.2, tc + Vector3(0, 3.6, 0), trim)
+	Models.cylinder(self, 0.0, r + 0.5, 4.2, tc + Vector3(0, th + 2.1, 0), roof)          # witch-hat roof
+	Models.cylinder(self, 0.04, 0.04, 1.0, tc + Vector3(0, th + 4.6, 0), Models.metal())  # finial
+	for i in 4:  # turret windows facing out
+		var a := -PI / 2 - 0.9 + i * 0.6
+		var win := Models.box(self, Vector3(0.7, 1.3, 0.1), tc + Vector3(cos(a) * r, 5.0, sin(a) * r), _turret_glass if i == 1 else _dark_glass)
+		win.rotation.y = -a + PI / 2
+	# Dormers on the front slope.
+	for sx in [-1, 1]:
+		var dc := Vector3(sx * 4.5, H + 1.1, 1.6)
+		Models.box(self, Vector3(1.7, 1.6, 1.8), dc, siding)
+		Models.box(self, Vector3(0.8, 0.9, 0.1), dc + Vector3(0, 0, -0.92), _dark_glass)
+		for sz in [-1, 1]:
+			var dr := Models.box(self, Vector3(0.15, 0.12, 2.0), dc + Vector3(sz * 0.55, 1.05, 0), roof)
+			dr.scale = Vector3(8.0, 1, 1)
+			dr.rotation.z = sz * -0.6
+	# Porch steps and railing (railing leaves the middle open for the door).
+	Models.box(self, Vector3(2.6, 0.12, 0.4), Vector3(0, 0.06, -2.6), trim)  # porch step (mesh only)
+	for sx in [-1, 1]:
+		Models.box(self, Vector3(1.6, 0.08, 0.1), Vector3(sx * 1.85, 1.0, -2.3), trim)       # rail
+		for k in 6:
+			Models.box(self, Vector3(0.05, 0.9, 0.05), Vector3(sx * (1.15 + k * 0.28), 0.5, -2.3), trim)
+
+
 ## Porch lantern flickers and goes out at the blackout (derived from the synced clock).
 func _process(_delta: float) -> void:
 	var run: Dictionary = get_parent().run if get_parent() and "run" in get_parent() else {}
@@ -97,6 +148,13 @@ func _window(c: Vector3, along: Vector3, lit: bool) -> void:
 	var h := 1.6
 	var on_x := along == Vector3.RIGHT
 	Models.box(self, Vector3(w + 0.2, h + 0.2, 0.12) if on_x else Vector3(0.12, h + 0.2, w + 0.2), c, trim)
+	if on_x and c.z < 0.0:  # louvred shutters on the front windows, one hanging crooked
+		for sx in [-1, 1]:
+			var sh := Models.box(self, Vector3(0.42, h + 0.1, 0.06), c + Vector3(sx * (w / 2 + 0.33), 0, -0.04), _shutter)
+			sh.rotation.z = 0.08 if (sx > 0 and int(c.x) % 3 == 0) else 0.0
+			for k in 5:
+				Models.box(self, Vector3(0.36, 0.03, 0.03), c + Vector3(sx * (w / 2 + 0.33), -h / 2 + 0.25 + k * 0.3, -0.08), trim)
+		Models.box(self, Vector3(w + 0.4, 0.1, 0.22), c + Vector3(0, -h / 2 - 0.12, -0.08), trim)  # sill
 	var glass := StandardMaterial3D.new()
 	glass.albedo_color = Color("#0c0c12")
 	glass.roughness = 0.1
@@ -108,6 +166,15 @@ func _window(c: Vector3, along: Vector3, lit: bool) -> void:
 	Models.box(self, Vector3(w, h, 0.14) if on_x else Vector3(0.14, h, w), c, glass)
 	Models.box(self, Vector3(w, 0.05, 0.16) if on_x else Vector3(0.16, 0.05, w), c, trim)
 	Models.box(self, Vector3(0.05, h, 0.16) if on_x else Vector3(0.16, h, 0.05), c, trim)
+
+
+static func _lit_glass() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color("#0c0c12")
+	m.emission_enabled = true
+	m.emission = Color("#c8783a")
+	m.emission_energy_multiplier = 0.8
+	return m
 
 
 func _tree(at: Vector3) -> void:

@@ -35,11 +35,11 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-17
 **Branch:** `feat/haunted-movers-layouts`
-**Current task:** 유령집 이삿짐센터 리썰식 개편 + 후속(유령 첫 접촉 기절/두 번째 사망, 손전등으로 유령 쫓기, 소복 귀신·괴물 모델 개편, Kenney 가구 모델, 방 종류별 채우기, 가구 뒤지기) — 커밋 완료.
-**Next step:** 사용자 피드백 대기. 후보: 연 가구 열린 모양, 방 크기 다양화, 몬스터가 가구 통과하는 것, Graveyard Kit·Ultimate Monsters 에셋(사용자가 받아야 함 — kenney.nl은 자동 다운로드 거부됨). 2~4명 플레이테스트로 난이도.
+**Current task:** 유령집 이삿짐센터 후속 개편 커밋 — Poly Haven/Kenney/OpenGameArt CC0 에셋(가구·텍스처·발소리·무기), 방 종류·몰딩·큰 홀, 집 탑·지붕창, 트럭 탑차, 첫 1분 목표 안내, 상점(삽·섬광탄·무전기), 갈 곳(시골집/저택/폐병원), 함정·금고방, 가구 뒤지기 열린 모양, 쇠지렛대 전투·괴물 체력·처치 드롭, 미믹, 체력 100, 심장 소리·붉은 가장자리, 유령 재디자인.
+**Next step:** 사용자 피드백(4분 19초 플레이 후 커밋 요청). 후보: 2~4명 플레이테스트로 난이도, 트럭·미믹·유령은 아직 기본 도형 조합(진짜 모델 필요), 고른 곳마다 집 외관 다르게. 푸시/PR은 사용자 요청 시.
 **Blocked on:** 없음
 **Files in progress:** 커밋 안 됨 (작업 트리에 변경 있음): haunted-movers/src/*, data/tuning.json, tests, README, design/game-brief.md
-**Run result:** smoke PASS(손전등 쫓기·가구 뒤지기·가구 안 고물 금지 테스트는 일부러 망가뜨려 FAIL 확인), network integration PASS(참가자 뒤지기 RPC 포함). 증거: haunted-movers/production/qa/evidence/*-2026-11-17.png.
+**Run result:** smoke PASS(스크립트 에러 0, 손전등 쫓기·가구 안 고물·괴물 우회는 일부러 망가뜨려 FAIL 확인), network integration PASS. 증거: haunted-movers/production/qa/evidence/*-2026-11-17.png.
 **Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
 <!-- /CHECKPOINT -->
 

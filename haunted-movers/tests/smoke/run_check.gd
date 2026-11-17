@@ -26,6 +26,8 @@ const Monster = preload("res://src/monster.gd")
 const Sfx = preload("res://src/sfx.gd")
 const Net = preload("res://src/net.gd")
 const Tuning = preload("res://src/tuning.gd")
+const Main = preload("res://src/main.gd")
+const Loot = preload("res://src/loot.gd")
 
 var _fails := 0
 
@@ -50,6 +52,10 @@ func _run() -> void:
 	_check_ghost_states()
 	await _check_ghost_attack(main)
 	await _check_ghost_flashlight(main)
+	_check_weapons(main)
+	_check_sites(main)
+	await _check_traps_and_vault(main)
+	await _check_mimic(main)
 	_check_stun_reset(main)
 	_check_run_rules()
 	_check_left_behind(main)
@@ -64,6 +70,8 @@ func _run() -> void:
 	_check_address_parse()
 	_check_settings(main)
 	_check_tips()
+	_check_objective()
+	_expect(Main.danger_level(INF, 12.0) == 0.0 and Main.danger_level(0.0, 12.0) == 1.0 and is_equal_approx(Main.danger_level(6.0, 12.0), 0.5), "danger level curve")
 	await _check_voice(main)
 
 	print("PASS" if _fails == 0 else "FAIL %d" % _fails)
@@ -107,7 +115,7 @@ func _check_layouts(main: Node) -> void:
 	var want: Array = Tuning.data.loot_per_day
 	for day in [1, 2, 3]:
 		main.layout_day(day)
-		var live := _lying(main)
+		var live := _lying(main).filter(func(n: Node) -> bool: return n.kind != "key" and main.interior.cell_of(n.global_position) != main.interior.vault.get("room", Vector2i(-1, -1)))
 		_expect(live.size() == int(want[day - 1]), "day %d: %d pieces, expected %d" % [day, live.size(), want[day - 1]])
 		for i in live.size():
 			_expect(main.interior.contains(live[i].global_position), "day %d: %s is not inside the mansion" % [day, live[i].name])
@@ -121,6 +129,7 @@ func _check_layouts(main: Node) -> void:
 		_expect(main.interior.room_kinds[Vector2i.ZERO] == "hall", "entrance is not the hall")
 		_expect(kinds.filter(func(k: String) -> bool: return k != "hall").size() == kinds.size() - 1 and Array(kinds).duplicate().reduce(func(acc: Dictionary, k: String) -> Dictionary: acc[k] = true; return acc, {}).size() >= 4,
 			"day %d: rooms barely vary: %s" % [day, kinds])
+		_expect(not main.interior.merged.is_empty() or day == 1, "day %d: no rooms knocked into halls" % day)
 		_expect(main.interior.blocked.size() >= main.interior.room_kinds.size(), "day %d: only %d pieces of furniture for %d rooms" % [day, main.interior.blocked.size(), main.interior.room_kinds.size()])
 	var snap := func() -> Array:
 		return main.loot.get_children().map(func(n: Node) -> Array: return [n.in_play, n.global_position.snapped(Vector3.ONE * 0.01), n.value])
@@ -316,6 +325,7 @@ func _check_search(main: Node) -> void:
 	_expect(main.search(1, full), "search failed next to the wardrobe")
 	_expect(hidden.lying() and hidden.global_position.distance_to(p.global_position) < 1.5, "searched piece did not drop out in front")
 	_expect(not main.search(1, full), "searched the same thing twice")
+	_expect(I.containers[full].node.has_node("Opened"), "searched furniture still looks shut")
 	p.global_position = Vector3(0, 0, -30)
 	if empty >= 0:
 		_expect(not main.search(1, empty), "searched from across the map")
@@ -323,6 +333,178 @@ func _check_search(main: Node) -> void:
 	main.next_day()
 	_expect(main.opened.is_empty(), "containers still open on the new day")
 	p.free()
+
+
+## The objective line walks a new mover through the loop: house → find → carry out → truck.
+func _check_objective() -> void:
+	_expect(Main.objective(false, false, true, false)[1] == "front_door", "start: not pointed at the front door")
+	_expect(Main.objective(true, false, false, false)[1] == "" and Main.objective(true, false, false, false)[0].contains("스캔"), "inside: no search hint")
+	_expect(Main.objective(true, true, false, false)[1] == "exit", "carrying inside: not pointed at an exit")
+	_expect(Main.objective(false, true, false, false)[1] == "truck", "carrying outside: not pointed at the truck")
+	_expect(Main.objective(false, true, true, false)[0].contains("G"), "at the truck: no drop hint")
+	_expect(Main.objective(false, false, false, true)[1] == "", "dead: still pointing somewhere")
+
+
+## Shop gear: no shovel = no swing; with one, a monster in front is knocked senseless (one
+## behind is not); a flashbang stuns monsters around and scares the ghost, and is used up.
+func _check_weapons(main: Node) -> void:
+	_fresh(main)
+	var p := _mover(main, 1)
+	var c: Vector3 = main.interior.cell_center(Vector2i(1, 1))
+	p.global_position = c
+	p.rotation.y = 0.0  # facing -z
+	var boar: Node = main.monsters.filter(func(n: Node) -> bool: return n.kind == "boar")[0]
+	var statue: Node = main.monsters.filter(func(n: Node) -> bool: return n.kind == "statue")[0]
+	boar.wake(c + Vector3(0, 0, -1.5))
+	statue.wake(c + Vector3(0, 0, 2.0))
+	# monsters step round furniture instead of through it
+	main.interior.blocked.append(Rect2(boar.global_position.x - 0.5, boar.global_position.z - 0.5 - 1.2, 1.0, 1.0))
+	var step: Vector3 = boar._around_furniture(Vector3(0, 0, -0.1))
+	_expect(step.normalized().dot(Vector3(0, 0, -1)) < 0.9, "monster walked straight into furniture")
+	main.interior.blocked.pop_back()
+	# crowbar from the start: the boar in front takes a hit (4 health → 3), the statue behind doesn't
+	_expect(main.swing(1) == 1 and boar.stunned() and not statue.stunned() and boar.health == 3, "crowbar: boar %s hp %d, statue %s" % [boar.stunned(), boar.health, statue.stunned()])
+	_expect(main.swing(1) == -1, "swung again inside the cooldown")
+	main._swing_ready.clear()
+	main.run.owned.append("shovel")  # the spade hits twice as hard
+	_expect(main.swing(1) == 1 and boar.health == 1, "spade did not deal 2 (hp %d)" % boar.health)
+	main._swing_ready.clear()
+	var before := _lying(main).size()
+	main.swing(1)
+	_expect(not boar.active() and _lying(main).size() == before + 2, "dead boar: active %s, dropped %d" % [boar.active(), _lying(main).size() - before])
+	boar.wake(c + Vector3(0, 0, -1.5))
+	main._swing_ready.clear()
+	statue.global_position = c + Vector3(0, 0, -1.2)
+	main.swing(1)
+	_expect(statue.active() and statue.health == 0, "the stone mannequin died")
+	statue.global_position = c + Vector3(0, 0, 2.0)
+	statue.stun(0.0)
+	statue._stun_left = 0.0
+	_expect(not main.flashbang(1), "flashbang with none in stock")
+	main.run.flashes = 1
+	main.ghost.global_position = c + Vector3(3, 1.2, 0)
+	main.ghost.visible = true
+	_expect(main.flashbang(1) and statue.stunned() and main.run.flashes == 0, "flashbang did not stun the statue")
+	_expect(main.ghost._flinch > 0.0, "flashbang did not scare the ghost")
+	_expect(RunState.buy({phase = "shop", money = 500, owned = [], tapes = 0, flashes = 0, battery_bonus = 0.0, speed_bonus = 0.0}, "flashbang", Tuning.data.run), "could not buy a flashbang")
+	boar.park()
+	statue.park()
+	p.free()
+
+
+## Job sites: the cottage is smaller with less scrap, the hospital bigger with pricier scrap,
+## and it costs money (paid when the day starts; can't pick what you can't afford).
+func _check_sites(main: Node) -> void:
+	var cfg: Dictionary = Tuning.data.run
+	var sizes := {}
+	var counts := {}
+	for site in ["cottage", "mansion", "hospital"]:
+		_fresh(main)
+		main.run.site = site
+		main.layout_day(1)
+		sizes[site] = main.interior.maze.cols * main.interior.maze.rows
+		counts[site] = _lying(main).size()
+	_expect(sizes.cottage < sizes.mansion and sizes.mansion < sizes.hospital, "site sizes %s" % sizes)
+	_expect(counts.cottage < counts.mansion and counts.mansion < counts.hospital, "site scrap counts %s" % counts)
+	var r := RunState.new_run(cfg)
+	r.phase = "shop"
+	r.money = 50
+	_expect(not RunState.choose_site(r, "hospital", cfg), "picked the hospital without the money")
+	r.money = 200
+	_expect(RunState.choose_site(r, "hospital", cfg), "could not pick the hospital")
+	RunState.start_day(r, cfg)
+	_expect(r.money == 200 - int(cfg.sites.hospital.price) and r.site == "hospital", "hospital trip not paid: %d" % r.money)
+	main.run.site = "mansion"
+	_fresh(main)
+
+
+## Traps and the vault: a bear trap holds whoever steps in it (once); a creaky board calls the
+## patrolling ghost over; the vault door stays shut without the key and opens with it.
+func _check_traps_and_vault(main: Node) -> void:
+	var I: Node = main.interior
+	var bear := {}
+	var creak := {}
+	for seed in range(1, 40):  # find a layout with both kinds of trap and a vault
+		_fresh(main)
+		main.run.seed = seed
+		main.layout_day(2)
+		bear = {}
+		creak = {}
+		for i in I.traps.size():
+			if I.traps[i].kind == "bear" and bear.is_empty():
+				bear = {i = i, at = I.traps[i].at}
+			if I.traps[i].kind == "creak" and creak.is_empty():
+				creak = {i = i, at = I.traps[i].at}
+		if not bear.is_empty() and not creak.is_empty() and not I.vault.is_empty():
+			break
+	_expect(not bear.is_empty() and not creak.is_empty() and not I.vault.is_empty(), "no layout with traps and a vault")
+	var p := _mover(main, 1)
+	main.run.time_left -= Tuning.data.ghost.start_delay
+	p.global_position = bear.at
+	main._check_traps()
+	_expect(p.stunned and not p.dead, "bear trap did not hold the mover")
+	main.stun_until.clear()
+	p.stunned = false
+	main._check_traps()
+	_expect(not p.stunned, "a sprung bear trap caught again")
+	main.ghost.state = "patrol"
+	p.global_position = creak.at
+	main._check_traps()
+	_expect(main.ghost._goal.distance_to(creak.at + Vector3.UP * 1.2) < 0.01, "creak did not call the ghost")
+	var keys: Array = main.loot.get_children().filter(func(n: Node) -> bool: return n.kind == "key" and n.lying())
+	_expect(keys.size() == 1, "%d keys lying out (want 1)" % keys.size())
+	p.global_position = I.vault.at - Vector3(I.vault.dir.x, 0, I.vault.dir.y) * -0.8
+	_expect(not main.unlock_vault(1), "vault opened without the key")
+	keys[0].place(p.global_position)
+	_expect(main.pickup(1, keys[0].name), "could not pick up the key")
+	_expect(main.unlock_vault(1), "vault did not open with the key")
+	await _frames(main, 2)
+	_expect(not is_instance_valid(I.vault.node), "vault door still there")
+	var inside: Array = _lying(main).filter(func(n: Node) -> bool: return I.cell_of(n.global_position) == I.vault.room)
+	_expect(inside.size() >= 2, "vault holds %d pieces" % inside.size())
+	p.free()
+	_fresh(main)
+
+
+## Mimics: lie disguised among the scrap (and pass for scrap on the scan) until you come
+## close, then chase and bite: knocked down, the third bite kills. Three crowbar hits kill it.
+func _check_mimic(main: Node) -> void:
+	_fresh(main)
+	main.run.day = 2
+	main.layout_day(2)
+	var mimics: Array = main.monsters.filter(func(m: Node) -> bool: return m.kind == "mimic" and m.active())
+	_expect(mimics.size() == int(Tuning.data.monsters.mimic.per_day[1]), "%d mimics hidden on day 2" % mimics.size())
+	var mm: Node = mimics[0]
+	_expect(mm.state == "disguised", "mimic not disguised: %s" % mm.state)
+	var p := _mover(main, 1)
+	p.global_position = mm.global_position + Vector3(4, 0, 0)
+	await _frames(main, 3)
+	_expect(mm.state == "disguised", "mimic woke from 4 m away")
+	p.global_position = mm.global_position + Vector3(0.7, 0, 0)
+	for i in 120:
+		if p.stunned:
+			break
+		await physics_frame
+	_expect(mm.state == "chase" and p.stunned and not p.dead, "mimic: %s, mover stunned %s dead %s" % [mm.state, p.stunned, p.dead])
+	_expect(is_equal_approx(main.health.get(1, 100.0), 100.0 - Tuning.data.damage.mimic), "bite took %s" % main.health.get(1))
+	for k in 3:
+		main.bite(1)
+	_expect(p.dead, "four bites did not kill")
+	main.health.clear()
+	main.dead.clear()
+	main.stun_until.clear()
+	main.run.phase = "day"  # the lone mover's death ended the day; carry on for the fight
+	p.dead = false
+	p.stunned = false
+	p.global_position = mm.global_position + Vector3(0, 0, 1.0)
+	p.look_at(mm.global_position * Vector3(1, 0, 1) + Vector3(0, p.global_position.y, 0) + Vector3(0.001, 0, 0))
+	var swung := []
+	for k in 3:
+		main._swing_ready.clear()
+		swung.append(main.swing(1))
+	_expect(not mm.active(), "mimic survived three crowbar hits (hp %d, swings %s, dist %.2f)" % [mm.health, swung, p.global_position.distance_to(mm.global_position)])
+	p.free()
+	_fresh(main)
 
 
 ## A stunned mover can't pick up; a new day clears the stun.
@@ -412,7 +594,9 @@ func _check_battery_and_blackout(main: Node) -> void:
 	_expect(not me.flash_on and not me.flashlight.visible, "F: flash_on %s, light %s" % [me.flash_on, me.flashlight.visible])
 	me._unhandled_input(f)
 	await _frames(main, 2)
-	_expect(me.flash_on and me.flashlight.visible, "F again did not turn it back on")
+	await process_frame  # visibility follows flash_on in _process, which may trail physics
+	await process_frame
+	_expect(me.flash_on and me.flashlight.visible, "F again did not turn it back on (stunned %s, battery %.2f, dead %s)" % [me.stunned, me.battery, me.dead])
 	me.free()
 	var lights: Array = main.interior.lights
 	var bulb: OmniLight3D = lights.filter(func(l: OmniLight3D) -> bool: return not l.get_meta("emergency"))[0]
@@ -491,10 +675,11 @@ func _check_monsters(main: Node) -> void:
 	_expect(statue.global_position.distance_to(room + Vector3(1.5, 0, 0)) < 0.05, "statue moved while watched")
 	p.rotation.y = PI / 2   # turn away
 	for i in 120:
-		if main.dead.has(1):
+		if main.health.get(1, 100.0) < 100.0:
 			break
 		await physics_frame
-	_expect(main.dead.has(1), "statue never got the mover who looked away")
+	var dmg: Dictionary = Tuning.data.damage
+	_expect(is_equal_approx(main.health.get(1, 100.0), 100.0 - dmg.statue) and not main.dead.has(1), "statue hit: health %s" % main.health.get(1))
 
 	fresh.call()
 	var dust: Node = by_kind.call("dust")
@@ -505,7 +690,13 @@ func _check_monsters(main: Node) -> void:
 	_expect(main.free_player(1) and not p.blinded and not dust.active(), "teammate could not pull it off")
 	dust.wake(room)
 	await _frames(main, 5)
-	dust._t = Tuning.data.monsters.dust.latch_kill
+	main._swing_ready.clear()
+	main.swing(1)  # bash it off your own head
+	_expect(not p.blinded and not dust.active(), "could not knock the dust ghost off with R")
+	dust.wake(room)
+	await _frames(main, 5)
+	main.health[1] = dmg.dust_per_second  # one more chew and they're done
+	dust._t = 1.0
 	await _frames(main, 3)
 	_expect(main.dead.has(1) and not p.blinded, "nobody freed the mover and they lived")
 
@@ -516,10 +707,15 @@ func _check_monsters(main: Node) -> void:
 	var charged := false
 	for i in 180:
 		charged = charged or boar.state == "charge"
-		if main.dead.has(1):
+		if main.health.get(1, 100.0) < 100.0:
 			break
 		await physics_frame
-	_expect(charged and main.dead.has(1), "boar did not charge down the mover (state %s)" % boar.state)
+	for i in 180:
+		if main.health.get(1, 100.0) < 100.0:
+			break
+		await physics_frame
+	_expect(charged and is_equal_approx(main.health.get(1, 100.0), 100.0 - dmg.boar) and not main.dead.has(1),
+		"boar charge: state %s, health %s" % [boar.state, main.health.get(1)])
 
 	fresh.call()
 	boar.wake(room)
@@ -541,7 +737,7 @@ func _check_monsters(main: Node) -> void:
 	await _frames(main, 3)
 	var plan: Array = Tuning.data.monsters.schedule[2]
 	var due: int = plan.filter(func(e: Array) -> bool: return float(e[0]) <= 200.0).size()
-	var awake: int = main.monsters.filter(func(m: Node) -> bool: return m.active()).size()
+	var awake: int = main.monsters.filter(func(m: Node) -> bool: return m.active() and m.kind != "mimic").size()  # mimics are laid out, not scheduled
 	_expect(awake == due, "day 3 at 200 s should have %d monsters out, has %d" % [due, awake])
 	for m in main.monsters:
 		if m.active():
@@ -579,7 +775,11 @@ func _check_scan(main: Node) -> void:
 	main._scan_ready_at = 0
 	main.scan()
 	hit = main._scan_hits.map(func(h: Dictionary) -> Node: return h.node)
-	_expect(hit.has(pieces[0]) and main._scan_total.text.contains(str(pieces[0].value)), "scan of the piece ahead: %s" % main._scan_total.text)
+	var total := 0
+	for h: Dictionary in main._scan_hits:
+		total += int(h.node.value) if h.node is Loot else 0
+	# other pieces may be in view too (open halls): the one ahead must be listed and counted
+	_expect(hit.has(pieces[0]) and main._scan_total.text.contains(str(total)) and total >= pieces[0].value, "scan of the piece ahead: %s" % main._scan_total.text)
 	p.free()
 
 
@@ -594,7 +794,8 @@ func _check_next_day_and_tape(main: Node) -> void:
 	main.next_day()
 	_expect(main.run.phase == "day" and main.loot.get_children().all(func(n: Node) -> bool: return n.holder == 0)
 		and not p.slots.any(func(n: String) -> bool: return n != ""), "next day kept carried scrap")
-	_expect(_lying(main).size() == int(Tuning.data.loot_per_day[main.run.day - 1]), "new day scrap count")
+	var floor_pieces := _lying(main).filter(func(n: Node) -> bool: return n.kind != "key" and main.interior.cell_of(n.global_position) != main.interior.vault.get("room", Vector2i(-1, -1)))
+	_expect(floor_pieces.size() == int(Tuning.data.loot_per_day[main.run.day - 1]), "new day scrap count %d" % floor_pieces.size())
 	_expect(main.ghost.visible, "ghost invisible after reset")
 	var g0: Vector3 = main.ghost.global_position
 	await _frames(main, 60)
@@ -627,7 +828,9 @@ func _check_animation(main: Node) -> void:
 	_expect(p.carrying and hand.global_position.z < p.global_position.z - 0.3,
 		"carrying: hand should be out in front (-z), hand z %.2f vs body %.2f" % [hand.global_position.z, p.global_position.z])
 	await _frames(main, 2)
-	_expect(p._hand != null and p._hand.get_parent() == p.cam, "the piece in hand is not shown in first person")
+	await process_frame  # the hand model is updated in _process, which can trail physics frames
+	await process_frame
+	_expect(p._hand != null and p._hand.get_parent() == p.cam, "the piece in hand is not shown in first person (item '%s', slots %s, hand %s, phase %s)" % [p.active_item(), p.slots, p._hand, main.run.phase])
 	p.free()
 
 

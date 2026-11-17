@@ -17,6 +17,9 @@ var ray := RayCast3D.new()
 var body: Node3D
 var flashlight := SpotLight3D.new()
 var _steps := AudioStreamPlayer3D.new()
+const SWING_TIME := 0.28
+var _swing_t := 0.0
+var _weapon: Node3D
 ## This player's voice, heard where they stand (remote copies only).
 var _speaker := AudioStreamPlayer3D.new()
 var _gen := AudioStreamGenerator.new()
@@ -98,7 +101,7 @@ func _init() -> void:
 	_talk_icon.position.y = 2.15
 	_talk_icon.visible = false
 	add_child(_talk_icon)
-	_steps.stream = Sfx.cached("step")
+	_steps.stream = Sfx.footsteps(false)
 	_steps.unit_size = 4.0
 	_steps.max_polyphony = 2
 	add_child(_steps)
@@ -225,7 +228,7 @@ func _process(delta: float) -> void:
 		_walked += moved.length()
 		if _walked >= STEP_LENGTH:
 			_walked = 0.0
-			_steps.pitch_scale = randf_range(0.85, 1.15)
+			_steps.stream = Sfx.footsteps(global_position.y < -20.0)  # the mansion inside sits far below the yard
 			_steps.play()
 	if is_multiplayer_authority():
 		cam.position.y = sin(_walked / STEP_LENGTH * PI) * 0.035  # head bob, one dip per step
@@ -240,6 +243,8 @@ func _process(delta: float) -> void:
 		_main().set_aim(null if stunned or dead else ray.get_collider())
 	if is_inside_tree():
 		_update_hand()
+		if is_multiplayer_authority():
+			_update_weapon(delta)
 	if body:
 		body.rotation.x = PI / 2 if stunned else 0.0  # knocked flat on the back
 		(body.get_node("HeadVis") as Node3D).rotation.x = head.rotation.x * 0.6
@@ -274,6 +279,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_main().flash_note("손전등 켬" if flash_on else ("배터리 없음 — 트럭에서 충전" if battery <= 0.0 else "손전등 끔"))
 	elif event.is_action_pressed("use_tape"):
 		_main().request_tape()
+	elif event.is_action_pressed("swing"):
+		_main().request_swing()
+		_swing_t = SWING_TIME
+	elif event.is_action_pressed("flashbang"):
+		_main().request_flashbang()
 	elif event.is_action_pressed("radio"):
 		set_radio(not on_radio)
 	elif event.is_action_pressed("lure") and on_radio:
@@ -324,7 +334,8 @@ func set_radio(on: bool) -> void:
 ## Remote copy: play this player's voice flat and unlimited when either side is on the radio.
 func _apply_radio_voice() -> void:
 	var me: Node = _main().players.get_node_or_null(str(multiplayer.get_unique_id()))
-	var radio: bool = on_radio or (me != null and me.on_radio)
+	var walkie: bool = "walkie" in _main().run.get("owned", [])  # the team bought walkie-talkies
+	var radio: bool = on_radio or (me != null and me.on_radio) or walkie
 	_speaker.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED if radio else AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 	_speaker.max_distance = 0.0 if radio else 25.0  # 0 = no limit
 	_speaker.panning_strength = 0.0 if radio else 1.0
@@ -405,6 +416,8 @@ func interact() -> void:
 		use_door(hit.get_meta("door"))
 	elif hit.has_meta("container"):
 		m.request_search(hit.get_meta("container"))
+	elif hit.has_meta("vault"):
+		m.request_unlock()
 	elif hit is CharacterBody3D and hit.get("blinded"):
 		m.request_free(hit.name.to_int())  # pull the dust ghost off a teammate's head
 	elif hit is Loot:
@@ -459,6 +472,25 @@ func clear_slots() -> void:
 
 ## Everyone: show the active item's model in hand (first person for the owner, at the
 ## chest for everyone else). Rebuilt only when the item in hand changes.
+## Owner view: the weapon (crowbar, or the rusty spade once the team owns one) sweeps across
+## the screen for a moment when you press R.
+func _update_weapon(delta: float) -> void:
+	_swing_t = maxf(0.0, _swing_t - delta)
+	var spade: bool = "shovel" in _main().run.get("owned", [])
+	var want := "rusted_spade_01" if spade else "crowbar_01"
+	if _weapon == null or _weapon.name != want:
+		if _weapon:
+			_weapon.queue_free()
+		_weapon = (load("res://assets/models/polyhaven/%s/%s.gltf" % [want, want]) as PackedScene).instantiate()
+		_weapon.name = want
+		_weapon.scale = Vector3.ONE * (0.7 if spade else 1.1)
+		cam.add_child(_weapon)
+	_weapon.visible = _swing_t > 0.0
+	var k := 1.0 - _swing_t / SWING_TIME  # 0 → 1 over the swing
+	_weapon.position = Vector3(lerpf(0.55, -0.15, k), lerpf(-0.05, -0.45, k), -0.6)
+	_weapon.rotation = Vector3(lerpf(0.3, -1.4, k), 0.4, lerpf(0.9, -0.2, k))
+
+
 func _update_hand() -> void:
 	var n := active_item() if not dead else ""
 	if n == _hand_item:
