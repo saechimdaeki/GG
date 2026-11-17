@@ -201,14 +201,18 @@ func _check_depart(main: Node) -> void:
 	var inside := _mover(main, 400)
 	var bed: Vector3 = main.truck.bed.get_center() * Vector3(1, 0, 1)
 	var pieces := _lying(main)
-	pieces[0].place(bed)
-	aboard.global_position = bed
-	pieces[1].place(bed + Vector3(0.6, 0, 0))
+	# keep the piece clear of the mover: a body dropped on top of it can shove it off the bed
+	# (physics depenetration differs between machines — this failed only on the Linux CI)
+	pieces[0].place(bed + Vector3(1.0, 0, 1.0))
+	aboard.global_position = bed - Vector3(0.8, 0, 0.8)
+	pieces[1].place(aboard.global_position + Vector3(0.6, 0, 0))
 	main.pickup(1, pieces[1].name)
 	inside.global_position = main.interior.cell_center(Vector2i(1, 1))
 	pieces[2].place(inside.global_position)
 	main.pickup(400, pieces[2].name)
 	await _frames(main, 20)
+	_expect(main.truck.bed.has_point(pieces[0].global_position) and main.at_truck(aboard.global_position),
+		"setup: piece %s / mover %s not on the bed %s" % [pieces[0].global_position, aboard.global_position, main.truck.bed])
 	var want: int = pieces[0].value + pieces[1].value
 	_expect(main.truck_value() == want, "truck value %d, expected %d" % [main.truck_value(), want])
 	var r: Dictionary = main._depart()
