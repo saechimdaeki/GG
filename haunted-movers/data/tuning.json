@@ -247,7 +247,8 @@
         "tapes": 1,
         "stack": true
       }
-    }
+    },
+    "blackout_after": 120.0
   },
   "spawns": [
     [
@@ -367,5 +368,10 @@
       "bookshelf",
       "bed"
     ]
-  ]
+  ],
+  "flashlight": {
+    "battery_seconds": 150.0,
+    "recharge_seconds": 12.0,
+    "dim_below": 0.25
+  }
 }

@@ -30,6 +30,9 @@ var _walked := 0.0
 var _last_pos := Vector3.ZERO
 ## Flashlight on/off, owned by this player, synced so others see the beam.
 var flash_on := true
+## Flashlight charge 0..1, owner only (others just see flash_on). Full again each morning.
+var battery := 1.0
+const FLASH_ENERGY := 3.0
 var held: RigidBody3D
 var held_local := Vector3.ZERO
 var hold_dist := 2.0
@@ -61,7 +64,7 @@ func _init() -> void:
 	flashlight.spot_range = 14.0
 	flashlight.spot_angle = 24.0
 	flashlight.spot_attenuation = 0.8
-	flashlight.light_energy = 3.0
+	flashlight.light_energy = FLASH_ENERGY
 	flashlight.light_color = Color("#fff2d6")
 	flashlight.shadow_enabled = true
 	flashlight.light_volumetric_fog_energy = 4.0  # visible beam in the dusty air
@@ -180,6 +183,8 @@ func recover() -> void:
 	stunned = false
 	_stun_left = 0.0
 	dead = false
+	battery = 1.0
+	flash_on = true
 	held = null
 	carrying = false
 	cam.current = is_multiplayer_authority()
@@ -239,7 +244,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			_release()
 	elif event.is_action_pressed("flashlight"):
-		flash_on = not flash_on
+		flash_on = not flash_on and battery > 0.0
 	elif event.is_action_pressed("use_tape"):
 		_main().request_tape()
 	elif event.is_action_pressed("ui_cancel"):
@@ -254,6 +259,8 @@ func _physics_process(delta: float) -> void:
 	_age += delta
 	if _demo:
 		_demo_step()
+	if is_inside_tree() and _main().run.phase == "day":
+		update_battery(delta, _main().at_truck(global_position))
 
 	if stunned:
 		_stun_left -= delta
@@ -279,6 +286,19 @@ func _physics_process(delta: float) -> void:
 	if held:
 		var target := cam.global_position - cam.global_basis.z * hold_dist
 		_main().send_grab(held.name, held_local, target)
+
+
+## Owner: a lit flashlight drains the battery; standing at the truck recharges it. Empty =
+## the light goes out and won't turn on. The beam dims over the last `dim_below` of charge.
+func update_battery(delta: float, at_truck: bool) -> void:
+	var c: Dictionary = Tuning.data.flashlight
+	if at_truck:
+		battery = minf(1.0, battery + delta / c.recharge_seconds)
+	elif flash_on:
+		battery = maxf(0.0, battery - delta / c.battery_seconds)
+	if battery <= 0.0:
+		flash_on = false
+	flashlight.light_energy = FLASH_ENERGY * clampf(battery / c.dim_below, 0.15, 1.0)
 
 
 ## Walk speed multiplier: heavy things slow you down, sharing the load helps.

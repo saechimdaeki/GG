@@ -9,6 +9,7 @@ extends SceneTree
 ## something, kills them (dead for the day), makes them let go, and fails the day.
 ## Story 005: run rules (endless growing quota over 3-day cycles, haul lost on a wipe,
 ## fired on a miss, shop), next day resets the house, a tape exorcises a nearby ghost.
+## Battery: lit flashlight drains, empty stays off, truck recharges; bulbs die at the blackout.
 ## Truck: departing kills whoever is not at the truck, fines each death; nobody aboard wipes.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
 ## Layouts: each day has its own piece count; nothing spawns overlapping; a run's seed replays
@@ -80,6 +81,7 @@ func _run() -> void:
 	_check_stun_reset(main)
 	_check_run_rules()
 	_check_left_behind(main)
+	await _check_battery_and_blackout(main)
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
 	await _check_footsteps(main)
@@ -258,6 +260,37 @@ func _check_left_behind(main: Node) -> void:
 	main._reset_house()
 	aboard.free()
 	inside.free()
+
+
+## The flashlight drains while lit, dies empty and won't relight; the truck recharges it.
+## Halfway into the day the house bulbs go out.
+func _check_battery_and_blackout(main: Node) -> void:
+	var c: Dictionary = Tuning.data.flashlight
+	var p: CharacterBody3D = Player.new()
+	p.name = "500"
+	p.set_multiplayer_authority(500)
+	main.players.add_child(p)
+	p.update_battery(c.battery_seconds / 2.0, false)
+	_expect(is_equal_approx(p.battery, 0.5) and p.flash_on, "half drain %.2f" % p.battery)
+	p.flash_on = false
+	p.update_battery(100.0, false)
+	_expect(is_equal_approx(p.battery, 0.5), "light off still drained %.2f" % p.battery)
+	p.flash_on = true
+	p.update_battery(c.battery_seconds, false)
+	_expect(p.battery == 0.0 and not p.flash_on, "empty battery kept the light on")
+	p.update_battery(c.recharge_seconds, true)
+	_expect(p.battery == 1.0, "truck did not recharge %.2f" % p.battery)
+	p.free()
+	var house: Node = main.get_node("House")
+	var cfg: Dictionary = Tuning.data.run
+	main.run.phase = "day"
+	main.run.time_left = cfg.day_seconds - cfg.blackout_after + 5.0
+	await process_frame
+	_expect(house._bulbs[0].visible, "bulbs off before the blackout")
+	main.run.time_left = cfg.day_seconds - cfg.blackout_after - 1.0
+	await process_frame
+	_expect(not house._bulbs[0].visible, "no blackout after %.0f s" % cfg.blackout_after)
+	main.run.time_left = cfg.day_seconds
 
 
 ## next_day from the shop puts the furniture back; a tape near the ghost hides it.

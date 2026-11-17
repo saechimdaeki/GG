@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N | --elapsed=s
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -146,6 +146,10 @@ func _ready() -> void:
 		if a.begins_with("--day=") and multiplayer.is_server():  # test tooling: start on day N
 			run.day = clampi(a.trim_prefix("--day=").to_int(), 1, Tuning.data.days.size())
 			layout_day(run.day)
+			_push_run()
+	for a in args:
+		if a.begins_with("--elapsed=") and multiplayer.is_server():  # test tooling: skip into the day
+			run.time_left -= a.trim_prefix("--elapsed=").to_float()
 			_push_run()
 	if "--settings" in args:
 		open_settings()
@@ -397,7 +401,8 @@ func _process(_delta: float) -> void:
 		and not _shooting
 	_refresh_lan()
 	if me:
-		_mic_label.text = "마이크 꺼짐 (V)" if voice.muted else ("● 말하는 중" if me.talk_t > 0.0 else "마이크 켜짐 (V)")
+		_mic_label.text = ("마이크 꺼짐 (V)" if voice.muted else ("● 말하는 중" if me.talk_t > 0.0 else "마이크 켜짐 (V)")) \
+			+ "\n손전등 배터리 %d%%%s" % [roundi(me.battery * 100), " — 트럭에서 충전" if me.battery < 0.25 else ""]
 		_mic_label.modulate = Color(1, 0.45, 0.4) if voice.muted else (Color(0.6, 1, 0.6) if me.talk_t > 0.0 else Color(1, 1, 1, 0.7))
 	else:
 		_mic_label.text = ""
@@ -495,6 +500,10 @@ func _physics_process(delta: float) -> void:
 		var warn: float = t.run.depart_warning
 		var before: float = run.time_left
 		run.time_left -= delta
+		var dark_at: float = t.run.day_seconds - t.run.blackout_after
+		if before > dark_at and run.time_left <= dark_at:
+			announce("정전! 이제 손전등뿐입니다 — 배터리는 트럭에서 충전")
+			broadcast_sfx("thud")
 		if before > warn and run.time_left <= warn:
 			announce("트럭이 %d초 뒤에 떠납니다! 못 탄 사람은 죽어요 — 트럭으로!" % int(warn))
 			broadcast_sfx("horn")
@@ -541,17 +550,21 @@ func _rpc_depart() -> void:
 		_depart()
 
 
+## True if a mover standing at `feet` counts as aboard the truck (rides along, recharges).
+func at_truck(feet: Vector3) -> bool:
+	return truck.bed.grow(Tuning.data.run.aboard_margin).has_point(feet + Vector3.UP * 0.5)
+
+
 ## Host: the truck leaves (button or clock). Anyone not at the truck is left behind and
 ## dies; each dead mover costs a fine. Nobody aboard = the haul is lost. Only during a day.
 func _depart() -> Dictionary:
 	if run.phase != "day":
 		return {}
 	var cfg: Dictionary = Tuning.data.run
-	var zone := truck.bed.grow(cfg.aboard_margin)
 	var left_behind := 0
 	for p in players.get_children():
 		var id: int = p.name.to_int()
-		if not dead.has(id) and not zone.has_point(p.global_position + Vector3.UP * 0.5):
+		if not dead.has(id) and not at_truck(p.global_position):
 			_knock(id, INF)
 			left_behind += 1
 	var r := truck.evaluate(furniture.get_children().filter(func(f: Node) -> bool: return f.in_play))

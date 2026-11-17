@@ -35,12 +35,12 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-17
 **Branch:** `feat/haunted-movers-layouts`
-**Current task:** 유령집 이삿짐센터에 리썰 컴퍼니 규칙 적용 — 사망+관전, 트럭 자동 출발(못 탄 사람 사망·벌금), 전원 사망 시 할당량 기간 수익 손실, 3일 마감 끝없는 할당량(×1.5, 미달=해고).
-**Next step:** 2명 이상 실제 플레이로 관전 카메라 확인. 이후 후보: 트럭에 남는 사람 역할(지도·문·무전), 어두운 실내·배터리·무게 감속.
+**Current task:** 유령집 이삿짐센터 리썰식 규칙 2차 — 관전 2인 통합 테스트, 정전(2분 후 전구 꺼짐), 손전등 배터리(트럭 충전).
+**Next step:** 남은 리썰 요소: 트럭에 남는 사람 역할(지도·문·무전). 사람 2~4명 플레이테스트, PR #8~#13 정리.
 **Blocked on:** 없음
-**Files in progress:** haunted-movers/src/{main,player,ghost,run_state}.gd, data/tuning.json, tests/smoke/run_check.gd, tests/integration/connection_check.gd, README, design/game-brief.md + 11-09 작업분 (모두 미커밋)
-**Run result:** smoke PASS, network integration PASS, 실제 실행 스크린샷 2장(production/qa/evidence/lethal-*-2026-11-17.png). 관전 카메라는 실제 2인 플레이 미검증.
-**Open questions:** 없음. "러셀컴퍼니" = Lethal Company (메모리 저장).
+**Files in progress:** 없음 (커밋 완료 예정)
+**Run result:** smoke PASS, network integration PASS(관전 포함, 관전 끄면 FAIL 확인), 정전 전/후 스크린샷 확인.
+**Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
 <!-- /CHECKPOINT -->
 
 ---

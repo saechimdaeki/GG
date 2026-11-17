@@ -28,7 +28,11 @@ func _run() -> void:
 		main._end_day(250)
 		await create_timer(0.2).timeout
 		main.next_day()
-		await create_timer(4.0).timeout
+		await create_timer(2.5).timeout
+		for id in main.multiplayer.get_peers():
+			main.kill_player(id)  # the ghost got the client: it should spectate us
+		_expect(main.run.phase == "day", "one death out of two ended the day")
+		await create_timer(2.5).timeout
 	elif "--client" in args:
 		main.join("127.0.0.1:17837")
 		for frame in 150:
@@ -54,6 +58,16 @@ func _run() -> void:
 			"client did not connect")
 		_expect(main.players.get_child_count() == 2, "client did not receive both players")
 		_expect(main.furniture.get_node("chair").freeze, "client simulates host furniture")
+		if local_player != null:
+			for frame in 200:
+				if local_player.dead:
+					break
+				await create_timer(0.02).timeout
+			await process_frame
+			var host_player: Node = main.players.get_node_or_null("1")
+			_expect(local_player.dead and local_player.stunned, "client was not killed")
+			_expect(host_player != null and host_player.cam.current and not local_player.cam.current,
+				"dead client is not spectating the host")
 	else:
 		main.connect_timeout_seconds = 0.15
 		main.join("127.0.0.1:17838")

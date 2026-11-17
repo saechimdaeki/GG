@@ -5,6 +5,7 @@ extends Node3D
 ## wainscot, siding, planks, grass) plus mesh-only trim: windows, door frames, trees.
 
 const Models = preload("res://src/models.gd")
+const Tuning = preload("res://src/tuning.gd")
 
 var wall := Models.surface(1, Color("#8c6f62"), Color("#4a3328"))
 var floor_wood := Models.surface(0, Color("#6e4a32"), Color.BLACK)
@@ -14,9 +15,15 @@ var roof := Models.matte(Color("#2b2228"))
 var trim := Models.grain(Color("#3a2618"))
 const BULB_ENERGY := 0.55
 var _bulbs: Array[OmniLight3D] = []
+## One glowing material for every bulb mesh, so the blackout can dim them all at once.
+var _bulb_mat := StandardMaterial3D.new()
 
 
 func _ready() -> void:
+	_bulb_mat.albedo_color = Color("#3a332a")
+	_bulb_mat.emission_enabled = true
+	_bulb_mat.emission = Color("#ffd9a0")
+	_bulb_mat.emission_energy_multiplier = 3.0
 	_box(Vector3(60, 0.2, 60), Vector3(0, -0.1, 0), grass)                  # yard
 	_box(Vector3(11.8, 0.02, 9.8), Vector3(0, 0.01, 5), floor_wood)          # wooden floor inside
 
@@ -72,11 +79,7 @@ func _ready() -> void:
 		add_child(lamp)
 		_bulbs.append(lamp)
 		# a bare bulb on a cord, so the light has a source
-		var bulb := StandardMaterial3D.new()
-		bulb.emission_enabled = true
-		bulb.emission = Color("#ffd9a0")
-		bulb.emission_energy_multiplier = 3.0
-		var b := Models.cylinder(self, 0.06, 0.06, 0.12, p + Vector3(0, 0.15, 0), bulb)
+		var b := Models.cylinder(self, 0.06, 0.06, 0.12, p + Vector3(0, 0.15, 0), _bulb_mat)
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var cord := Models.cylinder(self, 0.01, 0.01, 0.3, p + Vector3(0, 0.36, 0), roof)
 		cord.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -84,9 +87,16 @@ func _ready() -> void:
 
 ## Old wiring: bulbs hum, and now and then one browns out for a moment.
 ## Local only (each machine flickers on its own clock) — cosmetic, so not synced.
+## Blackout: `blackout_after` seconds into the day the power dies and only flashlights are left.
+## Every peer derives it from the synced clock, so no RPC.
 func _process(_delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
+	var run: Dictionary = get_parent().run if get_parent() and "run" in get_parent() else {}
+	var cfg: Dictionary = Tuning.data.run
+	var dark: bool = run.get("phase", "") == "day" and cfg.day_seconds - run.time_left >= cfg.blackout_after
+	_bulb_mat.emission_enabled = not dark
 	for i in _bulbs.size():
+		_bulbs[i].visible = not dark
 		var hum := 0.9 + 0.1 * sin(t * 13.0 + i) * sin(t * 7.3 + i * 2.0)
 		var out := 0.15 if sin(t * 0.7 + i * 1.9) > 0.97 else 1.0
 		_bulbs[i].light_energy = BULB_ENERGY * hum * out
