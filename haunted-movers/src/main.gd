@@ -5,13 +5,14 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N | --elapsed=s
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N | --elapsed=s | --radio
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
 const Furniture = preload("res://src/furniture.gd")
 const Truck = preload("res://src/truck.gd")
 const House = preload("res://src/house.gd")
+const RadioMap = preload("res://src/radio_map.gd")
 const Ghost = preload("res://src/ghost.gd")
 const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
@@ -73,6 +74,10 @@ var _tip := Label.new()
 var _grabbed_once := false
 var voice := Voice.new()
 var _mic_label := Label.new()
+## Truck radio map, shown while our player is on the radio.
+var radio_map := RadioMap.new()
+## Host: msec time the horn can lure the ghost again.
+var _lure_ready_at := 0
 
 
 func _ready() -> void:
@@ -155,6 +160,8 @@ func _ready() -> void:
 		open_settings()
 	if "--demo-load" in args:
 		_demo_load()
+	if "--radio" in args:
+		_demo_radio()
 	# Screenshot args survive a reload (they're test tooling), and the delay counts from app start.
 	var all_args := OS.get_cmdline_user_args()
 	var delay := 4.0
@@ -400,6 +407,7 @@ func _process(_delta: float) -> void:
 		and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and DisplayServer.get_name() != "headless" \
 		and not _shooting
 	_refresh_lan()
+	radio_map.visible = me != null and me.on_radio
 	if me:
 		_mic_label.text = ("마이크 꺼짐 (V)" if voice.muted else ("● 말하는 중" if me.talk_t > 0.0 else "마이크 켜짐 (V)")) \
 			+ "\n손전등 배터리 %d%%%s" % [roundi(me.battery * 100), " — 트럭에서 충전" if me.battery < 0.25 else ""]
@@ -713,6 +721,7 @@ func _reset_house() -> void:
 	grabs.clear()
 	stun_until.clear()
 	dead.clear()
+	_lure_ready_at = 0
 	layout_day(run.day)
 	var gs: Array = Tuning.data.ghost.start
 	ghost.global_position = Vector3(gs[0], gs[1], gs[2])
@@ -735,6 +744,46 @@ func _respawn_local() -> void:
 		me.global_position = Vector3(-2.5 if left else 2.5, 0, 3.0)
 		me.velocity = Vector3.ZERO
 		me.recover()
+
+
+## Truck radio: the local operator pressed H — sound the horn to pull the ghost to the truck.
+func request_lure() -> void:
+	if multiplayer.is_server():
+		lure(multiplayer.get_unique_id())
+	else:
+		_rpc_lure.rpc_id(1)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_lure() -> void:
+	if multiplayer.is_server():
+		lure(multiplayer.get_remote_sender_id())
+
+
+## Host: peer `id` (on the radio at the truck) lures the ghost to the truck, if the horn
+## has cooled down. True if it worked.
+func lure(id: int) -> bool:
+	var c: Dictionary = Tuning.data.radio
+	var p := players.get_node_or_null(str(id))
+	if run.phase != "day" or p == null or not p.on_radio or Time.get_ticks_msec() < _lure_ready_at:
+		return false
+	_lure_ready_at = Time.get_ticks_msec() + int(c.lure_cooldown * 1000)
+	ghost.lure(truck.bed.get_center() * Vector3(1, 0, 1) + Vector3.UP, c.lure_seconds)
+	broadcast_sfx("horn")
+	announce("빵빵! 유령이 트럭 쪽으로 끌려옵니다 — 트럭에 있는 사람 조심!")
+	_set_lure_cooldown(c.lure_cooldown)
+	if not multiplayer.get_peers().is_empty():
+		_rpc_lure_cooldown.rpc(c.lure_cooldown)
+	return true
+
+
+@rpc("authority", "reliable")
+func _rpc_lure_cooldown(sec: float) -> void:
+	_set_lure_cooldown(sec)
+
+
+func _set_lure_cooldown(sec: float) -> void:
+	radio_map.lure_ready_in = sec
 
 
 ## Exorcism tape: the local player pressed E.
@@ -893,7 +942,7 @@ func _build_hud() -> void:
 	_aim.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_aim.add_theme_font_size_override("font_size", 15)
 	layer.add_child(_aim)
-	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · V: 마이크 · WASD 이동 · Space 점프 · Esc 마우스 풀기"
+	_hint.text = "클릭: 잡기(누르고 있기) / 빨간 버튼: 출발 · E: 퇴마 테이프 · F: 손전등 · V: 마이크 · Tab: 트럭 무전(트럭에서) · WASD 이동 · Space 점프 · Esc 마우스 풀기"
 	_tip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	_tip.offset_top = -136
 	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -920,6 +969,11 @@ func _build_hud() -> void:
 	_mic_label.offset_top = 10
 	_mic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	layer.add_child(_mic_label)
+	radio_map.main = self
+	radio_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	radio_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	radio_map.visible = false
+	layer.add_child(radio_map)
 	_addr.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	_addr.offset_left = 16
 	_addr.offset_right = 520
@@ -1176,6 +1230,15 @@ func _place_cam(v: PackedFloat64Array) -> void:
 		me.head.rotation.x = deg_to_rad(v[4])
 
 
+## --radio: stand at the truck and open the radio map (for screenshots).
+func _demo_radio() -> void:
+	await get_tree().create_timer(1.0).timeout
+	var me := players.get_node_or_null(str(multiplayer.get_unique_id()))
+	if me:
+		me.global_position = truck.bed.get_center() * Vector3(1, 0, 1)
+		me.set_radio(true)
+
+
 ## --demo-load: put three pieces on the truck, face it, and depart (for screenshots).
 func _demo_load() -> void:
 	await get_tree().create_timer(1.0).timeout
@@ -1197,7 +1260,7 @@ func _demo_load() -> void:
 
 
 func _setup_input() -> void:
-	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11, flashlight = KEY_F, voice_mute = KEY_V}
+	var keys := {move_forward = KEY_W, move_back = KEY_S, move_left = KEY_A, move_right = KEY_D, jump = KEY_SPACE, use_tape = KEY_E, fullscreen = KEY_F11, flashlight = KEY_F, voice_mute = KEY_V, radio = KEY_TAB, lure = KEY_H}
 	for action in keys:
 		if InputMap.has_action(action):
 			continue

@@ -35,11 +35,11 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-17
 **Branch:** `feat/haunted-movers-layouts`
-**Current task:** 유령집 이삿짐센터 리썰식 규칙 2차 — 관전 2인 통합 테스트, 정전(2분 후 전구 꺼짐), 손전등 배터리(트럭 충전).
-**Next step:** 남은 리썰 요소: 트럭에 남는 사람 역할(지도·문·무전). 사람 2~4명 플레이테스트, PR #8~#13 정리.
+**Current task:** 유령집 이삿짐센터 리썰식 규칙 3차 — 트럭 무전(Tab 지도, 거리 무시 무전 음성, H 경적 유령 유인) 완료.
+**Next step:** 리썰 핵심 규칙 목록 다 구현됨. 사람 2~4명 실제 플레이테스트(무전 음성은 실제 마이크로 미검증). PR #8~#13 정리·푸시.
 **Blocked on:** 없음
-**Files in progress:** 없음 (커밋 완료 예정)
-**Run result:** smoke PASS, network integration PASS(관전 포함, 관전 끄면 FAIL 확인), 정전 전/후 스크린샷 확인.
+**Files in progress:** 없음
+**Run result:** smoke PASS(무전·유인·무전 음성 포함, 유인 끄면 FAIL 확인), network integration PASS, 무전 지도 스크린샷 확인.
 **Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
 <!-- /CHECKPOINT -->
 

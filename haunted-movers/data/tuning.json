@@ -373,5 +373,9 @@
     "battery_seconds": 150.0,
     "recharge_seconds": 12.0,
     "dim_below": 0.25
+  },
+  "radio": {
+    "lure_seconds": 12.0,
+    "lure_cooldown": 45.0
   }
 }

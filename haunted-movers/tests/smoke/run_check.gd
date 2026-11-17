@@ -10,6 +10,7 @@ extends SceneTree
 ## Story 005: run rules (endless growing quota over 3-day cycles, haul lost on a wipe,
 ## fired on a miss, shop), next day resets the house, a tape exorcises a nearby ghost.
 ## Battery: lit flashlight drains, empty stays off, truck recharges; bulbs die at the blackout.
+## Radio: at the truck only, holds still, map shows, horn lures the ghost (cooldown), radio voice is flat.
 ## Truck: departing kills whoever is not at the truck, fines each death; nobody aboard wipes.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
 ## Layouts: each day has its own piece count; nothing spawns overlapping; a run's seed replays
@@ -82,6 +83,7 @@ func _run() -> void:
 	_check_run_rules()
 	_check_left_behind(main)
 	await _check_battery_and_blackout(main)
+	await _check_radio(main)
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
 	await _check_footsteps(main)
@@ -291,6 +293,52 @@ func _check_battery_and_blackout(main: Node) -> void:
 	await process_frame
 	_expect(not house._bulbs[0].visible, "no blackout after %.0f s" % cfg.blackout_after)
 	main.run.time_left = cfg.day_seconds
+
+
+## Truck radio: only at the truck; it holds you still and shows the map; the horn pulls the
+## ghost toward the truck once per cooldown; a remote mover on the radio is heard flat.
+func _check_radio(main: Node) -> void:
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
+	main.run.time_left -= Tuning.data.ghost.start_delay + 1.0  # ghost awake
+	var p: CharacterBody3D = Player.new()
+	p.name = "1"
+	main.players.add_child(p)
+	p.global_position = Vector3(0, 0, 8)
+	p.set_radio(true)
+	_expect(not p.on_radio, "radio opened inside the house")
+	p.global_position = main.truck.bed.get_center() * Vector3(1, 0, 1)
+	p.set_radio(true)
+	await _frames(main, 3)
+	_expect(p.on_radio and main.radio_map.visible, "radio did not open at the truck")
+	var before: Vector3 = p.global_position
+	await _frames(main, 10)
+	_expect(p.global_position.distance_to(before) < 0.05, "radio operator drifted")
+	var g0: float = main.ghost.global_position.distance_to(main.truck.bed.get_center())
+	_expect(main.lure(1), "horn did not lure")
+	_expect(not main.lure(1), "horn ignored its cooldown")
+	await _frames(main, 60)
+	var g1: float = main.ghost.global_position.distance_to(main.truck.bed.get_center())
+	_expect(g1 < g0 - 1.0, "lured ghost did not head for the truck (%.1f -> %.1f)" % [g0, g1])
+	var friend: CharacterBody3D = Player.new()
+	friend.name = "600"
+	friend.set_multiplayer_authority(600)
+	main.players.add_child(friend)
+	friend.global_position = Vector3(0, 0, 9)
+	await _frames(main, 3)
+	_expect(friend._speaker.attenuation_model == AudioStreamPlayer3D.ATTENUATION_DISABLED,
+		"teammate not heard over the radio")
+	p.set_radio(false)
+	await _frames(main, 3)
+	_expect(friend._speaker.attenuation_model != AudioStreamPlayer3D.ATTENUATION_DISABLED
+		and not main.radio_map.visible, "radio stayed on after closing")
+	main.run.phase = "shop"
+	main.next_day()
+	_expect(main.lure(1) == false, "lure worked between days")
+	friend.free()
+	p.free()
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
 
 
 ## next_day from the shop puts the furniture back; a tape near the ghost hides it.

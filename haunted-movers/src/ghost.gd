@@ -11,6 +11,8 @@ var state := "patrol"
 var _wp := 0
 var _cooldown := 0.0
 var _disabled := 0.0
+var _lure_left := 0.0
+var _lure_pos := Vector3.ZERO
 var _body := MeshInstance3D.new()
 var _moan := AudioStreamPlayer3D.new()
 
@@ -75,8 +77,16 @@ func _init() -> void:
 ## Exorcism: the ghost fades out and does nothing for `sec` seconds.
 func exorcise(sec: float) -> void:
 	_disabled = sec
+	_lure_left = 0.0
 	visible = sec <= 0.0
 	state = "patrol"
+
+
+## Host: the truck horn calls the ghost to `pos` for up to `sec` seconds (or until it gets
+## there). Resetting the day (exorcise(0)) cancels it.
+func lure(pos: Vector3, sec: float) -> void:
+	_lure_pos = pos
+	_lure_left = sec
 
 
 func _process(_delta: float) -> void:
@@ -96,6 +106,12 @@ func _physics_process(delta: float) -> void:
 	if Tuning.data.run.day_seconds - main.run.time_left < c.start_delay:
 		return  # sleeps through the first seconds of each day so movers can get going
 	_cooldown = maxf(0.0, _cooldown - delta)
+	if _lure_left > 0.0:  # the truck horn: drop everything and drift toward it
+		_lure_left -= delta
+		state = "patrol"
+		if _move_to(_lure_pos, c.speed * 1.3, delta):
+			_lure_left = 0.0  # arrived: whoever is at the truck had better run
+		return
 
 	var target := _pick_target(c)
 	var dist := INF

@@ -44,6 +44,9 @@ var _stun_left := 0.0
 ## Dead until the next day (ghost, or left behind by the truck). The owner spectates a
 ## living teammate. Synced so everyone sees who is gone.
 var dead := false
+## Radio mode (Tab at the truck): the map is up, we stand still, and our voice reaches
+## everyone at full volume — and theirs reaches us. Synced so others hear us over the radio.
+var on_radio := false
 
 
 func _init() -> void:
@@ -94,7 +97,7 @@ func _init() -> void:
 	cam.add_child(ray)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:dead", ".:flash_on", ".:carrying"]:
+	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:dead", ".:on_radio", ".:flash_on", ".:carrying"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
@@ -183,6 +186,7 @@ func recover() -> void:
 	stunned = false
 	_stun_left = 0.0
 	dead = false
+	on_radio = false
 	battery = 1.0
 	flash_on = true
 	held = null
@@ -218,6 +222,10 @@ func _process(delta: float) -> void:
 		cam.position.y = sin(_walked / STEP_LENGTH * PI) * 0.035  # head bob, one dip per step
 	if is_multiplayer_authority() and dead and is_inside_tree():
 		_spectate()
+	if is_multiplayer_authority() and on_radio and (dead or _main().run.phase != "day"):
+		on_radio = false
+	if not is_multiplayer_authority() and is_inside_tree():
+		_apply_radio_voice()
 	if is_multiplayer_authority() and is_inside_tree():
 		ray.target_position = Vector3(0, 0, -(Tuning.data.reach + _main().run.reach_bonus))
 		ray.force_raycast_update()
@@ -247,6 +255,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		flash_on = not flash_on and battery > 0.0
 	elif event.is_action_pressed("use_tape"):
 		_main().request_tape()
+	elif event.is_action_pressed("radio"):
+		set_radio(not on_radio)
+	elif event.is_action_pressed("lure") and on_radio:
+		_main().request_lure()
 	elif event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_release()
@@ -262,9 +274,10 @@ func _physics_process(delta: float) -> void:
 	if is_inside_tree() and _main().run.phase == "day":
 		update_battery(delta, _main().at_truck(global_position))
 
-	if stunned:
-		_stun_left -= delta
-		stunned = _stun_left > 0.0
+	if stunned or on_radio:
+		if stunned:
+			_stun_left -= delta
+			stunned = _stun_left > 0.0
 		velocity.x = 0.0
 		velocity.z = 0.0
 		velocity += get_gravity() * delta
@@ -286,6 +299,23 @@ func _physics_process(delta: float) -> void:
 	if held:
 		var target := cam.global_position - cam.global_basis.z * hold_dist
 		_main().send_grab(held.name, held_local, target)
+
+
+## Owner: radio mode only at the truck, alive, during a day. Turning it on lets go of things.
+func set_radio(on: bool) -> void:
+	var m := _main()
+	on_radio = on and not dead and m.run.phase == "day" and m.at_truck(global_position)
+	if on_radio:
+		_release()
+
+
+## Remote copy: play this player's voice flat and unlimited when either side is on the radio.
+func _apply_radio_voice() -> void:
+	var me: Node = _main().players.get_node_or_null(str(multiplayer.get_unique_id()))
+	var radio: bool = on_radio or (me != null and me.on_radio)
+	_speaker.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED if radio else AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	_speaker.max_distance = 0.0 if radio else 25.0  # 0 = no limit
+	_speaker.panning_strength = 0.0 if radio else 1.0
 
 
 ## Owner: a lit flashlight drains the battery; standing at the truck recharges it. Empty =
