@@ -5,7 +5,7 @@ extends Node3D
 ## A capped force is the whole weight rule: one player can't out-pull gravity on
 ## heavy furniture, two can.
 ##
-## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N | --elapsed=s | --radio
+## User args (after `--`): --host [--no-upnp] [--port=N] | --join [ip[:port]] | --join-lan | --demo-grab | --screenshot=<path> [--shot-delay=s] | --demo-load | --cam=x,y,z,yaw,pitch | --settings | --day=N | --seed=N | --elapsed=s | --radio | --monster-lineup
 
 const Tuning = preload("res://src/tuning.gd")
 const Player = preload("res://src/player.gd")
@@ -13,6 +13,8 @@ const Furniture = preload("res://src/furniture.gd")
 const Truck = preload("res://src/truck.gd")
 const House = preload("res://src/house.gd")
 const RadioMap = preload("res://src/radio_map.gd")
+const Basement = preload("res://src/basement.gd")
+const Monster = preload("res://src/monster.gd")
 const Ghost = preload("res://src/ghost.gd")
 const RunState = preload("res://src/run_state.gd")
 const Sfx = preload("res://src/sfx.gd")
@@ -38,6 +40,15 @@ var furniture := Node3D.new()
 var players := Node3D.new()
 var spawner := MultiplayerSpawner.new()
 var truck := Truck.new()
+## Underground maze, rebuilt each day (see basement.gd). `_basement_key` = [seed, day] built.
+var basement := Basement.new()
+var _basement_key := []
+## Basement monster pool (parked until the day's schedule wakes them). Host runs the brains.
+var monsters: Array = []
+## Host: index of the next entry in today's monster schedule.
+var _next_spawn := 0
+## Blindfold shown while a dust ghost sits on our head.
+var _blind := ColorRect.new()
 var ghost := Ghost.new()
 ## Host: peer id -> msec when their stun ends.
 var stun_until := {}
@@ -92,6 +103,16 @@ func _ready() -> void:
 	var gs: Array = Tuning.data.ghost.start
 	ghost.position = Vector3(gs[0], gs[1], gs[2])
 	add_child(ghost)
+	basement.name = "Basement"
+	add_child(basement)
+	for k in Tuning.data.monsters.pool:
+		for i in int(Tuning.data.monsters.pool[k]):
+			var m := Monster.new()
+			m.name = "%s%d" % [k.capitalize(), i]
+			m.main = self
+			m.setup(k)
+			add_child(m)
+			monsters.append(m)
 	furniture.name = "Furniture"
 	add_child(furniture)
 	for d in Tuning.data.furniture:
@@ -162,6 +183,8 @@ func _ready() -> void:
 		_demo_load()
 	if "--radio" in args:
 		_demo_radio()
+	if "--monster-lineup" in args:
+		_demo_lineup()
 	# Screenshot args survive a reload (they're test tooling), and the delay counts from app start.
 	var all_args := OS.get_cmdline_user_args()
 	var delay := 4.0
@@ -408,6 +431,7 @@ func _process(_delta: float) -> void:
 		and not _shooting
 	_refresh_lan()
 	radio_map.visible = me != null and me.on_radio
+	_blind.visible = me != null and me.blinded and not me.dead
 	if me:
 		_mic_label.text = ("마이크 꺼짐 (V)" if voice.muted else ("● 말하는 중" if me.talk_t > 0.0 else "마이크 켜짐 (V)")) \
 			+ "\n손전등 배터리 %d%%%s" % [roundi(me.battery * 100), " — 트럭에서 충전" if me.battery < 0.25 else ""]
@@ -521,6 +545,9 @@ func _physics_process(delta: float) -> void:
 		if _sync_t >= 1.0:  # clients only need the clock once a second
 			_sync_t = 0.0
 			_push_run()
+	_teleport_furniture()
+	if run.phase == "day":
+		_spawn_monsters()
 	var now := Time.get_ticks_msec()
 	var counts := {}
 	for id in grabs.keys():
@@ -614,6 +641,7 @@ func _rpc_run(r: Dictionary) -> void:
 ## Everyone: show the run on the HUD and the shop between days.
 func _apply_run(r: Dictionary) -> void:
 	run = r
+	_build_basement(r.get("seed", 0), r.day)
 	var cfg: Dictionary = Tuning.data.run
 	var secs := maxi(0, ceili(r.time_left))
 	var clock := "남은 시간 %d:%02d" % [secs / 60, secs % 60] if r.phase == "day" else "상점"
@@ -684,7 +712,11 @@ func next_day() -> void:
 func layout_day(day: int) -> void:
 	var cfg := Tuning.data
 	var names: Array = cfg.days[clampi(day, 1, cfg.days.size()) - 1]
-	var spawns: Array = cfg.spawns
+	_build_basement(run.get("seed", 0), day)
+	# House spots first (indices keep "home" spawns valid), then the basement's cell centres.
+	var under: Array = basement.spawn_points(hash([run.get("seed", 0), day, "spots"]))
+	var spawns: Array = cfg.spawns + under
+	var first_under: int = cfg.spawns.size()
 	var homes := {}
 	for d in cfg.furniture:
 		if d.has("home"):
@@ -700,10 +732,27 @@ func layout_day(day: int) -> void:
 		var tmp = order[i]
 		order[i] = order[j]
 		order[j] = tmp
+	# Basement-only loot takes basement spots first, so it is always down there; those spots
+	# leave `order` before anything else is placed.
+	var deep := order.filter(func(i: int) -> bool: return i >= first_under)
+	var placed := {}
+	for f in furniture.get_children():
+		if names.has(String(f.name)) and f.basement_only and not deep.is_empty():
+			var spot: int = deep.pop_front()
+			order.erase(spot)
+			placed[f] = spawns[spot]
 	var next := 0
 	for f in furniture.get_children():
-		var used: bool = names.has(String(f.name))
+		var used: bool = names.has(String(f.name)) and (placed.has(f) or not f.basement_only)
 		f.in_play = used
+		if placed.has(f):
+			var dp: Array = placed[f]
+			f.rotation = Vector3.ZERO
+			f.linear_velocity = Vector3.ZERO
+			f.angular_velocity = Vector3.ZERO
+			f.durability = 1.0
+			f.global_position = Vector3(dp[0], dp[1] + f.size.y / 2.0 + 0.02, dp[2])
+			continue
 		f.linear_velocity = Vector3.ZERO
 		f.angular_velocity = Vector3.ZERO
 		f.durability = 1.0
@@ -717,11 +766,97 @@ func layout_day(day: int) -> void:
 		f.global_position = Vector3(sp[0], sp[1] + f.size.y / 2.0 + 0.02, sp[2])
 
 
+## Host: wake the monsters whose time has come today (schedule in tuning, by day), each in
+## a random basement room at least `min_spawn_dist` rooms from the entrance.
+func _spawn_monsters() -> void:
+	var c: Dictionary = Tuning.data.monsters
+	var plan: Array = c.schedule[clampi(run.day, 1, c.schedule.size()) - 1]
+	var elapsed: float = Tuning.data.run.day_seconds - run.time_left
+	while _next_spawn < plan.size() and elapsed >= float(plan[_next_spawn][0]):
+		var kind: String = plan[_next_spawn][1]
+		_next_spawn += 1
+		var free: Array = monsters.filter(func(m: Node) -> bool: return m.kind == kind and not m.active())
+		if free.is_empty():
+			continue
+		var rooms: Array = basement.maze.dist.keys().filter(func(r: Vector2i) -> bool:
+			return basement.maze.dist[r] >= int(c.min_spawn_dist))
+		if rooms.is_empty():
+			continue
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash([run.seed, run.day, _next_spawn])
+		free[0].wake(basement.cell_center(rooms[rng.randi_range(0, rooms.size() - 1)]))
+
+
+## Host: put a blindfold on (or take it off) peer `id`'s screen.
+func blind_player(id: int, on: bool) -> void:
+	if id == multiplayer.get_unique_id():
+		_blind_local(on)
+	elif id in multiplayer.get_peers():
+		_rpc_blind.rpc_id(id, on)
+
+
+@rpc("authority", "reliable")
+func _rpc_blind(on: bool) -> void:
+	_blind_local(on)
+
+
+func _blind_local(on: bool) -> void:
+	var me := players.get_node_or_null(str(multiplayer.get_unique_id()))
+	if me:
+		me.blinded = on
+
+
+## A mover clicked a teammate: pull a dust ghost off their head.
+func request_free(target: int) -> void:
+	if multiplayer.is_server():
+		free_player(target)
+	else:
+		_rpc_free.rpc_id(1, target)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_free(target: int) -> void:
+	if multiplayer.is_server():
+		free_player(target)
+
+
+## Host: true if something was on `target`'s head and is gone now.
+func free_player(target: int) -> bool:
+	for m in monsters:
+		if m.free_from(target):
+			broadcast_sfx("thud")
+			return true
+	return false
+
+
+## Builds today's basement if it isn't already (host in layout_day, clients from the run).
+func _build_basement(seed: int, day: int) -> void:
+	if _basement_key != [seed, day]:
+		_basement_key = [seed, day]
+		basement.build(seed, day)
+
+
+## Host: furniture that is pushed or carried into a door comes out the other side, a bit
+## past where a mover would appear so the two don't land on each other.
+func _teleport_furniture() -> void:
+	for f in furniture.get_children():
+		if not f.in_play:
+			continue
+		var feet: Vector3 = f.global_position - Vector3.UP * (f.size.y / 2.0)
+		var d: Dictionary = basement.teleport_for(feet)
+		if not d.is_empty():
+			f.global_position = d.to + d.face * 1.3 + Vector3.UP * (f.size.y / 2.0 + 0.05)
+			f.linear_velocity = Vector3.ZERO
+
+
 func _reset_house() -> void:
 	grabs.clear()
 	stun_until.clear()
 	dead.clear()
 	_lure_ready_at = 0
+	_next_spawn = 0
+	for m in monsters:
+		m.park()
 	layout_day(run.day)
 	var gs: Array = Tuning.data.ghost.start
 	ghost.global_position = Vector3(gs[0], gs[1], gs[2])
@@ -969,6 +1104,17 @@ func _build_hud() -> void:
 	_mic_label.offset_top = 10
 	_mic_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	layer.add_child(_mic_label)
+	_blind.color = Color(0.02, 0.015, 0.01, 0.97)
+	_blind.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_blind.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_blind.visible = false
+	var bl := Label.new()
+	bl.text = "먼지귀신이 머리에 붙었어요! 앞이 안 보여요 — 동료가 나를 클릭해서 떼줘야 해요"
+	bl.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	bl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bl.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_blind.add_child(bl)
+	layer.add_child(_blind)
 	radio_map.main = self
 	radio_map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	radio_map.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1228,6 +1374,24 @@ func _place_cam(v: PackedFloat64Array) -> void:
 		me.global_position = Vector3(v[0], v[1], v[2])
 		me.rotation.y = deg_to_rad(v[3])
 		me.head.rotation.x = deg_to_rad(v[4])
+
+
+## --monster-lineup: stand in the basement entrance facing the three monster kinds (screenshots).
+func _demo_lineup() -> void:
+	await get_tree().create_timer(1.0).timeout
+	_next_spawn = 99
+	var me := players.get_node_or_null(str(multiplayer.get_unique_id()))
+	var c: Vector3 = basement.cell_center(Vector2i.ZERO)
+	if me:
+		me.global_position = c - Vector3(2.0, 0, 0)
+		me.rotation.y = -PI / 2
+		me.head.rotation.x = 0.1
+	var x := 1.5
+	for k in ["statue", "dust", "boar"]:
+		var m: Node = monsters.filter(func(n: Node) -> bool: return n.kind == k)[0]
+		m.wake(c + Vector3(x, 0, -1.6 + (x - 1.5) * 1.3))
+		m.set_physics_process(false)  # pose only
+		x += 1.2
 
 
 ## --radio: stand at the truck and open the radio map (for screenshots).

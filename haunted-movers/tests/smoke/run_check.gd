@@ -10,6 +10,10 @@ extends SceneTree
 ## Story 005: run rules (endless growing quota over 3-day cycles, haul lost on a wipe,
 ## fired on a miss, shop), next day resets the house, a tape exorcises a nearby ghost.
 ## Battery: lit flashlight drains, empty stays off, truck recharges; bulbs die at the blackout.
+## Monsters: statue freezes when watched, dust ghost blinds (teammate frees), boar charges,
+## schedule wakes them in far basement rooms.
+## Basement: maze fully reachable, fire exit on an outer wall, new layout each day, doors carry
+## movers and furniture both ways.
 ## Radio: at the truck only, holds still, map shows, horn lures the ghost (cooldown), radio voice is flat.
 ## Truck: departing kills whoever is not at the truck, fines each death; nobody aboard wipes.
 ## Audio: the music loop is 8 s and loops; it only warps near the ghost; walking plays footsteps.
@@ -32,6 +36,8 @@ const Payout = preload("res://src/payout.gd")
 const Ghost = preload("res://src/ghost.gd")
 const Player = preload("res://src/player.gd")
 const RunState = preload("res://src/run_state.gd")
+const Basement = preload("res://src/basement.gd")
+const Monster = preload("res://src/monster.gd")
 const Sfx = preload("res://src/sfx.gd")
 const Net = preload("res://src/net.gd")
 const Tuning = preload("res://src/tuning.gd")
@@ -84,6 +90,8 @@ func _run() -> void:
 	_check_left_behind(main)
 	await _check_battery_and_blackout(main)
 	await _check_radio(main)
+	await _check_basement(main)
+	await _check_monsters(main)
 	await _check_next_day_and_tape(main)
 	_check_audio(main)
 	await _check_footsteps(main)
@@ -341,6 +349,115 @@ func _check_radio(main: Node) -> void:
 	main._reset_house()
 
 
+## Basement maze: every room reachable, fire exit on an outer wall, a new day reshapes it;
+## the house door and the fire exit carry a mover both ways, and furniture through too.
+func _check_basement(main: Node) -> void:
+	for seed in [1, 2, 3, 99]:
+		var m: Dictionary = Basement.generate(seed, 4, 4, 6.0, 0.2)
+		_expect(m.dist.size() == 16, "seed %d: only %d of 16 rooms reachable" % [seed, m.dist.size()])
+		var e: Vector2i = m.exit
+		_expect(e != Vector2i.ZERO and (e.x == 0 or e.y == 0 or e.x == 3 or e.y == 3), "seed %d: bad fire exit %s" % [seed, e])
+	var a: Dictionary = Basement.generate(hash([5, 1, "basement"]), 4, 4, 6.0, 0.2)
+	var b: Dictionary = Basement.generate(hash([5, 2, "basement"]), 4, 4, 6.0, 0.2)
+	_expect(a.open != b.open, "next day's basement has the same layout")
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
+	var bm: Node = main.basement
+	var p: CharacterBody3D = Player.new()
+	p.name = "1"
+	main.players.add_child(p)
+	for i in 4:  # each door: step in, land outside every door zone, on the other side
+		var dd: Dictionary = bm.doors[i]
+		p.global_position = dd.at + dd.inward * 0.3
+		await _frames(main, 3)
+		var other: Dictionary = bm.doors[i ^ 1]
+		_expect(p.global_position.distance_to(other.at) < 2.5, "door '%s' did not lead to '%s' (at %s)" % [dd.label, other.label, p.global_position])
+		_expect(bm.teleport_for(p.global_position).is_empty(), "door '%s' dropped the mover inside another door" % dd.label)
+	var chair: RigidBody3D = main.furniture.get_node("chair")
+	chair.global_position = bm.doors[0].at + bm.doors[0].inward * 0.3 + Vector3.UP * (chair.size.y / 2.0)
+	await _frames(main, 3)
+	_expect(bm.contains(chair.global_position), "chair pushed into the basement door stayed upstairs %s" % chair.global_position)
+	p.free()
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
+
+
+## Monsters: path through the maze; the statue freezes while watched and kills when not;
+## the dust ghost blinds whoever walks under it, a teammate's click frees them, otherwise
+## they die; the boar charges down a straight line; the schedule wakes them over the day.
+func _check_monsters(main: Node) -> void:
+	var line := {open = {Basement.edge_key(Vector2i(0, 0), Vector2i(1, 0)): true,
+		Basement.edge_key(Vector2i(1, 0), Vector2i(1, 1)): true}}
+	_expect(Monster.next_cell(line, Vector2i(0, 0), Vector2i(1, 1)) == Vector2i(1, 0), "maze path step")
+	_expect(Monster.next_cell(line, Vector2i(0, 0), Vector2i(0, 1)) == Vector2i(0, 0), "walked through a wall")
+	var fresh := func() -> void:
+		main.run = RunState.new_run(Tuning.data.run)
+		main._reset_house()
+		main.run.time_left = 200.0  # no scheduled spawns in the way
+		main._next_spawn = 99
+	var p: CharacterBody3D = Player.new()
+	p.name = "1"
+	main.players.add_child(p)
+	var bm: Node = main.basement
+	var room: Vector3 = bm.cell_center(Vector2i(1, 1))
+	var by_kind := func(k: String) -> Node: return main.monsters.filter(func(m: Node) -> bool: return m.kind == k)[0]
+
+	fresh.call()
+	var statue: Node = by_kind.call("statue")
+	p.global_position = room - Vector3(2, 0, 0)
+	p.rotation.y = -PI / 2  # facing +x, at the statue
+	statue.wake(room + Vector3(2, 0, 0))
+	await _frames(main, 40)
+	_expect(statue.global_position.distance_to(room + Vector3(2, 0, 0)) < 0.05, "statue moved while watched")
+	p.rotation.y = PI / 2   # turn away
+	for i in 120:
+		if main.dead.has(1):
+			break
+		await physics_frame
+	_expect(main.dead.has(1), "statue never got the mover who looked away")
+
+	fresh.call()
+	var dust: Node = by_kind.call("dust")
+	dust.wake(room)
+	p.global_position = room + Vector3(0.3, 0, 0)
+	await _frames(main, 5)
+	_expect(p.blinded and dust.state == "latched", "walking under the dust ghost did not blind")
+	_expect(main.free_player(1) and not p.blinded and not dust.active(), "teammate could not pull it off")
+	dust.wake(room)
+	await _frames(main, 5)
+	dust._t = Tuning.data.monsters.dust.latch_kill
+	await _frames(main, 3)
+	_expect(main.dead.has(1) and not p.blinded, "nobody freed the mover and they lived")
+
+	fresh.call()
+	var boar: Node = by_kind.call("boar")
+	boar.wake(room + Vector3(2.2, 0, 0))
+	p.global_position = room - Vector3(2.2, 0, 0)
+	var charged := false
+	for i in 180:
+		charged = charged or boar.state == "charge"
+		if main.dead.has(1):
+			break
+		await physics_frame
+	_expect(charged and main.dead.has(1), "boar did not charge down the mover (state %s)" % boar.state)
+
+	fresh.call()
+	main.run.day = 3
+	main._reset_house()
+	main.run.time_left = Tuning.data.run.day_seconds - 200.0
+	p.global_position = Vector3(0, 0, 3)  # upstairs in the house, out of their way
+	await _frames(main, 3)
+	var awake: int = main.monsters.filter(func(m: Node) -> bool: return m.active()).size()
+	_expect(awake == 6, "day 3 at 200 s should have 6 monsters out, has %d" % awake)
+	for m in main.monsters:
+		if m.active():
+			_expect(bm.contains(Vector3(m.global_position.x, Basement.ORIGIN.y, m.global_position.z)), "%s woke outside the basement" % m.name)
+			_expect(bm.maze.dist[bm.cell_of(m.global_position)] >= 2, "%s woke next to the entrance" % m.name)
+	p.free()
+	main.run = RunState.new_run(Tuning.data.run)
+	main._reset_house()
+
+
 ## next_day from the shop puts the furniture back; a tape near the ghost hides it.
 func _check_next_day_and_tape(main: Node) -> void:
 	var sofa: RigidBody3D = main.furniture.get_node("sofa")
@@ -377,7 +494,14 @@ func _check_layouts(main: Node) -> void:
 				var a: AABB = live[i].world_aabb().grow(-0.01)
 				var b: AABB = live[j].world_aabb().grow(-0.01)
 				_expect(not a.intersects(b), "day %d: %s spawns inside %s" % [day, live[i].name, live[j].name])
-	_expect(counts == [6, 9, 10], "pieces per day %s, expected [6, 9, 10]" % [counts])
+	var want: Array = Tuning.data.days.map(func(d: Array) -> int: return d.size())
+	_expect(counts == want, "pieces per day %s, expected %s" % [counts, want])
+	var deep := 0
+	for f in main.furniture.get_children():
+		if f.in_play and f.basement_only:
+			deep += 1
+			_expect(main.basement.contains(f.global_position), "%s (basement loot) is not in the basement" % f.name)
+	_expect(deep >= 3, "day 3 has only %d basement pieces" % deep)
 	var snap := func() -> Array:
 		return main.furniture.get_children().map(func(f: Node) -> Vector3: return f.global_position.snapped(Vector3.ONE * 0.01))
 	main.layout_day(2)
@@ -388,7 +512,7 @@ func _check_layouts(main: Node) -> void:
 	var moved := 0
 	var a3: Array = snap.call()
 	for i in a1.size():
-		if a1[i].y > -10 and a3[i].y > -10 and a1[i] != a3[i]:
+		if a1[i].y > -45 and a3[i].y > -45 and a1[i] != a3[i]:  # -50 = parked
 			moved += 1
 	_expect(moved >= 3, "day 3 barely reshuffled (%d pieces moved)" % moved)
 

@@ -35,6 +35,8 @@ var curse := ""
 var _curse_t := 0.0
 ## Damage multiplier (a CRT TV breaks far easier than a sofa).
 var fragile := 1.0
+## Spawns only in the basement maze (valuable loot down there).
+var basement_only := false
 ## Part of today's job. Out-of-play pieces are hidden, collisionless and parked under the map.
 ## Host sets it in main.layout_day; synced.
 var in_play := true:
@@ -61,6 +63,7 @@ func setup(d: Dictionary) -> void:
 	curse = d.get("curse", "")
 	position = Vector3(0, -50, 0)  # main.layout_day puts it in the house
 	fragile = d.get("fragile", 1.0)
+	basement_only = d.get("basement", false)
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	size = Vector3(d.size[0], d.size[1], d.size[2])
 

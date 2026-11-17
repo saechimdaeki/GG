@@ -119,6 +119,28 @@ static func furniture(kind: String, size: Vector3, color: Color) -> Node3D:
 			var tape := matte(Color("#d9c8a0"))
 			box(root, Vector3(0.1, 0.012, size.z + 0.01), Vector3(0, h.y, 0), tape)          # tape over the lid
 			box(root, Vector3(size.x + 0.01, 0.012, 0.01), Vector3(0, h.y * 0.4, -h.z), matte(color.darkened(0.25)))  # lid seam
+		"vase":
+			var glaze := StandardMaterial3D.new()
+			glaze.albedo_color = color
+			glaze.roughness = 0.2
+			cylinder(root, h.x * 0.55, h.x * 0.7, size.y * 0.25, Vector3(0, -h.y + size.y * 0.125, 0), glaze)
+			cylinder(root, h.x, h.x * 0.55, size.y * 0.45, Vector3(0, -h.y + size.y * 0.475, 0), glaze)   # belly
+			cylinder(root, h.x * 0.35, h.x, size.y * 0.3, Vector3(0, h.y - size.y * 0.15, 0), glaze)       # neck
+			cylinder(root, h.x * 0.95, h.x * 0.95, 0.03, Vector3(0, -h.y + size.y * 0.42, 0), matte(Color("#e8d27a")))  # gold band
+		"painting":
+			box(root, size, Vector3.ZERO, grain(color))                                           # gilt frame
+			box(root, Vector3(size.x - 0.16, size.y - 0.16, 0.02), Vector3(0, 0, -h.z), matte(Color("#3a2a30")))
+			box(root, Vector3(0.3, 0.38, 0.02), Vector3(0, 0.02, -h.z - 0.01), matte(Color("#c9a68a")))  # pale sitter
+		"safe":
+			var steel := metal()
+			box(root, size, Vector3.ZERO, matte(color))
+			cylinder(root, 0.12, 0.12, 0.04, Vector3(0, 0.05, -h.z - 0.02), steel).rotation.x = PI / 2    # dial
+			box(root, Vector3(0.04, 0.25, 0.05), Vector3(h.x - 0.12, 0.05, -h.z - 0.02), steel)            # handle
+		"crate":
+			box(root, size, Vector3.ZERO, wood)
+			for sx in [-1, 1]:
+				box(root, Vector3(0.06, size.y + 0.01, size.z + 0.01), Vector3(sx * (h.x - 0.04), 0, 0), dark)
+			box(root, Vector3(size.x + 0.01, 0.06, size.z + 0.01), Vector3(0, 0, 0), dark)
 		_:
 			box(root, size, Vector3.ZERO, wood)
 	return root

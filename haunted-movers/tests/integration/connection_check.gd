@@ -52,7 +52,7 @@ func _run() -> void:
 		for piece in main.furniture.get_children():
 			if piece.in_play:
 				active_count += 1
-		_expect(active_count == 9, "day-2 furniture visibility did not replicate")
+		_expect(active_count == load("res://src/tuning.gd").data.days[1].size(), "day-2 furniture visibility did not replicate")
 		_expect(not main._connecting, "client handshake still pending")
 		_expect(main.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,
 			"client did not connect")

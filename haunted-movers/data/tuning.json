@@ -135,6 +135,59 @@
       "color": "#6a3a4a",
       "value": 400,
       "label": "침대"
+    },
+    {
+      "name": "vase",
+      "size": [
+        0.35,
+        0.6,
+        0.35
+      ],
+      "mass": 6,
+      "color": "#2f6f8f",
+      "value": 160,
+      "label": "골동품 꽃병",
+      "fragile": 4.0,
+      "basement": true
+    },
+    {
+      "name": "painting",
+      "size": [
+        1.1,
+        0.8,
+        0.12
+      ],
+      "mass": 7,
+      "color": "#8a6a2a",
+      "value": 140,
+      "label": "초상화 액자",
+      "basement": true
+    },
+    {
+      "name": "safe",
+      "size": [
+        0.7,
+        0.8,
+        0.7
+      ],
+      "mass": 95,
+      "color": "#3c4248",
+      "value": 650,
+      "label": "금고",
+      "basement": true
+    },
+    {
+      "name": "crate",
+      "size": [
+        0.8,
+        0.6,
+        0.6
+      ],
+      "mass": 25,
+      "color": "#6e5a3a",
+      "value": 110,
+      "label": "나무 궤짝",
+      "basement": true
     }
   ],
   "impact_threshold": 3.0,
@@ -343,18 +396,9 @@
       "lamp",
       "fridge",
       "tv",
-      "wardrobe"
-    ],
-    [
-      "sofa",
-      "chair",
-      "lamp",
-      "fridge",
-      "tv",
       "wardrobe",
-      "box",
-      "piano",
-      "bookshelf"
+      "vase",
+      "crate"
     ],
     [
       "sofa",
@@ -366,7 +410,25 @@
       "box",
       "piano",
       "bookshelf",
-      "bed"
+      "vase",
+      "painting",
+      "crate"
+    ],
+    [
+      "sofa",
+      "chair",
+      "lamp",
+      "fridge",
+      "tv",
+      "wardrobe",
+      "box",
+      "piano",
+      "bookshelf",
+      "bed",
+      "vase",
+      "painting",
+      "crate",
+      "safe"
     ]
   ],
   "flashlight": {
@@ -377,5 +439,120 @@
   "radio": {
     "lure_seconds": 12.0,
     "lure_cooldown": 45.0
+  },
+  "basement": {
+    "sizes": [
+      [
+        4,
+        4
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        5,
+        5
+      ]
+    ],
+    "cell": 6.0,
+    "door_width": 2.4,
+    "extra_openings": 0.2,
+    "light_chance": 0.35,
+    "house_door": [
+      -5.8,
+      9.0
+    ],
+    "yard_door": [
+      0.0,
+      10.6
+    ]
+  },
+  "monsters": {
+    "statue": {
+      "speed": 5.0,
+      "sight": 30.0,
+      "view_angle": 38.0,
+      "hit_range": 0.8
+    },
+    "dust": {
+      "drop_radius": 1.0,
+      "latch_kill": 7.0
+    },
+    "boar": {
+      "speed": 1.6,
+      "sight": 14.0,
+      "windup": 0.8,
+      "charge_speed": 9.0,
+      "charge_max": 3.0,
+      "hit_range": 0.9,
+      "daze": 3.0
+    },
+    "pool": {
+      "statue": 2,
+      "dust": 4,
+      "boar": 2
+    },
+    "min_spawn_dist": 2,
+    "schedule": [
+      [
+        [
+          25,
+          "dust"
+        ],
+        [
+          60,
+          "dust"
+        ],
+        [
+          100,
+          "boar"
+        ]
+      ],
+      [
+        [
+          20,
+          "dust"
+        ],
+        [
+          40,
+          "dust"
+        ],
+        [
+          60,
+          "boar"
+        ],
+        [
+          110,
+          "statue"
+        ]
+      ],
+      [
+        [
+          15,
+          "dust"
+        ],
+        [
+          30,
+          "dust"
+        ],
+        [
+          45,
+          "boar"
+        ],
+        [
+          80,
+          "statue"
+        ],
+        [
+          120,
+          "dust"
+        ],
+        [
+          160,
+          "boar"
+        ]
+      ]
+    ]
   }
 }

@@ -21,7 +21,7 @@
 - 상점 아이템 3개 + 할당량 3일 런
 
 ## Out of scope — not building this
-- 절차적 맵 생성 (손으로 만든 집 1채)
+- 집 자체의 절차적 생성 (집은 손으로 만든 1채 — 대신 지하 창고 미로는 매일 생성)
 - 근접 음성 채팅, 스킨 커스터마이징, 싱글용 AI 동료
 - 콘솔, 런 간 저장
 
@@ -37,6 +37,6 @@
 
 **Art & audio direction:** 로우폴리 3D, 따뜻한 VHS 색감, 가구에 붙은 귀여운 얼굴. 엘리베이터 재즈가 유령 등장 시 뒤틀림.
 
-**Reference game:** Lethal Company(리썰 컴퍼니) — 죽음·관전, 떠나는 트럭, 전멸 시 손실, 끝없이 커지는 할당량 규칙. R.E.P.O. — 물리 운반. 이름·캐릭터·그림·맵은 가져오지 않음. 전투·맵 생성 없음, 대신 트럭 적재 퍼즐.
+**Reference game:** Lethal Company(리썰 컴퍼니) — 죽음·관전, 떠나는 트럭, 전멸 시 손실, 끝없이 커지는 할당량 규칙. R.E.P.O. — 물리 운반. 이름·캐릭터·그림·맵은 가져오지 않음. 전투 없음, 대신 트럭 적재 퍼즐. 리썰식 구조: 매일 바뀌는 지하 미로 + 비상구, 행동이 다른 몬스터(보면 멈춤 / 천장 낙하 / 돌진)가 시간 따라 늘어남 — 몬스터 이름·모습은 우리 것.
 
 <!-- Research basis (2026-11): Sensor Tower 2026 — co-op "friendslop" = 46% of indie first-month sales; horror top Steam genre 3 years running (PokeIndie). -->

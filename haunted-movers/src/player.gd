@@ -47,6 +47,9 @@ var dead := false
 ## Radio mode (Tab at the truck): the map is up, we stand still, and our voice reaches
 ## everyone at full volume — and theirs reaches us. Synced so others hear us over the radio.
 var on_radio := false
+## A dust ghost sits on our head: the screen is black until a teammate clicks us. Synced so
+## teammates can tell (and the statue knows we can't watch it).
+var blinded := false
 
 
 func _init() -> void:
@@ -97,7 +100,7 @@ func _init() -> void:
 	cam.add_child(ray)
 
 	var cfg := SceneReplicationConfig.new()
-	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:dead", ".:on_radio", ".:flash_on", ".:carrying"]:
+	for p in [".:position", ".:rotation", "Head:rotation", ".:stunned", ".:dead", ".:on_radio", ".:blinded", ".:flash_on", ".:carrying"]:
 		cfg.add_property(NodePath(p))
 	var sync := MultiplayerSynchronizer.new()
 	sync.name = "Sync"  # fixed name: auto names (@...@N) differ between peers
@@ -187,6 +190,7 @@ func recover() -> void:
 	_stun_left = 0.0
 	dead = false
 	on_radio = false
+	blinded = false
 	battery = 1.0
 	flash_on = true
 	held = null
@@ -273,6 +277,12 @@ func _physics_process(delta: float) -> void:
 		_demo_step()
 	if is_inside_tree() and _main().run.phase == "day":
 		update_battery(delta, _main().at_truck(global_position))
+	if is_inside_tree():
+		var door: Dictionary = _main().basement.teleport_for(global_position)
+		if not door.is_empty():  # walked through a basement door / fire exit
+			global_position = door.to
+			rotation.y = door.yaw
+			velocity = Vector3.ZERO
 
 	if stunned or on_radio:
 		if stunned:
@@ -346,6 +356,8 @@ func _try_grab() -> void:
 	var hit := ray.get_collider()
 	if hit and hit.name == "DepartButton":
 		_main().request_depart()
+	elif hit is CharacterBody3D and hit.get("blinded"):
+		_main().request_free(hit.name.to_int())  # pull the dust ghost off a teammate's head
 	elif hit is Furniture:
 		held = hit
 		var p := ray.get_collision_point()

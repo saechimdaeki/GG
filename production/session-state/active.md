@@ -35,11 +35,11 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-17
 **Branch:** `feat/haunted-movers-layouts`
-**Current task:** 유령집 이삿짐센터 리썰식 규칙 3차 — 트럭 무전(Tab 지도, 거리 무시 무전 음성, H 경적 유령 유인) 완료.
-**Next step:** 리썰 핵심 규칙 목록 다 구현됨. 사람 2~4명 실제 플레이테스트(무전 음성은 실제 마이크로 미검증). PR #8~#13 정리·푸시.
+**Current task:** 유령집 이삿짐센터 리썰식 4차 — 매일 바뀌는 지하 창고 미로(지하실 문·비상구, 지하 전용 비싼 짐), 전체 화면 무전 지도, 지하 몬스터 3종(마네킹·먼지귀신·박제 멧돼지) + 시간별 등장.
+**Next step:** 사람 2~4명 플레이테스트로 난이도 조정(몬스터 스케줄·속도는 data/tuning.json monsters). 푸시 안 함.
 **Blocked on:** 없음
 **Files in progress:** 없음
-**Run result:** smoke PASS(무전·유인·무전 음성 포함, 유인 끄면 FAIL 확인), network integration PASS, 무전 지도 스크린샷 확인.
+**Run result:** smoke PASS(미로·문·몬스터 포함, 마네킹 시선 끄면 FAIL 확인), network integration PASS, 지하·몬스터·무전 지도 스크린샷 확인.
 **Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
 <!-- /CHECKPOINT -->
 
