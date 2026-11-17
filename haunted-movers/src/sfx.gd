@@ -58,6 +58,12 @@ static func coin() -> AudioStreamWAV:
 		return sin(TAU * _hz(note) * t) * 0.35 * exp(-fmod(t, 0.1) * 12.0))
 
 
+## Scanner sweep: a quick rising chirp with a soft tail.
+static func scan() -> AudioStreamWAV:
+	return _make(0.35, func(t: float) -> float:
+		return sin(TAU * (600.0 + 1800.0 * t) * t) * 0.25 * exp(-t * 6.0))
+
+
 ## Cached: each stream is synthesized once and shared by every player/furniture/ghost.
 static var _cache := {}
 

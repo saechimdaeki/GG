@@ -28,7 +28,7 @@ func _run() -> void:
 		main._end_day(250)
 		await create_timer(0.2).timeout
 		main.next_day()
-		await create_timer(2.5).timeout
+		await create_timer(4.0).timeout
 		for id in main.multiplayer.get_peers():
 			main.kill_player(id)  # the ghost got the client: it should spectate us
 		_expect(main.run.phase == "day", "one death out of two ended the day")
@@ -48,16 +48,29 @@ func _run() -> void:
 			"next day did not replicate to the client")
 		if local_player != null:
 			_expect(not local_player.stunned, "next day did not recover the remote owner")
-		var active_count: int = 0
-		for piece in main.furniture.get_children():
-			if piece.in_play:
-				active_count += 1
-		_expect(active_count == load("res://src/tuning.gd").data.days[1].size(), "day-2 furniture visibility did not replicate")
+		var lying: Array = main.loot.get_children().filter(func(n: Node) -> bool: return n.lying())
+		_expect(lying.size() == int(load("res://src/tuning.gd").data.loot_per_day[1]), "day-2 scrap did not replicate (%d)" % lying.size())
 		_expect(not main._connecting, "client handshake still pending")
 		_expect(main.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED,
 			"client did not connect")
 		_expect(main.players.get_child_count() == 2, "client did not receive both players")
-		_expect(main.furniture.get_node("chair").freeze, "client simulates host furniture")
+		_expect(main.loot.get_child(0).freeze, "client simulates host scrap")
+		# Pick a piece up through the host: walk to it, ask, and it lands in our slot.
+		if local_player != null and not lying.is_empty():
+			local_player.global_position = lying[0].global_position + Vector3(0.4, 0, 0)
+			await create_timer(0.4).timeout
+			main.request_pickup(lying[0].name)
+			await create_timer(0.6).timeout
+			_expect(local_player.slots.has(String(lying[0].name)) and lying[0].holder == main.multiplayer.get_unique_id(),
+				"client pickup through the host failed (slots %s, holder %d)" % [local_player.slots, lying[0].holder])
+		# Search a wardrobe/drawer through the host: every peer learns it's been searched.
+		if local_player != null and not main.interior.containers.is_empty():
+			var c: Dictionary = main.interior.containers[0]
+			local_player.global_position = c.at + c.front
+			await create_timer(0.3).timeout
+			main.request_search(0)
+			await create_timer(0.5).timeout
+			_expect(main.opened.has(0), "client search through the host was not confirmed")
 		if local_player != null:
 			for frame in 200:
 				if local_player.dead:
@@ -75,7 +88,8 @@ func _run() -> void:
 		await create_timer(0.25).timeout
 		_expect(not main._connecting and main._hint.text.begins_with("연결 실패"), "timeout did not report failure")
 		_expect(main.multiplayer.multiplayer_peer is OfflineMultiplayerPeer, "failed peer was retained")
-		_expect(not main.furniture.get_node("chair").freeze, "failed join left host physics frozen")
+		var down: Array = main.loot.get_children().filter(func(n: Node) -> bool: return n.lying())
+		_expect(not down.is_empty() and not down[0].freeze, "failed join left host physics frozen")
 		main.join("127.0.0.1:17838")
 		main._cancel_connection("cancelled")
 		main.connect_timeout_seconds = 1.0

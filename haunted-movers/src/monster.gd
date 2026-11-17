@@ -1,6 +1,6 @@
 extends Node3D
-## Basement monsters. Host-only brain; everyone sees the synced position/state. They walk the
-## maze cell to cell (through doorways), so they never pass through walls. Three kinds:
+## Mansion monsters. Host-only brain; everyone sees the synced position/state. They walk the
+## mansion room to room (through doorways), so they never pass through walls. Three kinds:
 ##   statue — 마네킹: moves fast toward the nearest mover, but only while nobody alive is
 ##            looking at it. Touch = death. Keep eyes on it and back away together.
 ##   dust   — 먼지귀신: hangs on a ceiling. Walk under it and it drops onto your head: you are
@@ -11,7 +11,7 @@ extends Node3D
 
 const Tuning = preload("res://src/tuning.gd")
 const Sfx = preload("res://src/sfx.gd")
-const Basement = preload("res://src/basement.gd")
+const Interior = preload("res://src/interior.gd")
 
 const PARKED := Vector3(0, -80, 0)
 const KINDS := {statue = "마네킹", dust = "먼지귀신", boar = "박제 멧돼지"}
@@ -26,6 +26,10 @@ var _dir := Vector3.ZERO
 var _victim := 0
 var _cry := AudioStreamPlayer3D.new()
 var _heard_state := "idle"
+## Footsteps from synced movement, so everyone hears it coming (statue: a stone scrape).
+var _steps := AudioStreamPlayer3D.new()
+var _walked := 0.0
+var _last_pos := Vector3.ZERO
 
 
 func setup(k: String) -> void:
@@ -40,6 +44,12 @@ func setup(k: String) -> void:
 	_cry.max_distance = 22.0
 	_cry.pitch_scale = {statue = 1.6, dust = 2.2, boar = 0.55}[k]
 	add_child(_cry)
+	_steps.stream = Sfx.cached("step")
+	_steps.unit_size = 5.0
+	_steps.max_distance = 26.0
+	_steps.volume_db = 4.0
+	_steps.pitch_scale = {statue = 0.55, dust = 1.0, boar = 0.4}[k]
+	add_child(_steps)
 	var cfg := SceneReplicationConfig.new()
 	for p in [".:position", ".:rotation", ".:visible", ".:state"]:
 		cfg.add_property(NodePath(p))
@@ -49,7 +59,7 @@ func setup(k: String) -> void:
 	add_child(sync)
 
 
-## Host: appear at `at` (a basement cell floor centre).
+## Host: appear at `at` (a mansion room floor centre).
 func wake(at: Vector3) -> void:
 	visible = true
 	_victim = 0
@@ -60,11 +70,11 @@ func wake(at: Vector3) -> void:
 			position = at
 		"dust":
 			state = "ceiling"
-			position = at + Vector3(0, Basement.WALL_H - 0.35, 0)
+			position = at + Vector3(0, Interior.height() - 0.35, 0)
 		"boar":
 			state = "wander"
 			position = at
-			_goal_cell = main.basement.cell_of(at)
+			_goal_cell = main.interior.cell_of(at)
 
 
 ## Host: back to storage (new day, or freed from a head).
@@ -77,6 +87,14 @@ func park() -> void:
 
 ## Every peer: cry when the synced state turns dangerous (drop, snort before a charge).
 func _process(_delta: float) -> void:
+	var moved := ((global_position - _last_pos) * Vector3(1, 0, 1)).length()
+	_last_pos = global_position
+	var stride: float = Tuning.data.monsters.step_length.get(kind, 0.0)
+	if stride > 0.0 and visible and moved < 1.0:  # ignore wake/park jumps
+		_walked += moved
+		if _walked >= stride:
+			_walked = 0.0
+			_steps.play()
 	if state != _heard_state:
 		_heard_state = state
 		if state in ["latched", "windup"]:
@@ -112,7 +130,7 @@ func _statue(c: Dictionary, delta: float) -> void:
 		main.kill_player(target.name.to_int())
 
 
-## True if any living mover in the basement has this statue in view: within `sight` m,
+## True if any living mover inside has this statue in view: within `sight` m,
 ## inside their view cone, and not behind a wall.
 func watched(c: Dictionary) -> bool:
 	for p in main.players.get_children():
@@ -178,7 +196,7 @@ func _boar(c: Dictionary, delta: float) -> void:
 				_dir = ((seen.global_position - global_position) * Vector3(1, 0, 1)).normalized()
 				look_at(global_position + _dir + Vector3(0.001, 0, 0), Vector3.UP)
 				return
-			if _arrive(main.basement.cell_center(_goal_cell), c.speed, delta):
+			if _arrive(main.interior.cell_center(_goal_cell), c.speed, delta):
 				_goal_cell = _random_neighbour(_goal_cell)
 		"windup":
 			if _t >= c.windup:
@@ -200,13 +218,13 @@ func _boar(c: Dictionary, delta: float) -> void:
 		"dazed":
 			if _t >= c.daze:
 				state = "wander"
-				_goal_cell = main.basement.cell_of(global_position)
+				_goal_cell = main.interior.cell_of(global_position)
 
 
-## A living mover in the basement the boar can see in a straight line within `sight` m.
+## A living mover inside the mansion the boar can see in a straight line within `sight` m.
 func _seen_mover(c: Dictionary) -> Node3D:
 	for p in main.players.get_children():
-		if main.is_stunned(p.name.to_int()) or not main.basement.contains(p.global_position):
+		if main.is_stunned(p.name.to_int()) or not main.interior.contains(p.global_position):
 			continue
 		if _flat_dist(p.global_position) < c.sight and _clear_line(global_position + Vector3.UP * 0.6, p.global_position + Vector3.UP * 0.9, p):
 			return p
@@ -217,7 +235,7 @@ func _seen_mover(c: Dictionary) -> Node3D:
 
 ## Step along the maze toward `goal`: through the next cell on the shortest path, then straight.
 func _walk_toward(goal: Vector3, speed: float, delta: float) -> void:
-	var bm: Node = main.basement
+	var bm: Node = main.interior
 	var here: Vector2i = bm.cell_of(global_position)
 	var there: Vector2i = bm.cell_of(goal)
 	if here == there:
@@ -245,7 +263,7 @@ static func next_cell(maze: Dictionary, from: Vector2i, to: Vector2i) -> Vector2
 			break
 		for d in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
 			var n: Vector2i = c + d
-			if not prev.has(n) and maze.open.has(Basement.edge_key(c, n)):
+			if not prev.has(n) and maze.open.has(Interior.edge_key(c, n)):
 				prev[n] = c
 				queue.append(n)
 	if not prev.has(to):
@@ -268,7 +286,7 @@ func _arrive(goal: Vector3, speed: float, delta: float) -> bool:
 func _random_neighbour(c: Vector2i) -> Vector2i:
 	var opts: Array[Vector2i] = []
 	for d in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-		if main.basement.maze.open.has(Basement.edge_key(c, c + d)):
+		if main.interior.maze.open.has(Interior.edge_key(c, c + d)):
 			opts.append(c + d)
 	return c if opts.is_empty() else opts[randi() % opts.size()]
 
@@ -276,7 +294,7 @@ func _random_neighbour(c: Vector2i) -> Vector2i:
 func _nearest_alive() -> Node3D:
 	var best: Node3D
 	for p in main.players.get_children():
-		if main.is_stunned(p.name.to_int()) or not main.basement.contains(p.global_position):
+		if main.is_stunned(p.name.to_int()) or not main.interior.contains(p.global_position):
 			continue
 		if best == null or _flat_dist(p.global_position) < _flat_dist(best.global_position):
 			best = p
@@ -304,46 +322,112 @@ func _wall_ahead(dist: float) -> bool:
 
 func _build_look() -> void:
 	match kind:
-		"statue":
+		"statue":  # a dressmaker's mannequin: cracked porcelain face with a painted grin, ball joints
 			var plaster := StandardMaterial3D.new()
-			plaster.albedo_color = Color("#d8d0c4")
-			plaster.roughness = 0.9
-			_mesh(_capsule(0.22, 1.2), Vector3(0, 0.95, 0), plaster)        # torso and legs
-			_mesh(_sphere(0.16), Vector3(0, 1.72, 0), plaster)              # blank head
+			plaster.albedo_color = Color("#e6dccb")
+			plaster.roughness = 0.35
+			var joint := StandardMaterial3D.new()
+			joint.albedo_color = Color("#6a5a48")
+			var paint := StandardMaterial3D.new()
+			paint.albedo_color = Color("#7a0c10")
+			var hollow := StandardMaterial3D.new()
+			hollow.albedo_color = Color.BLACK
+			var hips := CylinderMesh.new()
+			hips.top_radius = 0.14
+			hips.bottom_radius = 0.2
+			hips.height = 0.3
+			_mesh(hips, Vector3(0, 0.95, 0), plaster)
+			var chest := CylinderMesh.new()
+			chest.top_radius = 0.22
+			chest.bottom_radius = 0.13
+			chest.height = 0.5
+			_mesh(chest, Vector3(0, 1.35, 0), plaster)
+			_mesh(_capsule(0.04, 0.2), Vector3(0, 1.66, 0), joint)            # neck pole
+			var head := _mesh(_sphere(0.15), Vector3(0, 1.82, -0.02), plaster)
+			head.scale = Vector3(0.9, 1.15, 0.95)
+			head.rotation.z = -0.3                                             # head cocked to one side
 			for sx in [-1, 1]:
-				var arm := _mesh(_capsule(0.06, 0.7), Vector3(sx * 0.3, 1.15, -0.1), plaster)
-				arm.rotation.x = -0.6                                        # reaching forward
-		"dust":
+				_mesh(_sphere(0.035), Vector3(sx * 0.055, 1.86, -0.15), hollow)  # empty eye holes
+			var grin := BoxMesh.new()
+			grin.size = Vector3(0.16, 0.018, 0.02)
+			_mesh(grin, Vector3(0, 1.75, -0.155), paint).rotation.z = -0.3
+			var crack := BoxMesh.new()
+			crack.size = Vector3(0.008, 0.14, 0.01)
+			_mesh(crack, Vector3(0.07, 1.9, -0.13), hollow).rotation.z = 0.5
+			for sx in [-1, 1]:
+				_mesh(_sphere(0.06), Vector3(sx * 0.27, 1.55, 0), joint)       # shoulder balls
+				_mesh(_sphere(0.05), Vector3(sx * 0.1, 0.78, 0), joint)        # hip balls
+				_mesh(_capsule(0.06, 0.78), Vector3(sx * 0.1, 0.4, 0), plaster)  # legs
+				var arm := _mesh(_capsule(0.045, 0.75), Vector3(sx * 0.3, 1.45, -0.28), plaster)
+				arm.rotation.x = -1.2 if sx > 0 else -0.5                       # one hand reaching out
+		"dust":  # 먼지귀신: a matted ball of hair and grime with spindly legs and one wet eye
 			var fluff := StandardMaterial3D.new()
-			fluff.albedo_color = Color("#2a2622")
+			fluff.albedo_color = Color("#3a332c")
 			fluff.roughness = 1.0
-			_mesh(_sphere(0.32), Vector3.ZERO, fluff)
-			var glow := StandardMaterial3D.new()
-			glow.emission_enabled = true
-			glow.emission = Color("#ffef9a")
-			glow.emission_energy_multiplier = 2.5
-			for sx in [-1, 1]:
-				_mesh(_sphere(0.04), Vector3(sx * 0.1, -0.12, -0.26), glow)
-		"boar":
+			var leg := StandardMaterial3D.new()
+			leg.albedo_color = Color("#1a1612")
+			_mesh(_sphere(0.3), Vector3.ZERO, fluff).scale = Vector3(1.0, 0.8, 1.0)
+			for i in 10:  # tufts so the outline is ragged, not a ball
+				var a := i * TAU / 10.0
+				_mesh(_sphere(0.12), Vector3(cos(a) * 0.26, sin(i * 2.3) * 0.12, sin(a) * 0.26), fluff)
+			for i in 8:  # legs folded down, ready to grab a head
+				var a := i * TAU / 8.0 + 0.2
+				var l := _mesh(_capsule(0.018, 0.6), Vector3(cos(a) * 0.3, -0.25, sin(a) * 0.3), leg)
+				l.rotation = Vector3(sin(a) * 0.7, 0, -cos(a) * 0.7)
+			var white := StandardMaterial3D.new()
+			white.albedo_color = Color("#e8e4d0")
+			white.emission_enabled = true
+			white.emission = Color("#fff4b0")
+			white.emission_energy_multiplier = 1.5
+			var pupil := StandardMaterial3D.new()
+			pupil.albedo_color = Color.BLACK
+			_mesh(_sphere(0.09), Vector3(0, -0.12, -0.24), white)
+			_mesh(_sphere(0.04), Vector3(0, -0.14, -0.32), pupil)
+		"boar":  # 박제 멧돼지: a stuffed trophy boar, split seams and stuffing showing, glass eyes
 			var hide := StandardMaterial3D.new()
-			hide.albedo_color = Color("#5a3a26")
+			hide.albedo_color = Color("#4a3020")
+			hide.roughness = 0.95
+			var dark := StandardMaterial3D.new()
+			dark.albedo_color = Color("#1e140c")
 			var tusk := StandardMaterial3D.new()
 			tusk.albedo_color = Color("#efe6cc")
-			var body := BoxMesh.new()
-			body.size = Vector3(0.7, 0.7, 1.3)
-			_mesh(body, Vector3(0, 0.55, 0), hide)
-			var head := BoxMesh.new()
-			head.size = Vector3(0.5, 0.45, 0.5)
-			_mesh(head, Vector3(0, 0.6, -0.8), hide)
+			var stuffing := StandardMaterial3D.new()
+			stuffing.albedo_color = Color("#d8cfa8")
+			var plaque := StandardMaterial3D.new()
+			plaque.albedo_color = Color("#6a4424")
+			var body := _mesh(_capsule(0.38, 1.4), Vector3(0, 0.62, 0), hide)
+			body.rotation.x = PI / 2
+			body.scale = Vector3(1.0, 1.0, 1.1)
+			var head := _mesh(_sphere(0.3), Vector3(0, 0.66, -0.72), hide)
+			head.scale = Vector3(0.9, 0.95, 1.2)
+			var snout := CylinderMesh.new()
+			snout.top_radius = 0.12
+			snout.bottom_radius = 0.16
+			snout.height = 0.22
+			_mesh(snout, Vector3(0, 0.58, -1.02), dark).rotation.x = PI / 2
+			for i in 7:  # bristle ridge down the spine
+				var r := _mesh(_capsule(0.04, 0.22), Vector3(0, 1.0 - absf(i - 2) * 0.03, -0.45 + i * 0.13), dark)
+				r.rotation.x = -0.5
 			for sx in [-1, 1]:
-				var t := _mesh(_capsule(0.03, 0.3), Vector3(sx * 0.18, 0.45, -1.05), tusk)
-				t.rotation.x = -1.2
+				var t := _mesh(_capsule(0.035, 0.34), Vector3(sx * 0.15, 0.6, -1.08), tusk)
+				t.rotation = Vector3(-0.4, 0, sx * -0.5)                        # tusks curl up and out
+				_mesh(_capsule(0.07, 0.5), Vector3(sx * 0.2, 0.22, -0.4), hide)  # legs
+				_mesh(_capsule(0.07, 0.5), Vector3(sx * 0.2, 0.22, 0.45), hide)
+				var ear := BoxMesh.new()
+				ear.size = Vector3(0.1, 0.16, 0.03)
+				_mesh(ear, Vector3(sx * 0.18, 0.92, -0.62), hide).rotation.z = sx * 0.5
+			_mesh(_sphere(0.08), Vector3(0.36, 0.7, 0.1), stuffing)            # stuffing out of a split seam
+			_mesh(_sphere(0.06), Vector3(0.37, 0.62, 0.22), stuffing)
+			var board := BoxMesh.new()  # it still wears its trophy plaque on the rump
+			board.size = Vector3(0.36, 0.26, 0.04)
+			_mesh(board, Vector3(0, 0.7, 0.86), plaque)
 			var eye := StandardMaterial3D.new()
 			eye.emission_enabled = true
 			eye.emission = Color("#ff3020")
 			eye.emission_energy_multiplier = 3.0
+			eye.metallic = 0.8
 			for sx in [-1, 1]:
-				_mesh(_sphere(0.04), Vector3(sx * 0.16, 0.72, -1.05), eye)
+				_mesh(_sphere(0.045), Vector3(sx * 0.17, 0.76, -0.95), eye)
 
 
 func _mesh(m: Mesh, at: Vector3, mat: Material) -> MeshInstance3D:

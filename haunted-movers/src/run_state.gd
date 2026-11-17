@@ -2,7 +2,7 @@
 ## Pure functions over a plain Dictionary (so it can be sent over RPC as-is and tested
 ## without nodes).
 ##
-## phase: "day" (moving) → "shop" (between days) → "day" … → "over" (fired)
+## phase: "day" (scavenging) → "shop" (between days) → "day" … → "over" (fired)
 ## Each day's pay goes into `haul` (not yet paid). On the last day of a cycle the haul is
 ## checked against the quota: met → it is paid into `money` and a bigger quota starts;
 ## missed → fired, run over. Everyone dying on a day loses the whole haul so far.
@@ -10,7 +10,7 @@
 
 static func new_run(cfg: Dictionary) -> Dictionary:
 	return {day = 1, cycle = 1, cycle_day = 1, haul = 0, money = int(cfg.start_money), phase = "day",
-		time_left = float(cfg.day_seconds), seed = randi(), strength_mult = 1.0, reach_bonus = 0.0,
+		time_left = float(cfg.day_seconds), seed = randi(), battery_bonus = 0.0, speed_bonus = 0.0,
 		tapes = 0, owned = [], text = ""}
 
 
@@ -55,15 +55,15 @@ static func end_day(run: Dictionary, earned: int, cfg: Dictionary, why := "", wi
 	return r
 
 
-## Buys `item` (a key of cfg.shop) if affordable. Cart/rope once per run; tapes stack.
+## Buys `item` (a key of cfg.shop) if affordable. Flashlight/shoes once per run; tapes stack.
 static func buy(run: Dictionary, item: String, cfg: Dictionary) -> bool:
 	var it: Dictionary = cfg.shop[item]
 	if run.phase != "shop" or run.money < it.price or (not it.get("stack", false) and item in run.owned):
 		return false
 	run.money -= int(it.price)
 	run.owned.append(item)
-	run.strength_mult += it.get("strength", 0.0)
-	run.reach_bonus += it.get("reach", 0.0)
+	run.battery_bonus += it.get("battery", 0.0)
+	run.speed_bonus += it.get("speed", 0.0)
 	run.tapes += int(it.get("tapes", 0))
 	return true
 

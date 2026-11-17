@@ -1,12 +1,11 @@
 extends Control
-## Truck radio screen, full screen: the house (left) and today's basement maze (right), drawn
-## from synced positions — movers (ring = upstairs, X = dead), the ghost, monsters, furniture
-## still in play, doors and the truck. Shown only to a mover in radio mode (Tab at the truck).
+## Truck radio screen, full screen: outside (left: truck, mansion, its doors) and today's
+## mansion inside (right), drawn from synced positions — movers (X = dead), the ghost,
+## monsters, scrap lying around, doors and the truck. Shown only to a mover in radio mode (Tab at the truck).
 ## Pure drawing, no game logic.
 
-## House-side area shown: x -7..7, z -9..13 (house x -6..6 z 0..10, truck in front, back yard).
-const HOUSE_AREA := Rect2(-7, -9, 14, 22)
-const UPSTAIRS_Y := 2.5
+## Outside area shown: x -12..12, z -19..17 (mansion x -9..9 z 0..14, truck in front).
+const HOUSE_AREA := Rect2(-12, -19, 24, 36)
 const BG := Color("#141a14")
 const WALL := Color("#7a9a7a")
 
@@ -26,28 +25,28 @@ func _draw() -> void:
 		return
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.8))
 	var font := get_theme_default_font()
-	var help := "트럭 무전 — ● 1층  ○ 2층  ✕ 사망  · 빨강 유령/몬스터 · 네모 가구 · Tab 닫기 · H 경적(유령을 트럭으로 유인)"
+	var help := "트럭 무전 — ● 동료  ✕ 사망  · 빨강 유령/몬스터 · 초록 고물 · Tab 닫기 · H 경적(유령을 빈 방으로 쫓기)"
 	help += "" if lure_ready_in <= 0.0 else "  [경적 %d초 뒤]" % ceili(lure_ready_in)
 	draw_string(font, Vector2(24, 36), help, HORIZONTAL_ALIGNMENT_LEFT, size.x - 48, 20, Color.WHITE)
 	var top := 56.0
 	var gap := 24.0
 	var avail := Rect2(24, top, size.x - 48, size.y - top - 24)
-	var bm: Node = main.basement
+	var bm: Node = main.interior
 	var bw: float = bm.maze.cols * bm.maze.cell if not bm.maze.is_empty() else 1.0
 	var bd: float = bm.maze.rows * bm.maze.cell if not bm.maze.is_empty() else 1.0
 	var b_area := Rect2(bm.ORIGIN.x - 1, bm.ORIGIN.z - 1, bw + 2, bd + 2)
-	# Same metres-to-pixels scale on both panels so the basement's real size reads at a glance.
+	# Same metres-to-pixels scale on both panels so the mansion's real size reads at a glance.
 	var s := minf((avail.size.x - gap) / (HOUSE_AREA.size.x + b_area.size.x),
 		minf(avail.size.y / HOUSE_AREA.size.y, avail.size.y / b_area.size.y))
 	var house_px := Rect2(avail.position, HOUSE_AREA.size * s)
 	var base_px := Rect2(avail.position + Vector2(house_px.size.x + gap, 0), b_area.size * s)
-	_panel(house_px, "집 (1·2층)")
-	_panel(base_px, "지하 창고 — %d일차 배치" % main.run.day)
+	_panel(house_px, "바깥")
+	_panel(base_px, "저택 내부 — %d일차 배치" % main.run.day)
 	_draw_house(house_px, s)
-	_draw_basement(base_px, b_area, s)
-	for f in main.furniture.get_children():
-		if f.in_play:
-			_dot_furniture(f, house_px, base_px, b_area, s)
+	_draw_interior(base_px, b_area, s)
+	for it in main.loot.get_children():
+		if it.lying():
+			_dot_furniture(it, house_px, base_px, b_area, s)
 	for m in _monsters():
 		_dot_monster(m, house_px, base_px, b_area, s)
 	for p in main.players.get_children():
@@ -61,20 +60,18 @@ func _panel(r: Rect2, title: String) -> void:
 
 
 func _draw_house(px: Rect2, s: float) -> void:
-	_wire(Rect2(-6, 0, 12, 10), px, HOUSE_AREA, s, 3.0)
-	_line(Vector3(-6, 0, 5.5), Vector3(-3.6, 0, 5.5), px, HOUSE_AREA, s)   # inner wall with its door
-	_line(Vector3(-2.4, 0, 5.5), Vector3(6, 0, 5.5), px, HOUSE_AREA, s)
-	draw_rect(_rect(Rect2(-0.8, -0.15, 1.6, 0.3), px, HOUSE_AREA, s), BG)   # front door gap
+	draw_rect(_rect(Rect2(-9, 0, 18, 14), px, HOUSE_AREA, s), Color(WALL, 0.15))
+	_wire(Rect2(-9, 0, 18, 14), px, HOUSE_AREA, s, 3.0)
 	var bed: AABB = main.truck.bed
 	draw_rect(_rect(Rect2(bed.position.x, bed.position.z, bed.size.x, bed.size.z), px, HOUSE_AREA, s), Color("#e07a2e", 0.5))
 	_text(_pt(bed.get_center(), px, HOUSE_AREA, s), "트럭", Color("#ffb070"))
-	for dd in main.basement.doors:
-		if not main.basement.contains(dd.at):
+	for dd in main.interior.doors:
+		if not main.interior.contains(dd.at):
 			_door(dd, px, HOUSE_AREA, s)
 
 
-func _draw_basement(px: Rect2, area: Rect2, s: float) -> void:
-	var bm: Node = main.basement
+func _draw_interior(px: Rect2, area: Rect2, s: float) -> void:
+	var bm: Node = main.interior
 	if bm.maze.is_empty():
 		return
 	var m: Dictionary = bm.maze
@@ -95,14 +92,14 @@ func _draw_basement(px: Rect2, area: Rect2, s: float) -> void:
 
 func _door(dd: Dictionary, px: Rect2, area: Rect2, s: float) -> void:
 	var at := _pt(dd.at, px, area, s)
-	var fire: bool = dd.label.begins_with("비상구")
+	var fire: bool = dd.label.contains("비상구")
 	draw_rect(Rect2(at - Vector2(6, 6), Vector2(12, 12)), Color("#ff6a50") if fire else Color("#ffe0b0"))
-	_text(at + Vector2(8, 16), dd.label, Color("#ff8a70") if fire else Color("#ffe0b0"))
+	_text(at + Vector2(8, 16), "비상구" if fire else "현관", Color("#ff8a70") if fire else Color("#ffe0b0"))
 
 
 func _dot_furniture(f: Node, hp: Rect2, bp: Rect2, area: Rect2, s: float) -> void:
 	var at := _where(f.global_position, hp, bp, area, s)
-	draw_rect(Rect2(at - Vector2(5, 5), Vector2(10, 10)), Color("#b0a890"))
+	draw_rect(Rect2(at - Vector2(4, 4), Vector2(8, 8)), Color("#7ad87a"))
 
 
 func _dot_monster(m: Node3D, hp: Rect2, bp: Rect2, area: Rect2, s: float) -> void:
@@ -117,8 +114,6 @@ func _dot_player(p: Node, hp: Rect2, bp: Rect2, area: Rect2, s: float) -> void:
 	if p.dead:
 		draw_line(at - Vector2(8, 8), at + Vector2(8, 8), col, 3.0)
 		draw_line(at + Vector2(-8, 8), at + Vector2(8, -8), col, 3.0)
-	elif not main.basement.contains(p.global_position) and p.global_position.y > UPSTAIRS_Y:
-		draw_arc(at, 8.0, 0.0, TAU, 20, col, 3.0)
 	else:
 		draw_circle(at, 8.0, col)
 	_text(at + Vector2(11, -6), "나" if p.name.to_int() == main.multiplayer.get_unique_id() else "동료", col)
@@ -134,7 +129,7 @@ func _monsters() -> Array:
 
 ## A world point on whichever panel it belongs to.
 func _where(p: Vector3, hp: Rect2, bp: Rect2, area: Rect2, s: float) -> Vector2:
-	return _pt(p, bp, area, s) if main.basement.contains(p) else _pt(p, hp, HOUSE_AREA, s)
+	return _pt(p, bp, area, s) if main.interior.contains(p) else _pt(p, hp, HOUSE_AREA, s)
 
 
 ## World (x, z) → panel pixels. +z (deeper in) is up on screen.

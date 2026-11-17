@@ -35,11 +35,11 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-17
 **Branch:** `feat/haunted-movers-layouts`
-**Current task:** 유령집 이삿짐센터 리썰식 4차 — 매일 바뀌는 지하 창고 미로(지하실 문·비상구, 지하 전용 비싼 짐), 전체 화면 무전 지도, 지하 몬스터 3종(마네킹·먼지귀신·박제 멧돼지) + 시간별 등장.
-**Next step:** 사람 2~4명 플레이테스트로 난이도 조정(몬스터 스케줄·속도는 data/tuning.json monsters). 푸시 안 함.
+**Current task:** 유령집 이삿짐센터 리썰식 개편 + 후속(유령 첫 접촉 기절/두 번째 사망, 손전등으로 유령 쫓기, 소복 귀신·괴물 모델 개편, Kenney 가구 모델, 방 종류별 채우기, 가구 뒤지기) — 커밋 완료.
+**Next step:** 사용자 피드백 대기. 후보: 연 가구 열린 모양, 방 크기 다양화, 몬스터가 가구 통과하는 것, Graveyard Kit·Ultimate Monsters 에셋(사용자가 받아야 함 — kenney.nl은 자동 다운로드 거부됨). 2~4명 플레이테스트로 난이도.
 **Blocked on:** 없음
-**Files in progress:** 없음
-**Run result:** smoke PASS(미로·문·몬스터 포함, 마네킹 시선 끄면 FAIL 확인), network integration PASS, 지하·몬스터·무전 지도 스크린샷 확인.
+**Files in progress:** 커밋 안 됨 (작업 트리에 변경 있음): haunted-movers/src/*, data/tuning.json, tests, README, design/game-brief.md
+**Run result:** smoke PASS(손전등 쫓기·가구 뒤지기·가구 안 고물 금지 테스트는 일부러 망가뜨려 FAIL 확인), network integration PASS(참가자 뒤지기 RPC 포함). 증거: haunted-movers/production/qa/evidence/*-2026-11-17.png.
 **Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
 <!-- /CHECKPOINT -->
 
