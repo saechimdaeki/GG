@@ -45,6 +45,20 @@
 | <img src="production/qa/evidence/raid-traps-cards.png" width="280"> | <img src="production/qa/evidence/story-intro.png" width="280"> | <img src="production/qa/evidence/meta-tree.png" width="280"> |
 | 웨이브 보상 카드 | 이야기 — 집사 임프 | 영구 강화 트리 |
 
+**싸움 장면**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/gates-patterns.png" width="280"> | <img src="production/qa/evidence/glow-raid.png" width="280"> | <img src="production/qa/evidence/hero-skill-gauge.png" width="280"> |
+| 철문을 닫아 용사를 돌아가게 만들기 | 마왕이 직접 나서는 액션 모드 | 코어가 공격받는 중 |
+
+**판이 끝나면**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/map-themes-build.png" width="280"> | <img src="production/qa/evidence/reward-screen.png" width="280"> | <img src="production/qa/evidence/meta-upgrade-end.png" width="280"> |
+| 웨이브 사이 다시 짓기 | 웨이브 클리어 보상 고르기 | 패배해도 영혼석으로 영구 강화 |
+
 ## 실행
 
 Godot 4.7.2 가 `godot` 명령으로 잡혀 있어야 함 (`godot --version` → `4.7.2.stable`).

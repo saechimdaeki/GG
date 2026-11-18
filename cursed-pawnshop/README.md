@@ -45,6 +45,20 @@
 | <img src="production/qa/evidence/story-007-m6-polish/scene-baal.png" width="280"> | <img src="production/qa/evidence/story-007-m6-polish/scene-ending.png" width="280"> | <img src="production/qa/evidence/selfplay-2026-10-30/endings.png" width="280"> |
 | 고리대금업자 바알 | 엔딩 | 여러 엔딩 |
 
+**손님들**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/story-002-m1-day-cycle/art-result.png" width="280"> | <img src="production/qa/evidence/story-005-m4-story/npc-pip.png" width="280"> | <img src="production/qa/evidence/story-008-nonmetal/gem-glass.png" width="280"> |
+| 가짜 납 촉수 우상 — 감정 결과 | 가게 꼬마 유령 피프 | 보석일까 유리일까 — 기포를 찾아라 |
+
+**컷신**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/story-009-ui-tutorial/cut-intro.png" width="280"> | <img src="production/qa/evidence/story-009-ui-tutorial/cut-week3.png" width="280"> | <img src="production/qa/evidence/story-004-m3-debt-growth/baal.png" width="280"> |
+| 비 오는 밤 도착한 낯선 편지 | 3주째 — 바다가 끓기 시작한다 | 빚쟁이 악마 바알의 방문 |
+
 ## 실행 (Godot 4.7.2 필요)
 
 ```bash

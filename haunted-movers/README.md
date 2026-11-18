@@ -49,6 +49,20 @@
 | <img src="production/qa/evidence/bear-trap-2026-11-17.png" width="280"> | <img src="production/qa/evidence/lc-radio-map-2026-11-17.png" width="280"> | <img src="production/qa/evidence/health-bar-2026-11-17.png" width="280"> |
 | 곰덫과 삐걱대는 마루 | 트럭 무전 — 저택 지도 | 체력·스태미나 HUD |
 
+**밤의 저택과 짐칸**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/lc-outside-2026-11-17.png" width="280"> | <img src="production/qa/evidence/lc-inside-carry-2026-11-17.png" width="280"> | <img src="production/qa/evidence/radio-map-2026-11-17.png" width="280"> |
+| 밤에 도착한 저택 — 불 켜진 창문 | 트럭 짐칸에 실은 고물 — G로 내려놓으면 돈 | 무전기 지도 — 트럭에 남은 친구가 괴물 위치를 불러줌 |
+
+**방마다**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/room-door-shut-2026-11-18.png" width="280"> | <img src="production/qa/evidence/room-kitchen-2026-11-17.png" width="280"> | <img src="production/qa/evidence/polyhaven-living-2026-11-17.png" width="280"> |
+| 닫힌 방문 — 열어 보기 전엔 모름 | 부엌 | 손전등 하나로 버티는 어두운 거실 |
+
 ## 실행
 
 ```bash

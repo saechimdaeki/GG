@@ -45,6 +45,13 @@ M3 일부까지 — 펌프 밸브(물 채우기·빼기), 기둥 위 톱니, 마
 | <img src="production/qa/evidence/m3-valve/01-refilled-pillar.png" width="280"> | <img src="production/qa/evidence/m3-valve/02-crab-dry-floor.png" width="280"> | <img src="production/qa/evidence/m2-village/02-lodge-menu.png" width="280"> |
 | 물을 다시 채워 닿는 기둥 | 마른 층의 돌 껍데기 게 | 숙소 메뉴 |
 
+**하늘과 물**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/sky/start.png" width="280"> | <img src="production/qa/evidence/sky/town.png" width="280"> | <img src="production/qa/evidence/m1-dive/02-draining.png" width="280"> |
+| 수면 위 출발점 | 하늘 위로 쌓인 마을 | 펌프를 고치면 물이 빠진다 |
+
 ## 실행
 ```bash
 godot --path sunken-city
