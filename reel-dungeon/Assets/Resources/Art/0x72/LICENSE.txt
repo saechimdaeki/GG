@@ -1,0 +1,4 @@
+16x16 DungeonTileset II v1.7 by 0x72 — CC0 1.0 (public domain).
+Official page: https://0x72.itch.io/dungeontileset-ii
+These frames were copied unchanged from a GitHub mirror of v1.7
+(veroteknic/godot2d @ 00c0c747fcbde318c0d940c53d7a3bdaa5ce52d4, map/0x72_DungeonTilesetII_v1.7/frames).
