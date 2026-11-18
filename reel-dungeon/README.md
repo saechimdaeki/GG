@@ -11,6 +11,7 @@
 - 화면: IMGUI + 코드로 만든 픽셀 9-slice 패널·버튼, 1280×720 기준 균일 확대(다른 화면비는 양옆 여백)
 - 아트: 0x72 DungeonTileset II (CC0), 방패 아이콘·앱 아이콘(`tools/make_icon.py`)은 자체 제작
 - 글꼴: 갈무리 Galmuri11 / 11-Bold / 14 (SIL OFL 1.1, `Assets/Resources/Fonts/Galmuri-OFL.txt`)
+- 이어하기: 화면이 바뀔 때마다(지도·전투 중·보상·상점·이벤트)와 종료할 때 자동 저장 → 타이틀의 "이어하기". 전투 중에 꺼도 같은 적·HP·릴 그대로. 판이 끝나면 저장 삭제. 저장 위치 `~/Library/Application Support/GG/Reel Dungeon/run.json`, 못 읽는 저장은 `.broken`으로 치우고 안내.
 - 편의: Esc 일시정지, 설정(음악·효과음 볼륨, 전체화면, 화면 흔들림·번쩍임 끄기, 안내 다시 보기 — PlayerPrefs 저장), 첫 판 안내 말풍선, 화면 전환 페이드
 - 장별 분위기: 늪(점액·분수·반딧불), 감옥(벽 구멍·기둥·먼지), 용암 동굴(용암 분수·불씨), 비네트
 
@@ -62,6 +63,6 @@ U="/Applications/Unity/Hub/Editor/6000.6.9f1/Unity.app/Contents/MacOS/Unity"
 open Builds/Mac/ReelDungeon.app
 ```
 
-스크린샷용 실행 옵션: `--screenshot <절대경로> --at <초>` 와 함께 `--title`, `--chapter N`, `--node <Combat|Shop|Event|Boss…>`, `--recruit a,b`, `--equip`, `--relic`, `--charge`, `--autocommit`, `--autoturns N`, `--nostory`, `--notips`, `--pause`, `--settings`.
+스크린샷용 실행 옵션: `--screenshot <절대경로> --at <초>` 와 함께 `--title`, `--chapter N`, `--node <Combat|Shop|Event|Boss…>`, `--recruit a,b`, `--equip`, `--relic`, `--charge`, `--autocommit`, `--autoturns N`, `--nostory`, `--notips`, `--pause`, `--settings`. 스크린샷 실행은 저장을 건드리지 않는다 (`--usesave`, `--continue`로 저장 흐름 확인).
 
 에디터에서 열 때는 Unity Hub → Add → 이 폴더.

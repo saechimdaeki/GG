@@ -15,6 +15,7 @@ namespace ReelDungeon.Core
     }
 
     /// <summary>One choice on a reward, rest, recruit or treasure screen, or one shop item.</summary>
+    [Serializable]
     public class Reward
     {
         public RewardKind Kind;
@@ -33,7 +34,7 @@ namespace ReelDungeon.Core
     /// gold, the chapter map, the current fight and the screens between fights. Pure logic with no
     /// Unity dependency; pass a seeded Random for deterministic tests.
     /// </summary>
-    public class Run
+    public partial class Run
     {
         readonly TuningConfig cfg;
         readonly Random rng;
@@ -101,18 +102,23 @@ namespace ReelDungeon.Core
         /// <summary>Nodes the party can walk to next.</summary>
         public IEnumerable<MapNode> Available => Current == null ? Map.Rows[0] : Current.Next;
 
-        public Run(TuningConfig cfg, Random rng)
+        public Run(TuningConfig cfg, Random rng) : this(cfg, rng, restoring: true)
+        {
+            Hp = cfg.playerMaxHp;
+            Gold = cfg.startingGold;
+            foreach (var id in cfg.startingParty) Recruit(id);
+            Map = StageMap.Generate(cfg, rng);
+            Phase = Phase.Map;
+        }
+
+        /// <summary>Lookups only; <see cref="FromSave"/> fills in the rest.</summary>
+        Run(TuningConfig cfg, Random rng, bool restoring)
         {
             this.cfg = cfg;
             this.rng = rng;
             byId = cfg.symbols.ToDictionary(s => s.id);
             companions = cfg.companions.ToDictionary(c => c.id);
             items = (cfg.items ?? new ItemDef[0]).ToDictionary(i => i.id);
-            Hp = cfg.playerMaxHp;
-            Gold = cfg.startingGold;
-            foreach (var id in cfg.startingParty) Recruit(id);
-            Map = StageMap.Generate(cfg, rng);
-            Phase = Phase.Map;
         }
 
         public SymbolDef Symbol(string id) => byId[id];

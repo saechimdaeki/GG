@@ -590,4 +590,75 @@ public class RunTests
         run.Buy(k);
         Assert.AreEqual(3, run.Reels[2].Count);
     }
+
+    // ---------- save / continue ----------
+
+    /// <summary>Through JSON, the way the game stores it on disk.</summary>
+    static Run Reload(TuningConfig cfg, Run run) =>
+        Run.FromSave(cfg, UnityEngine.JsonUtility.FromJson<RunSave>(UnityEngine.JsonUtility.ToJson(run.ToSave())));
+
+    [Test]
+    public void Save_OnMap_RestoresPartyMapAndPosition()
+    {
+        var cfg = Config("sword", Trio, Enemy(10, 5, gold: 7));
+        var run = Enter(cfg);
+        run.Commit();
+        run.ChooseReward(0);
+        var back = Reload(cfg, run);
+        Assert.AreEqual(Phase.Map, back.Phase);
+        CollectionAssert.AreEqual(run.Party, back.Party);
+        CollectionAssert.AreEqual(run.Reels.Select(r => r.Count), back.Reels.Select(r => r.Count));
+        Assert.AreEqual(run.Gold, back.Gold);
+        Assert.AreEqual(run.Hp, back.Hp);
+        Assert.AreEqual(run.Kills, back.Kills);
+        Assert.AreEqual(0, back.Current.Row);
+        Assert.IsTrue(back.Map.Rows[0][0].Visited);
+        CollectionAssert.AreEqual(run.Available.Select(n => (n.Row, n.Type)), back.Available.Select(n => (n.Row, n.Type)));
+        Assert.IsTrue(back.Choose(back.Available.First()));
+    }
+
+    [Test]
+    public void Save_MidFight_KeepsEnemyFacesAndFightCurses()
+    {
+        var cfg = Config("sword", Trio, Moves(30, "curse:0", "attack:5"));
+        var run = Enter(cfg);
+        int before = Skulls(run);
+        run.Commit(); // 18 damage, a skull for this fight
+        var back = Reload(cfg, run);
+        Assert.AreEqual(Phase.Turn, back.Phase);
+        Assert.AreEqual(run.EnemyHp, back.EnemyHp);
+        Assert.AreEqual("attack", back.Intent.Kind);
+        CollectionAssert.AreEqual(run.Faces.Select(f => f.id), back.Faces.Select(f => f.id));
+        back.Faces[0] = back.Faces[1] = back.Faces[2] = back.Symbol("sword");
+        back.Commit(); // kill: the fight's skull goes away
+        Assert.AreEqual(before, Skulls(back));
+    }
+
+    [Test]
+    public void Save_InShop_KeepsItemsAndBuysStillWork()
+    {
+        var cfg = Config("sword", Trio, Enemy(10, 5));
+        var run = Enter(cfg, NodeType.Shop);
+        var back = Reload(cfg, run);
+        Assert.AreEqual(Phase.Shop, back.Phase);
+        Assert.AreEqual(run.ShopItems.Count, back.ShopItems.Count);
+        int k = back.ShopItems.FindIndex(r => r.Kind == RewardKind.Upgrade);
+        Assert.IsNull(back.ShopItems[k].CompanionId);
+        Assert.IsTrue(back.Buy(k));
+        Assert.AreEqual(1, back.Level("sword"));
+    }
+
+    [Test]
+    public void Save_KeepsEquipmentRelicsAndUpgrades()
+    {
+        var cfg = Config("sword", new[] { "a", "b", "c" }, Enemy(999, 1));
+        var run = Enter(cfg);
+        run.Equipment[0] = "t_sword";
+        run.Relics.Add("t_heart");
+        run.SymbolLevel["sword"] = 2;
+        var back = Reload(cfg, run);
+        Assert.AreEqual(run.Preview().damage, back.Preview().damage);
+        Assert.AreEqual(55, back.MaxHp);
+        Assert.IsNull(back.Equipment[1]);
+    }
 }

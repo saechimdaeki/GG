@@ -128,6 +128,8 @@ public class GameView : MonoBehaviour
         if (HasArg("--pause")) { paused = true; Time.timeScale = 0; }
         if (HasArg("--settings")) { paused = true; showSettings = true; Time.timeScale = 0; }
         for (int k = IntArg("--skiplines"); k > 0 && talk.Count > 0; k--) talk.Dequeue(); // screenshots of later lines
+        if (HasArg("--continue") && HasSave && ContinueRun()) onTitle = false;
+        SaveRun();
     }
 
     IEnumerator Start()
@@ -152,6 +154,54 @@ public class GameView : MonoBehaviour
     static int IntArg(string name) => int.TryParse(StrArg(name), out var v) ? v : 0;
 
     // ---------- state ----------
+
+    // ---------- save / continue ----------
+
+    static string SavePath => System.IO.Path.Combine(Application.persistentDataPath, "run.json");
+    // screenshot runs must never touch the player's save
+    static bool SavingEnabled => !HasArg("--screenshot") || HasArg("--usesave");
+    static bool HasSave => SavingEnabled && System.IO.File.Exists(SavePath);
+    string saveError;
+
+    void SaveRun()
+    {
+        if (!SavingEnabled || onTitle) return;
+        try
+        {
+            if (run.CanSave) System.IO.File.WriteAllText(SavePath, JsonUtility.ToJson(run.ToSave()));
+            else if (System.IO.File.Exists(SavePath)) System.IO.File.Delete(SavePath); // the run is over
+        }
+        catch (System.Exception e) { Debug.LogWarning($"save failed: {e.Message}"); }
+    }
+
+    void OnApplicationQuit() => SaveRun();
+
+    /// <summary>Resume the saved run. A save from an older, incompatible build is set aside, not crashed on.</summary>
+    bool ContinueRun()
+    {
+        try
+        {
+            var loaded = Run.FromSave(cfg, JsonUtility.FromJson<RunSave>(System.IO.File.ReadAllText(SavePath)));
+            NewRun();
+            run = loaded;
+            talk.Clear();
+            toldChapter = run.Chapter;
+            toldParty = run.Party.Count;
+            if (run.Current?.Type == NodeType.Boss) toldBoss.Add(run.Chapter);
+            shownEnemy = null;
+            spinUntil = new float[0];
+            Sync();
+            if (run.Phase == Phase.Turn) SpinAll();
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"could not load save: {e}");
+            System.IO.File.Move(SavePath, SavePath + ".broken");
+            saveError = "저장된 판을 불러오지 못했어요. 새 모험을 시작해 주세요.";
+            return false;
+        }
+    }
 
     void NewRun()
     {
@@ -231,6 +281,7 @@ public class GameView : MonoBehaviour
             for (int i = old; i < count; i++) joinedAt[i] = old == 0 ? -9 : Time.time; // newcomers walk in
         }
         if (story != null) StoryCheck();
+        if (!busy) SaveRun();
     }
 
     void SpinAll()
@@ -1129,8 +1180,8 @@ public class GameView : MonoBehaviour
         float y = box.y + 100;
         if (GUI.Button(new Rect(box.x + 70, y, 300, 52), "계속하기", button)) SetPaused(false);
         if (GUI.Button(new Rect(box.x + 70, y + 66, 300, 52), "설정", button)) showSettings = true;
-        if (GUI.Button(new Rect(box.x + 70, y + 132, 300, 52), "타이틀로 (이번 판 포기)", button)) { SetPaused(false); NewRun(); onTitle = true; }
-        if (GUI.Button(new Rect(box.x + 70, y + 198, 300, 52), "게임 종료", button)) Application.Quit();
+        if (GUI.Button(new Rect(box.x + 70, y + 132, 300, 52), "저장하고 타이틀로", button)) { SaveRun(); SetPaused(false); onTitle = true; NewRun(); }
+        if (GUI.Button(new Rect(box.x + 70, y + 198, 300, 52), "저장하고 종료", button)) { SaveRun(); Application.Quit(); }
     }
 
     void DrawSettings(Rect box)
@@ -1182,14 +1233,24 @@ public class GameView : MonoBehaviour
             Fill(r, Hex(sym.color) * new Color(1, 1, 1, 0.35f));
             Icon(sym, r, 1, 1);
         }
-        if (GUI.Button(new Rect(W / 2 - 130, 480, 260, 64), "모험 시작", button))
+        bool canContinue = HasSave;
+        if (canContinue && GUI.Button(new Rect(W / 2 - 130, 470, 260, 56), "이어하기", button) && ContinueRun())
         {
+            onTitle = false;
+            Sfx("combo");
+            SaveRun();
+        }
+        if (GUI.Button(new Rect(W / 2 - 130, canContinue ? 532 : 480, 260, canContinue ? 44 : 64), canContinue ? "새 모험 (저장된 판 지움)" : "모험 시작", canContinue ? smallButton : button))
+        {
+            NewRun();
             onTitle = false;
             lineStart = Time.time;
             Sfx("combo");
+            SaveRun();
         }
-        if (GUI.Button(new Rect(W / 2 - 130, 556, 125, 48), "설정", smallButton)) { showSettings = true; paused = true; }
-        if (GUI.Button(new Rect(W / 2 + 5, 556, 125, 48), "종료", smallButton)) Application.Quit();
+        if (saveError != null) Shadowed(new Rect(0, 448, W, 26), saveError, small, HitRed);
+        if (GUI.Button(new Rect(W / 2 - 130, 586, 125, 44), "설정", smallButton)) { showSettings = true; paused = true; }
+        if (GUI.Button(new Rect(W / 2 + 5, 586, 125, 44), "종료", smallButton)) Application.Quit();
         Shadowed(new Rect(0, 640, W, 30), $"v{Application.version} · 아트: 0x72 DungeonTileset II (CC0) · 글꼴: 갈무리 (OFL) · 소리: 직접 합성", tiny, new Color(1, 1, 1, 0.5f));
     }
 
