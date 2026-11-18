@@ -16,7 +16,7 @@ namespace ReelDungeon.Core
 
     /// <summary>
     /// A chapter map: rows of three lanes, each node linking to the same or a neighbouring lane
-    /// in the next row. Row 0 is all fights, the row before the boss is all rests, the last row is the boss.
+    /// in the next row. Row 0 is all fights, the row before the boss has one rest, the last row is the boss.
     /// </summary>
     public class StageMap
     {
@@ -34,7 +34,6 @@ namespace ReelDungeon.Core
                 for (int l = 0; l < Lanes; l++)
                 {
                     var type = r == 0 ? NodeType.Combat
-                        : r == rows - 2 ? NodeType.Rest
                         : (NodeType)Enum.Parse(typeof(NodeType), cfg.nodePool[rng.Next(cfg.nodePool.Length)]);
                     row[l] = new MapNode { Row = r, Lane = l, Type = type };
                 }
@@ -42,6 +41,8 @@ namespace ReelDungeon.Core
             }
             // a recruit early, so the party can grow before the first boss
             if (rows > 3) map.Rows[1][rng.Next(Lanes)].Type = NodeType.Recruit;
+            // one rest before the boss, so the HP you arrive with matters
+            map.Rows[rows - 2][rng.Next(Lanes)].Type = NodeType.Rest;
             map.Rows.Add(new[] { new MapNode { Row = rows - 1, Lane = 1, Type = NodeType.Boss } });
 
             for (int r = 0; r < rows - 1; r++)

@@ -31,7 +31,7 @@ public class RunTests
         },
         chapters = Enumerable.Range(0, chapters)
             .Select(_ => new ChapterDef { name = "장", enemies = new[] { enemy }, elites = new[] { enemy }, boss = boss ?? enemy }).ToArray(),
-        mimic = new EnemyDef { name = "미믹", hp = 5, gold = 40, attacks = new[] { 1 } },
+        mimic = new EnemyDef { name = "미믹", hp = 5, gold = 40, moves = new[] { "attack:1" } },
         items = new[]
         {
             Item("t_sword", "equip", "sword", "damage", 2), Item("t_charm", "equip", "", "charge", 1),
@@ -56,7 +56,9 @@ public class RunTests
     };
 
     static readonly string[] Trio = { "a", "b", "e" };
-    static EnemyDef Enemy(int hp, int attack, int gold = 10) => new EnemyDef { name = "적", hp = hp, gold = gold, attacks = new[] { attack } };
+    static EnemyDef Enemy(int hp, int attack, int gold = 10) => new EnemyDef { name = "적", hp = hp, gold = gold, moves = new[] { $"attack:{attack}" } };
+    static EnemyDef Moves(int hp, params string[] moves) => new EnemyDef { name = "적", hp = hp, gold = 10, moves = moves };
+    static int Skulls(Run run) => run.Reels.Sum(r => r.Count(id => id == "skull"));
 
     /// <summary>Enter a node of the given type on row 0 and pin every reel to its first face.</summary>
     static Run Enter(TuningConfig cfg, NodeType type = NodeType.Combat)
@@ -196,7 +198,8 @@ public class RunTests
         var map = StageMap.Generate(Config("sword", Trio, Enemy(1, 1)), new Random(3));
         Assert.AreEqual(4, map.Rows.Count);
         Assert.IsTrue(map.Rows[0].All(n => n.Type == NodeType.Combat));
-        Assert.IsTrue(map.Rows[2].All(n => n.Type == NodeType.Rest && n.Next.Single() == map.Boss));
+        Assert.AreEqual(1, map.Rows[2].Count(n => n.Type == NodeType.Rest));
+        Assert.IsTrue(map.Rows[2].All(n => n.Next.Single() == map.Boss));
         Assert.AreEqual(1, map.Rows[1].Count(n => n.Type == NodeType.Recruit));
         Assert.AreEqual(NodeType.Boss, map.Boss.Type);
         Assert.AreEqual(2, map.Rows[0][0].Next.Count); // edge lane links to itself and its neighbour
@@ -436,8 +439,9 @@ public class RunTests
         var run = Enter(Config("sword", Trio, Enemy(10, 5)), NodeType.Event);
         Assert.AreEqual(Phase.Event, run.Phase);
         Assert.IsTrue(run.ChooseEvent(0));
-        Assert.AreEqual(30, run.Hp);
         Assert.AreEqual(1, run.Relics.Count);
+        var relic = run.Item(run.Relics[0]);
+        Assert.AreEqual(30 + (relic.stat == "maxHp" ? relic.value : 0), run.Hp); // the random relic may be the max-HP one
         Assert.AreEqual(Phase.Map, run.Phase);
     }
 
@@ -479,5 +483,62 @@ public class RunTests
         Assert.AreEqual(1, run.Kills);
         Assert.AreEqual(18, run.BestHit);
         Assert.AreEqual(12, run.GoldEarned);
+    }
+
+    // ---------- enemy moves ----------
+
+    [Test]
+    public void Guard_ReducesDamageDealt()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "guard:5")));
+        Assert.AreEqual(0, run.EnemyIntent);
+        run.Commit();
+        Assert.AreEqual(999 - 13, run.EnemyHp);
+        Assert.AreEqual(40, run.Hp);
+    }
+
+    [Test]
+    public void Curse_AddsSkullForThisFightOnly()
+    {
+        var run = Enter(Config("sword", Trio, Moves(30, "curse:0")));
+        int before = Skulls(run);
+        run.Commit(); // 18 damage, enemy curses
+        Assert.AreEqual(before + 1, Skulls(run));
+        run.Faces[0] = run.Faces[1] = run.Faces[2] = run.Symbol("sword");
+        run.Commit(); // kill
+        Assert.AreEqual(before, Skulls(run));
+    }
+
+    [Test]
+    public void Enrage_RaisesLaterAttacks()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "enrage:3", "attack:5")));
+        run.Commit();
+        Assert.AreEqual(40, run.Hp);
+        Assert.AreEqual(8, run.EnemyIntent);
+        run.Faces[0] = run.Faces[1] = run.Faces[2] = run.Symbol("sword");
+        run.Commit();
+        Assert.AreEqual(32, run.Hp);
+    }
+
+    [Test]
+    public void Drain_HealsEnemyByDamageThatGotThrough()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "drain:6")));
+        run.Commit();
+        Assert.AreEqual(999 - 18 + 6, run.EnemyHp);
+        Assert.AreEqual(34, run.Hp);
+    }
+
+    [Test]
+    public void Freeze_StopsCurse()
+    {
+        var run = Enter(Config("sword", new[] { "a", "b", "d" }, Moves(999, "curse:4")));
+        int before = Skulls(run);
+        run.Gauge[2] = 3;
+        run.ToggleSkill(2);
+        run.Commit();
+        Assert.AreEqual(before, Skulls(run));
+        Assert.AreEqual(40, run.Hp);
     }
 }

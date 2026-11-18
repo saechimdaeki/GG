@@ -7,6 +7,13 @@ namespace ReelDungeon.Core
     public enum Phase { Map, Turn, Reward, Shop, Event, Won, Lost }
     public enum RewardKind { AddSymbol, RemoveSymbol, Heal, Recruit, Gold, Equip, Relic }
 
+    /// <summary>One enemy action, parsed from "kind:value".</summary>
+    public struct EnemyMove
+    {
+        public string Kind;
+        public int Value;
+    }
+
     /// <summary>One choice on a reward, rest, recruit or treasure screen, or one shop item.</summary>
     public class Reward
     {
@@ -34,6 +41,7 @@ namespace ReelDungeon.Core
         readonly Dictionary<string, CompanionDef> companions;
         readonly Dictionary<string, ItemDef> items;
         int enemyTurn;
+        readonly List<int> tempCurses = new List<int>(); // reels that got a skull from this fight's curses
 
         public List<string> Party { get; } = new List<string>();
         public List<List<string>> Reels { get; } = new List<List<string>>();
@@ -64,7 +72,25 @@ namespace ReelDungeon.Core
         public int GoldEarned { get; private set; }
 
         public ChapterDef ChapterDef => cfg.chapters[Chapter];
-        public int EnemyIntent => Enemy.attacks[enemyTurn % Enemy.attacks.Length];
+        public int EnemyRage { get; private set; }
+
+        /// <summary>The enemy's next action, shown to the player before they commit.</summary>
+        public EnemyMove Intent
+        {
+            get
+            {
+                var parts = Enemy.moves[enemyTurn % Enemy.moves.Length].Split(':');
+                return new EnemyMove { Kind = parts[0], Value = parts.Length > 1 ? int.Parse(parts[1]) : 0 };
+            }
+        }
+
+        /// <summary>Damage the next action deals before block (0 for guard and enrage); includes rage.</summary>
+        public int EnemyIntent => Intent.Kind == "guard" || Intent.Kind == "enrage" ? 0 : Intent.Value + EnemyRage;
+
+        /// <summary>How much of the party's damage the enemy shrugs off this turn.</summary>
+        public int EnemyGuard => Intent.Kind == "guard" ? Intent.Value : 0;
+
+        public int DamageDealt(SpinOutcome o) => Math.Max(0, o.damage - EnemyGuard);
         public int SkillCharge => cfg.skillCharge;
         public int MaxHp => cfg.playerMaxHp + RelicTotal("maxHp");
         public int RerollsPerTurn => cfg.rerollsPerTurn + RelicTotal("reroll");
@@ -190,6 +216,8 @@ namespace ReelDungeon.Core
             if (Phase != Phase.Turn) return;
             var o = Preview();
             int attack = EnemyAttack(o);
+            int dealt = DamageDealt(o);
+            var move = Intent;
 
             for (int i = 0; i < Party.Count; i++)
             {
@@ -207,14 +235,36 @@ namespace ReelDungeon.Core
             Gold += o.gold;
             GoldEarned += o.gold;
             Turns++;
-            BestHit = Math.Max(BestHit, o.damage);
-            EnemyHp -= o.damage;
-            if (EnemyHp <= 0) { Win(o.damage); return; }
+            BestHit = Math.Max(BestHit, dealt);
+            EnemyHp -= dealt;
+            if (EnemyHp <= 0) { Win(dealt); return; }
 
-            int hit = Math.Max(0, attack - o.block) + o.selfDamage;
+            int through = Math.Max(0, attack - o.block);
+            int hit = through + o.selfDamage;
             Hp -= hit;
+            string note = "";
+            if (!o.frozen)
+            {
+                switch (move.Kind)
+                {
+                    case "drain":
+                        EnemyHp = Math.Min(Enemy.hp, EnemyHp + through);
+                        if (through > 0) note = $", 적이 {through} 흡혈";
+                        break;
+                    case "curse":
+                        int reel = rng.Next(Reels.Count);
+                        Reels[reel].Add(cfg.symbols.First(s => s.curse).id);
+                        tempCurses.Add(reel);
+                        note = $", {Member(reel).name} 릴에 저주";
+                        break;
+                    case "enrage":
+                        EnemyRage += move.Value;
+                        note = $", 적 공격력 +{move.Value}";
+                        break;
+                }
+            }
             enemyTurn++;
-            Log = $"{o.damage} 피해를 주고 {hit} 피해를 받았다";
+            Log = $"{dealt} 피해를 주고 {hit} 피해를 받았다{note}";
             if (Hp <= 0) { Hp = 0; Phase = Phase.Lost; return; }
             StartTurn();
         }
@@ -222,6 +272,7 @@ namespace ReelDungeon.Core
         void Win(int damage)
         {
             EnemyHp = 0;
+            ClearTempCurses();
             Gold += Enemy.gold;
             GoldEarned += Enemy.gold;
             Kills++;
@@ -254,6 +305,8 @@ namespace ReelDungeon.Core
             Enemy = enemy;
             EnemyHp = enemy.hp;
             enemyTurn = 0;
+            EnemyRage = 0;
+            ClearTempCurses();
             Phase = Phase.Turn;
             int charge = RelicTotal("battleCharge");
             for (int i = 0; i < Gauge.Count; i++) Gauge[i] = Math.Min(cfg.skillCharge, Gauge[i] + charge);
@@ -462,6 +515,13 @@ namespace ReelDungeon.Core
             Array.Resize(ref faces, Reels.Count);
             Faces = faces;
             SpinReel(Reels.Count - 1);
+        }
+
+        void ClearTempCurses()
+        {
+            var curse = cfg.symbols.FirstOrDefault(s => s.curse);
+            foreach (int reel in tempCurses) Reels[reel].Remove(curse.id);
+            tempCurses.Clear();
         }
 
         void PurgeOneCurse()

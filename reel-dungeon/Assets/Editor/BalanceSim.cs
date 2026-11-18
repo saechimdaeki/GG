@@ -23,9 +23,11 @@ public static class BalanceSim
         int wins = 0;
         var chapterReached = new int[cfg.chapters.Length + 1];
         double turns = 0, party = 0, gold = 0;
+        var bossHp = new List<float>[cfg.chapters.Length];
+        for (int c = 0; c < bossHp.Length; c++) bossHp[c] = new List<float>();
         for (int seed = 0; seed < runs; seed++)
         {
-            var (run, t) = Play(cfg, seed);
+            var (run, t) = Play(cfg, seed, bossHp);
             turns += t;
             party += run.Party.Count;
             gold += run.Gold;
@@ -39,13 +41,14 @@ public static class BalanceSim
         {
             $"runs {runs}  win {100.0 * wins / runs:F1}%  avg turns {turns / runs:F1}  avg party {party / runs:F2}  avg gold left {gold / runs:F0}",
             "ended in chapter: " + string.Join("  ", chapterReached.Select((v, k) => k < cfg.chapters.Length ? $"{k + 1}장 {v}" : $"클리어 {v}")),
+            "HP at boss start: " + string.Join("  ", bossHp.Select((l, k) => l.Count == 0 ? $"{k + 1}장 -" : $"{k + 1}장 {100 * l.Average():F0}%")),
             "top deaths:",
         };
         report.AddRange(endings.OrderByDescending(e => e.Value).Take(8).Select(e => $"  {e.Value,4}  {e.Key}"));
         foreach (var line in report) Console.WriteLine("[sim] " + line);
     }
 
-    static (Run run, int turns) Play(TuningConfig cfg, int seed)
+    static (Run run, int turns) Play(TuningConfig cfg, int seed, List<float>[] bossHp)
     {
         var rng = new System.Random(seed * 7919 + 1);
         var run = new Run(cfg, new System.Random(seed));
@@ -54,7 +57,11 @@ public static class BalanceSim
         {
             switch (run.Phase)
             {
-                case Phase.Map: run.Choose(PickNode(run)); break;
+                case Phase.Map:
+                    var node = PickNode(run);
+                    if (node.Type == NodeType.Boss) bossHp[run.Chapter].Add(HpFrac(run));
+                    run.Choose(node);
+                    break;
                 case Phase.Turn: PlayTurn(run); turns++; break;
                 case Phase.Reward: run.ChooseReward(PickOffer(run, run.Offers)); break;
                 case Phase.Shop: Shop(run); break;

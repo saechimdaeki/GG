@@ -252,6 +252,8 @@ public class GameView : MonoBehaviour
         var o = run.Preview();
         var armed = run.Armed.ToList();
         int hpBefore = run.Hp, enemyBefore = run.EnemyHp, goldBefore = run.Gold, attack = run.EnemyAttack(o);
+        int guard = run.EnemyGuard, dealt = run.DamageDealt(o);
+        var move = run.Intent;
         run.Commit();
         int healed = Mathf.Min(run.MaxHp, hpBefore + o.heal);
 
@@ -289,19 +291,24 @@ public class GameView : MonoBehaviour
             var attackers = Enumerable.Range(0, shownFaces.Length)
                 .Where(i => shownFaces[i].damage > 0 || armed.Contains(i)).ToList();
             if (attackers.Count == 0) attackers.Add(0);
-            int left = o.damage;
+            int left = dealt;
+            if (guard > 0)
+            {
+                Pop($"방어 {Mathf.Min(guard, o.damage)}", BlockBlue, EnemyBody() + new Vector2(-40, -90), 34);
+                AddFx("ring", EnemyBody(), 0.5f, 220, BlockBlue);
+            }
             for (int k = 0; k < attackers.Count; k++)
             {
-                int share = k == attackers.Count - 1 ? left : o.damage / attackers.Count;
+                int share = k == attackers.Count - 1 ? left : dealt / attackers.Count;
                 left -= share;
                 bool last = k == attackers.Count - 1;
-                var co = StartCoroutine(Attack(attackers[k], share, enemyBefore, o.damage, last));
+                var co = StartCoroutine(Attack(attackers[k], share, enemyBefore, dealt, last));
                 if (last) yield return co;
                 else yield return new WaitForSeconds(0.14f);
             }
             if (o.combo != "" || armed.Count > 0)
             {
-                Pop($"-{o.damage}", Gold, EnemyBody() + new Vector2(0, -50), 80);
+                Pop($"-{dealt}", Gold, EnemyBody() + new Vector2(0, -50), 80);
                 Shake(14);
             }
         }
@@ -328,6 +335,22 @@ public class GameView : MonoBehaviour
                 Burst(EnemyBody(), Ice, 14, 120, 0, 0.7f, 6);
                 yield return new WaitForSeconds(0.4f);
             }
+            else if (move.Kind == "enrage")
+            {
+                Sfx("heavy", 0.9f, 0.6f);
+                Flash(HitRed, 0.25f);
+                for (int k = 0; k < 3; k++)
+                {
+                    Burst(EnemyBody() + new Vector2(0, 40), new Color(1f, 0.25f, 0.1f), 12, 90, -260, 0.6f, 9);
+                    yield return new WaitForSeconds(0.08f);
+                }
+                Pop($"분노! 공격 +{move.Value}", HitRed, EnemyBody() + new Vector2(0, -80), 38);
+                yield return new WaitForSeconds(0.3f);
+            }
+            else if (move.Kind == "guard")
+            {
+                yield return new WaitForSeconds(0.2f);
+            }
             else
             {
                 yield return Tween(v => enemyOffset = new Vector2(-v * (EnemyX - FrontX - 110), -Mathf.Sin(v * Mathf.PI) * 30), 0, 1, 0.15f);
@@ -353,6 +376,20 @@ public class GameView : MonoBehaviour
                 }
                 shownHp = run.Hp;
                 heroDown = run.Phase == Phase.Lost;
+                int through = Mathf.Max(0, attack - o.block);
+                if (move.Kind == "drain" && through > 0)
+                {
+                    for (int k = 0; k < 14; k++)
+                        shots.Add(new Shot { tex = glow, from = MemberCenter(0) + Random.insideUnitCircle * 30, to = EnemyBody(), start = Time.time + k * 0.02f, dur = 0.35f, arc = Random.Range(-60, 60), scale = 0.25f, color = HitRed, glowing = true });
+                    Pop($"+{through} 흡혈", HitRed, EnemyBody() + new Vector2(60, -90), 34);
+                    shownEnemyHp = run.EnemyHp;
+                }
+                if (move.Kind == "curse")
+                {
+                    Sfx("lose", 0.5f, 1.6f);
+                    Burst(new Vector2(W / 2, ReelY + ReelSize / 2), new Color(0.6f, 0.3f, 0.8f), 24, 260, 0, 0.7f, 8);
+                    Pop("저주! 릴에 해골", new Color(0.75f, 0.5f, 1f), new Vector2(W / 2, ReelY + 30), 36);
+                }
                 yield return Tween(v => enemyOffset = new Vector2(-v * (EnemyX - FrontX - 110), 0), 1, 0, 0.2f);
             }
             yield return new WaitForSeconds(0.25f);
@@ -674,9 +711,28 @@ public class GameView : MonoBehaviour
         {
             var o = run.Preview();
             int atk = run.EnemyAttack(o);
-            DrawTex(T("0x72/weapon_knight_sword"), new Rect(EnemyX - 160, top - 50, 15, 43));
-            var label = o.frozen ? "얼음!" : atk < run.EnemyIntent ? $"{atk} ({run.EnemyIntent})" : atk.ToString();
-            Shadowed(new Rect(EnemyX - 140, top - 44, 120, 32), label, mid, o.frozen ? Ice : HitRed, TextAnchor.MiddleLeft);
+            var mv = run.Intent;
+            string dmg = atk < run.EnemyIntent ? $"{atk} ({run.EnemyIntent})" : atk.ToString();
+            var purple = new Color(0.75f, 0.5f, 1f);
+            (string icon, string label, Color color, string tip) intent =
+                o.frozen ? ("0x72/flask_big_blue", "얼음!", Ice, "얼어서 이번 턴 아무것도 못 한다")
+                : mv.Kind == "guard" ? ("shield", $"방어 {mv.Value}", BlockBlue, $"이번 턴 받는 피해 -{mv.Value}")
+                : mv.Kind == "enrage" ? ("0x72/weapon_mace", $"분노 +{mv.Value}", HitRed, $"이후 모든 공격 +{mv.Value}")
+                : mv.Kind == "curse" ? ("0x72/skull", $"저주 {dmg}", purple, $"{atk} 피해 + 릴 하나에 해골 (이 전투 동안)")
+                : mv.Kind == "drain" ? ("0x72/flask_big_red", $"흡혈 {dmg}", HitRed, $"{atk} 피해, 막지 못한 만큼 회복")
+                : ("0x72/weapon_knight_sword", dmg, HitRed, $"{atk} 피해");
+            var iconTex = T(intent.icon);
+            float s = 40f / Mathf.Max(iconTex.width, iconTex.height);
+            // speech-bubble style plate in the gap between the party and the enemy
+            var plate = new Rect(EnemyX - 330, FloorY - 215, 200, 52);
+            Fill(new Rect(plate.x - 3, plate.y - 3, plate.width + 6, plate.height + 6), new Color(intent.color.r, intent.color.g, intent.color.b, 0.7f));
+            Fill(plate, new Color(0.08f, 0.07f, 0.1f, 0.9f));
+            var iconRect = new Rect(plate.x + 10 + (40 - iconTex.width * s) / 2, plate.y + 6, iconTex.width * s, iconTex.height * s);
+            GUI.DrawTexture(iconRect, iconTex);
+            var labelRect = new Rect(plate.x + 58, plate.y + 10, 140, 32);
+            Shadowed(labelRect, intent.label, mid, intent.color, TextAnchor.MiddleLeft);
+            GUI.Label(plate, new GUIContent("", "적의 다음 행동: " + intent.tip));
+            if (run.EnemyRage > 0) Shadowed(new Rect(EnemyX + 90, top - 4, 120, 24), $"분노 +{run.EnemyRage}", tiny, HitRed, TextAnchor.MiddleLeft);
         }
     }
 

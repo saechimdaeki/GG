@@ -220,21 +220,23 @@
         {
           "name": "늪 괴물",
           "sprite": "swampy_anim",
-          "hp": 12,
+          "hp": 14,
           "gold": 8,
-          "attacks": [
-            3,
-            4
+          "moves": [
+            "attack:5",
+            "guard:5",
+            "attack:7"
           ]
         },
         {
           "name": "거대 민달팽이",
           "sprite": "slug_anim",
-          "hp": 15,
+          "hp": 16,
           "gold": 8,
-          "attacks": [
-            2,
-            5
+          "moves": [
+            "attack:4",
+            "curse:3",
+            "attack:7"
           ]
         },
         {
@@ -242,10 +244,11 @@
           "sprite": "goblin_idle_anim",
           "hp": 18,
           "gold": 10,
-          "attacks": [
-            5,
-            3,
-            6
+          "moves": [
+            "attack:6",
+            "enrage:2",
+            "attack:6",
+            "attack:7"
           ]
         }
       ],
@@ -253,11 +256,12 @@
         {
           "name": "오크 전사",
           "sprite": "orc_warrior_idle_anim",
-          "hp": 32,
+          "hp": 34,
           "gold": 25,
-          "attacks": [
-            7,
-            9
+          "moves": [
+            "attack:7",
+            "guard:8",
+            "attack:11"
           ]
         }
       ],
@@ -266,10 +270,12 @@
         "sprite": "ogre_idle_anim",
         "hp": 48,
         "gold": 40,
-        "attacks": [
-          6,
-          8,
-          11
+        "moves": [
+          "attack:6",
+          "enrage:2",
+          "attack:8",
+          "curse:4",
+          "attack:10"
         ]
       }
     },
@@ -282,9 +288,10 @@
           "sprite": "skelet_idle_anim",
           "hp": 30,
           "gold": 12,
-          "attacks": [
-            6,
-            8
+          "moves": [
+            "attack:9",
+            "guard:7",
+            "attack:12"
           ]
         },
         {
@@ -292,10 +299,10 @@
           "sprite": "tiny_zombie_idle_anim",
           "hp": 26,
           "gold": 12,
-          "attacks": [
-            5,
-            5,
-            7
+          "moves": [
+            "drain:7",
+            "attack:9",
+            "drain:8"
           ]
         },
         {
@@ -303,9 +310,10 @@
           "sprite": "muddy_anim",
           "hp": 32,
           "gold": 12,
-          "attacks": [
-            4,
-            9
+          "moves": [
+            "curse:6",
+            "attack:12",
+            "guard:6"
           ]
         }
       ],
@@ -315,9 +323,10 @@
           "sprite": "necromancer_anim",
           "hp": 45,
           "gold": 30,
-          "attacks": [
-            6,
-            12
+          "moves": [
+            "curse:5",
+            "drain:9",
+            "attack:12"
           ]
         },
         {
@@ -325,9 +334,10 @@
           "sprite": "masked_orc_idle_anim",
           "hp": 48,
           "gold": 30,
-          "attacks": [
-            10,
-            8
+          "moves": [
+            "attack:10",
+            "enrage:3",
+            "attack:9"
           ]
         }
       ],
@@ -336,10 +346,12 @@
         "sprite": "big_zombie_idle_anim",
         "hp": 100,
         "gold": 60,
-        "attacks": [
-          10,
-          12,
-          16
+        "moves": [
+          "attack:10",
+          "drain:11",
+          "enrage:3",
+          "attack:14",
+          "curse:6"
         ]
       }
     },
@@ -352,9 +364,10 @@
           "sprite": "imp_idle_anim",
           "hp": 34,
           "gold": 15,
-          "attacks": [
-            8,
-            9
+          "moves": [
+            "attack:11",
+            "attack:11",
+            "enrage:3"
           ]
         },
         {
@@ -362,9 +375,10 @@
           "sprite": "wogol_idle_anim",
           "hp": 40,
           "gold": 15,
-          "attacks": [
-            7,
-            12
+          "moves": [
+            "guard:9",
+            "attack:15",
+            "drain:10"
           ]
         },
         {
@@ -372,9 +386,10 @@
           "sprite": "chort_run_anim",
           "hp": 38,
           "gold": 15,
-          "attacks": [
-            10,
-            8
+          "moves": [
+            "attack:13",
+            "curse:8",
+            "attack:11"
           ]
         },
         {
@@ -382,10 +397,10 @@
           "sprite": "orc_shaman_idle_anim",
           "hp": 42,
           "gold": 15,
-          "attacks": [
-            6,
-            14,
-            6
+          "moves": [
+            "curse:6",
+            "attack:16",
+            "guard:7"
           ]
         }
       ],
@@ -395,9 +410,10 @@
           "sprite": "ice_zombie_anim",
           "hp": 65,
           "gold": 35,
-          "attacks": [
-            12,
-            14
+          "moves": [
+            "attack:12",
+            "guard:10",
+            "attack:15"
           ]
         }
       ],
@@ -406,10 +422,13 @@
         "sprite": "big_demon_idle_anim",
         "hp": 155,
         "gold": 0,
-        "attacks": [
-          11,
-          14,
-          20
+        "moves": [
+          "attack:11",
+          "curse:8",
+          "enrage:3",
+          "attack:14",
+          "drain:14",
+          "attack:18"
         ]
       }
     }
@@ -417,11 +436,11 @@
   "mimic": {
     "name": "미믹",
     "sprite": "chest_mimic_open_anim",
-    "hp": 30,
+    "hp": 26,
     "gold": 40,
-    "attacks": [
-      9,
-      6
+    "moves": [
+      "attack:7",
+      "drain:6"
     ]
   },
   "items": [

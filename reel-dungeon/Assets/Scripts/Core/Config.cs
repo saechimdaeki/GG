@@ -90,7 +90,11 @@ namespace ReelDungeon.Core
         public EnemyDef boss;
     }
 
-    /// <summary>An enemy; <see cref="attacks"/> repeats as its turn pattern.</summary>
+    /// <summary>
+    /// An enemy; <see cref="moves"/> repeats as its turn pattern, each "kind:value":
+    /// attack:N, guard:N (party damage -N this turn), curse:N (N damage + a skull on a reel for this fight),
+    /// enrage:N (later attacks +N), drain:N (N damage, heals by what got through).
+    /// </summary>
     [Serializable]
     public class EnemyDef
     {
@@ -98,7 +102,7 @@ namespace ReelDungeon.Core
         public string sprite;
         public int hp;
         public int gold;
-        public int[] attacks;
+        public string[] moves;
     }
 
     /// <summary>
