@@ -56,6 +56,7 @@ func _run() -> void:
 	_check_sites(main)
 	await _check_traps_and_vault(main)
 	await _check_mimic(main)
+	await _check_room_doors(main)
 	_check_stun_reset(main)
 	_check_run_rules()
 	_check_left_behind(main)
@@ -507,6 +508,36 @@ func _check_mimic(main: Node) -> void:
 	_fresh(main)
 
 
+## Room doors: E opens and shuts a pair; a shut door blocks sight (rays stop at it); a
+## monster walking up to a shut door barges it open.
+func _check_room_doors(main: Node) -> void:
+	_fresh(main)
+	var I: Node = main.interior
+	_expect(I.room_doors.size() >= 3, "only %d door pairs" % I.room_doors.size())
+	var d: Dictionary = I.room_doors[0]
+	var p := _mover(main, 1)
+	p.global_position = d.at + (Vector3.BACK if d.along_x else Vector3.RIGHT) * 1.2
+	_expect(not d.open and main.toggle_room_door(1, 0) and I.room_doors[0].open, "door did not open with E")
+	await _frames(main, 2)
+	var across: Vector3 = Vector3.BACK if d.along_x else Vector3.RIGHT
+	var a: Vector3 = d.at + across * 1.5 + Vector3.UP * 1.2
+	var b: Vector3 = d.at - across * 1.5 + Vector3.UP * 1.2
+	var ray := func() -> Dictionary:
+		return main.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(a, b))
+	_expect(ray.call().is_empty(), "an open doorway still blocks sight")
+	main.toggle_room_door(1, 0)
+	await _frames(main, 2)
+	_expect(not I.room_doors[0].open and not ray.call().is_empty(), "a shut door does not block sight")
+	var boar: Node = main.monsters.filter(func(n: Node) -> bool: return n.kind == "boar")[0]
+	boar.wake(d.at + across * 0.8)
+	boar.set_physics_process(false)  # just standing in the doorway
+	await _frames(main, 2)
+	_expect(I.room_doors[0].open, "a monster at a shut door did not barge it open")
+	boar.set_physics_process(true)
+	boar.park()
+	p.free()
+
+
 ## A stunned mover can't pick up; a new day clears the stun.
 func _check_stun_reset(main: Node) -> void:
 	_fresh(main)
@@ -665,8 +696,8 @@ func _check_monsters(main: Node) -> void:
 	var by_kind := func(k: String) -> Node: return main.monsters.filter(func(m: Node) -> bool: return m.kind == k)[0]
 
 	fresh.call()
-	# a room whose decor can't sit between the two: use the entrance's straight middle line
-	var room: Vector3 = it.cell_center(Vector2i(1, 1))
+	# the entrance hall: furniture only along its walls, no traps, nothing on the middle line
+	var room: Vector3 = it.cell_center(Vector2i.ZERO)
 	var statue: Node = by_kind.call("statue")
 	p.global_position = room - Vector3(1.5, 0, 0)
 	p.rotation.y = -PI / 2  # facing +x, at the statue
