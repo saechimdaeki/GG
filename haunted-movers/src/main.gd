@@ -659,6 +659,8 @@ func set_aim(target: Object) -> void:
 		_aim.text = "[E] 출발 레버 — 오늘 일 끝내고 떠나기"
 	elif target.has_meta("door"):
 		_aim.text = "[E] " + interior.doors[target.get_meta("door")].label
+	elif target.has_meta("room_door"):
+		_aim.text = "[E] 문 닫기" if interior.room_doors[target.get_meta("room_door")].open else "[E] 문 열기"
 	elif target.has_meta("vault"):
 		_aim.text = "[E] 금고방 열기 — 열쇠가 있어야 해요"
 	elif target.has_meta("container"):
@@ -685,6 +687,7 @@ func _physics_process(delta: float) -> void:
 	var t := Tuning.data
 	if run.phase == "day":
 		_check_traps()
+		_monsters_open_doors()
 		var warn: float = t.run.depart_warning
 		var before: float = run.time_left
 		run.time_left -= delta
@@ -1001,6 +1004,64 @@ func _note_to(id: int, text: String) -> void:
 @rpc("authority", "reliable")
 func _rpc_note(text: String) -> void:
 	flash_note(text)
+
+
+## Local player pressed E on door pair `i`: open it if shut, shut it if open.
+func request_room_door(i: int) -> void:
+	if multiplayer.is_server():
+		toggle_room_door(multiplayer.get_unique_id(), i)
+	else:
+		_rpc_room_door.rpc_id(1, i)
+
+
+@rpc("any_peer", "reliable")
+func _rpc_room_door(i: int) -> void:
+	if multiplayer.is_server():
+		toggle_room_door(multiplayer.get_remote_sender_id(), i)
+
+
+## Host: peer `id` (standing at it) opens or shuts door pair `i`. True if it moved.
+func toggle_room_door(id: int, i: int) -> bool:
+	var p := players.get_node_or_null(str(id))
+	if p == null or is_stunned(id) or i < 0 or i >= interior.room_doors.size():
+		return false
+	if p.global_position.distance_to(interior.room_doors[i].at) > Tuning.data.reach + 2.0:
+		return false
+	_door_to(i, not interior.room_doors[i].open, false)
+	return true
+
+
+## Host: set door pair `i` for everyone. `slam` = a monster barged through (loud).
+func _door_to(i: int, open: bool, slam: bool) -> void:
+	_door_local(i, open, slam)
+	if not multiplayer.get_peers().is_empty():
+		_rpc_door_to.rpc(i, open, slam)
+
+
+@rpc("authority", "reliable")
+func _rpc_door_to(i: int, open: bool, slam: bool) -> void:
+	_door_local(i, open, slam)
+
+
+func _door_local(i: int, open: bool, slam: bool) -> void:
+	interior.set_room_door(i, open)
+	if i < interior.room_doors.size():
+		_creak.global_position = interior.room_doors[i].at + Vector3.UP
+		_creak.pitch_scale = 0.35 if slam else randf_range(0.7, 0.8)
+		_creak.volume_db = 14.0 if slam else 6.0
+		_creak.play()
+
+
+## Host: monsters on the move barge through shut doors (you hear them coming).
+func _monsters_open_doors() -> void:
+	var r: float = Tuning.data.interior.room_doors.monster_open
+	for m in monsters:
+		if not m.active() or m.state in ["disguised", "ceiling", "latched"]:
+			continue
+		for i in interior.room_doors.size():
+			var d: Dictionary = interior.room_doors[i]
+			if not d.open and (m.global_position * Vector3(1, 0, 1)).distance_to(d.at * Vector3(1, 0, 1)) < r:
+				_door_to(i, true, true)
 
 
 ## Host, every physics frame of a day: movers stepping on floor traps. A creaky board calls

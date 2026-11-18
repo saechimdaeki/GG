@@ -83,6 +83,15 @@ func _run() -> void:
 			main.request_search(ci)
 			await create_timer(0.5).timeout
 			_expect(main.opened.has(ci), "client search through the host was not confirmed")
+		# Open a room door through the host: every peer sees it swing open.
+		if local_player != null and not main.interior.room_doors.is_empty():
+			var dd: Dictionary = main.interior.room_doors[0]
+			local_player.global_position = dd.at + (Vector3.BACK if dd.along_x else Vector3.RIGHT) * 1.2
+			await create_timer(0.3).timeout
+			var was: bool = dd.open
+			main.request_room_door(0)
+			await create_timer(0.5).timeout
+			_expect(main.interior.room_doors[0].open != was, "client door toggle through the host was not seen")
 		if local_player != null:
 			for frame in 200:
 				if local_player.dead:

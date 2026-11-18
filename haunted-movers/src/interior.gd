@@ -28,6 +28,10 @@ var room_kinds := {}
 ## Searchable furniture today: [{at (its centre on the floor), front (centre → just past its face), label}].
 ## Index = the `container` meta on its StaticBody; same order on every peer.
 var containers: Array = []
+## Double doors hung in some doorways today: [{at, along_x, open, hinges: [Node3D, Node3D]}].
+## Index = the `room_door` meta on each leaf. Same layout on every peer; open/shut is synced
+## by main (set_room_door).
+var room_doors: Array = []
 ## Doorways knocked through into one big hall today: {edge_key: true} (no wall at all).
 var merged := {}
 ## Floor traps today: [{at, kind ("creak" | "bear"), node}]. Same on every peer.
@@ -43,6 +47,7 @@ var _floor := Models.pbr("dark_wooden_planks", Color(0.8, 0.75, 0.7), 2.5)
 var _ceiling := Models.pbr("damaged_plaster", Color(0.45, 0.42, 0.4), 3.0)
 var _bulb := Color("#ffc888")
 var _hollow := Models.matte(Color("#050404"))
+var _door_wood := Models.grain(Color("#4a3020"))
 var _carpet := Models.pbr("dirty_carpet", Color(0.75, 0.6, 0.6), 1.5)
 var _panel := Models.pbr("dark_wooden_planks", Color(0.45, 0.35, 0.3), 1.0)  # wainscot boards
 var _wood := Models.grain(Color("#3a2618"))
@@ -183,6 +188,8 @@ func build(seed: int, day: int, site := "mansion") -> void:
 	traps.clear()
 	vault = {}
 	merged.clear()
+	room_doors.clear()
+	var door_spots: Array = []
 	var s: float = maze.cell
 	var h := height()
 	var w: float = maze.cols * s
@@ -217,6 +224,11 @@ func build(seed: int, day: int, site := "mansion") -> void:
 					continue  # one hall: no wall between these two
 				var gap: float = 0.0 if outside or not maze.open.has(edge_key(here, n)) else float(c.door_width)
 				_wall(mid, dir, s, gap, theme[here], -1 if outside else theme[n])
+				if gap > 0.0:
+					door_spots.append([mid, dir.y != 0])
+	for spot in door_spots:  # some doorways get a pair of doors, starting shut
+		if rng.randf() < float(c.room_doors.chance):
+			_room_door(spot[0], spot[1])
 	_pick_vault(rng)
 	for x in maze.cols:
 		for y in maze.rows:
@@ -255,6 +267,43 @@ func _wall(mid: Vector3, dir: Vector2i, s: float, gap: float, near_theme: int, f
 			for e in [-1.0, 1.0]:  # side jambs
 				Models.box(_built, _sized(Vector3(0.12, 2.35, 0.05), along_x), face + across * e * (gap / 2 + 0.06) + Vector3(0, 1.175, 0), _wood)
 			Models.box(_built, _sized(Vector3(gap + 0.36, 0.14, 0.06), along_x), face + Vector3(0, 2.37, 0), _wood)  # head
+
+
+## A pair of panelled doors in the doorway at `mid` (wall along x or z), hinged at the jambs.
+func _room_door(mid: Vector3, along_x: bool) -> void:
+	var w := float(Tuning.data.interior.door_width)
+	var across := Vector3.RIGHT if along_x else Vector3.BACK
+	var i := room_doors.size()
+	var hinges: Array = []
+	for side in [-1.0, 1.0]:
+		var hinge := Node3D.new()
+		hinge.position = mid + across * side * (w / 2) + Vector3(0, ORIGIN.y - mid.y, 0)
+		_built.add_child(hinge)
+		var leaf := StaticBody3D.new()
+		leaf.set_meta("room_door", i)
+		leaf.position = -across * side * (w / 4) + Vector3(0, 1.15, 0)
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = _sized(Vector3(w / 2 + 0.01, 2.3, 0.07), along_x)  # the two leaves meet: no crack to see through
+		col.shape = shape
+		leaf.add_child(col)
+		Models.box(leaf, shape.size, Vector3.ZERO, _door_wood)
+		for py in [-0.5, 0.45]:  # two sunken panels on each face
+			Models.box(leaf, _sized(Vector3(w / 2 - 0.25, 0.75, 0.09), along_x), Vector3(0, py, 0), _wood)
+		Models.box(leaf, _sized(Vector3(0.05, 0.05, 0.14), along_x), -across * side * (w / 4 - 0.12) + Vector3(0, 0.0, 0), Models.metal())  # knob
+		hinge.add_child(leaf)
+		hinge.set_meta("side", side)
+		hinges.append(hinge)
+	room_doors.append({at = Vector3(mid.x, ORIGIN.y, mid.z), along_x = along_x, open = false, hinges = hinges})
+
+
+## Every peer: swing door pair `i` open (into the rooms, 95°) or shut.
+func set_room_door(i: int, open: bool) -> void:
+	if i >= room_doors.size():
+		return
+	room_doors[i].open = open
+	for h: Node3D in room_doors[i].hinges:
+		h.rotation.y = (deg_to_rad(95.0) * float(h.get_meta("side"))) if open else 0.0
 
 
 ## The two rooms an edge key joins.

@@ -418,6 +418,8 @@ func interact() -> void:
 		m.request_search(hit.get_meta("container"))
 	elif hit.has_meta("vault"):
 		m.request_unlock()
+	elif hit.has_meta("room_door"):
+		m.request_room_door(hit.get_meta("room_door"))
 	elif hit is CharacterBody3D and hit.get("blinded"):
 		m.request_free(hit.name.to_int())  # pull the dust ghost off a teammate's head
 	elif hit is Loot:
