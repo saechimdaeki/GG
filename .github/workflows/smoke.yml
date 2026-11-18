@@ -75,7 +75,8 @@ jobs:
           path: reel-dungeon/Library
           key: Library-reel-dungeon-${{ hashFiles('reel-dungeon/Assets/**', 'reel-dungeon/Packages/**', 'reel-dungeon/ProjectSettings/**') }}
           restore-keys: Library-reel-dungeon-
-      - uses: game-ci/unity-test-runner@v4
+      # v4.4 routes Personal activation through the GameCI CLI and fails validation on this runner.
+      - uses: game-ci/unity-test-runner@fa6ced25861c16ef56187828c43f76d00df43a23 # v4.3.2
         id: tests
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
