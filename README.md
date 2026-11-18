@@ -6,7 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
-| <img src="reel-dungeon/production/qa/evidence/content-six-party-2026-11-18.png" width="260"> | **[릴 던전](reel-dungeon/)** | 슬롯 덱빌딩 던전 로그라이크 — 동료 한 명이 릴 하나, 9명 중 골라 3장 돌파 (2D 픽셀, Unity) | 플레이 가능 (이어하기·어려움 0~5), 사람 플레이테스트 전 |
+| <img src="reel-dungeon/docs/media/combat.gif" width="260"> | **[릴 던전](reel-dungeon/)** | 슬롯 덱빌딩 던전 로그라이크 — 동료 한 명이 릴 하나, 9명 중 골라 3장 돌파 (2D 픽셀, Unity) | 플레이 가능 (이어하기·어려움 0~5), 사람 플레이테스트 전 |
 | <img src="haunted-movers/docs/media/run.gif" width="260"> | **[유령집 이삿짐센터](haunted-movers/)** | 2~4인 온라인 협동 호러 — 귀신 들린 저택에서 고물 건지기 (1인칭 3D) | 플레이 가능, 플레이테스트 중 |
 | <img src="demon-lord-is-busy/docs/media/raid.gif" width="260"> | **[마왕님은 바쁘다](demon-lord-is-busy/)** | 던전 디펜스 + 액션 로그라이크 (2D) | 플레이 가능, 플레이테스트 중 |
 | <img src="cursed-pawnshop/production/qa/evidence/story-002-m1-day-cycle/art-haggle.png" width="260"> | **[저주받은 전당포](cursed-pawnshop/)** | 크툴루풍 감정·장사 시뮬, 28일 캠페인 (2D) | 완성 |
@@ -40,8 +40,8 @@ open Builds/Mac/ReelDungeon.app
 ## 개발
 
 - 릴 던전만 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
-- 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 릴 던전은 [GameCI](https://game.ci)로 EditMode 테스트를 돌립니다
-- 태그를 푸시하면 모든 게임이 Mac·Windows로 빌드되어 (릴 던전은 GameCI `unity-builder`) 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
+- 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 릴 던전은 Mac 러너에서 EditMode 테스트를 돌립니다
+- 버전 태그를 푸시하면 게임 패키지가 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
 
 ```bash
 git tag v0.4.0 && git push origin v0.4.0

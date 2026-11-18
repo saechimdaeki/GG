@@ -5,6 +5,54 @@ using ReelDungeon.Core;
 
 public class RunTests
 {
+    static TuningConfig ProductionConfig() => UnityEngine.JsonUtility.FromJson<TuningConfig>(
+        UnityEngine.Resources.Load<UnityEngine.TextAsset>("tuning").text);
+
+    [Test]
+    public void ProductionReels_StartWithoutSelfDamageAndIncludeNewAttacks()
+    {
+        var cfg = ProductionConfig();
+        var run = new Run(cfg, new Random(1));
+        Assert.IsTrue(cfg.companions.SelectMany(member => member.reel)
+            .Select(run.Symbol).All(face => !face.curse && face.selfDamage == 0));
+        CollectionAssert.Contains(run.Reels[0], "parry");
+        CollectionAssert.Contains(run.Reels[1], "bounty");
+        Assert.AreEqual(3, run.Reels[0].Count(id => run.Symbol(id).damage > 0));
+        Assert.AreEqual(5, run.Reels[1].Count(id => run.Symbol(id).damage > 0));
+        var outcome = SpinResolver.Resolve(new[] { run.Symbol("parry"), run.Symbol("bounty") }, cfg);
+        Assert.AreEqual(4, outcome.damage);
+        Assert.AreEqual(2, outcome.block);
+        Assert.AreEqual(2, outcome.gold);
+    }
+
+    [Test]
+    public void PrisonKey_ChoiceAddsPersistentCurseOrLeavesReelsClean()
+    {
+        var cfg = ProductionConfig();
+        var prison = cfg.events.Single(e => e.id == "prison_key");
+        Assert.AreEqual(2, prison.chapter);
+        cfg.events = new[] { prison };
+
+        Run EnterPrison()
+        {
+            var run = new Run(cfg, new Random(1));
+            run.JumpToChapter(1);
+            var node = run.Map.Rows[0][0];
+            node.Type = NodeType.Event;
+            Assert.IsTrue(run.Choose(node));
+            return run;
+        }
+
+        var cursed = EnterPrison();
+        Assert.IsTrue(cursed.ChooseEvent(0));
+        Assert.AreEqual(1, cursed.Relics.Count);
+        Assert.AreEqual(1, Skulls(Run.FromSave(cfg, cursed.ToSave())));
+        var declined = EnterPrison();
+        Assert.IsTrue(declined.ChooseEvent(1));
+        Assert.AreEqual(0, Skulls(declined));
+        Assert.IsEmpty(declined.Relics);
+    }
+
     static SymbolDef Sword => new SymbolDef { id = "sword", name = "칼", damage = 3 };
     static SymbolDef Shield => new SymbolDef { id = "shield", name = "방패", block = 3 };
     static SymbolDef Coin => new SymbolDef { id = "coin", name = "코인", gold = 3 };

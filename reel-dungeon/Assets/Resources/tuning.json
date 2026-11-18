@@ -51,6 +51,22 @@
       "damage": 3
     },
     {
+      "id": "parry",
+      "name": "받아치기",
+      "color": "#4f8fa4",
+      "icon": "0x72/weapon_spear",
+      "damage": 2,
+      "block": 2
+    },
+    {
+      "id": "bounty",
+      "name": "현상금 검",
+      "color": "#a57e3c",
+      "icon": "0x72/weapon_golden_sword",
+      "damage": 2,
+      "gold": 2
+    },
+    {
       "id": "shield",
       "name": "방패",
       "color": "#4c7cc9",
@@ -76,8 +92,7 @@
       "name": "불꽃",
       "color": "#e08a2e",
       "icon": "0x72/weapon_red_magic_staff",
-      "damage": 5,
-      "selfDamage": 1
+      "damage": 4
     },
     {
       "id": "ice",
@@ -171,7 +186,7 @@
         "shield",
         "heart",
         "coin",
-        "skull"
+        "parry"
       ]
     },
     {
@@ -191,7 +206,7 @@
         "sword",
         "heart",
         "coin",
-        "skull"
+        "bounty"
       ]
     },
     {
@@ -210,7 +225,7 @@
         "ice",
         "ice",
         "heart",
-        "skull"
+        "heart"
       ]
     },
     {
@@ -230,7 +245,7 @@
         "shield",
         "sword",
         "coin",
-        "skull"
+        "parry"
       ]
     },
     {
@@ -249,7 +264,7 @@
         "heart",
         "heart",
         "shield",
-        "skull"
+        "light"
       ]
     },
     {
@@ -268,7 +283,7 @@
         "sword",
         "heart",
         "coin",
-        "skull"
+        "dagger"
       ]
     },
     {
@@ -287,7 +302,7 @@
         "flask",
         "heart",
         "coin",
-        "skull"
+        "heart"
       ]
     },
     {
@@ -306,7 +321,7 @@
         "shield",
         "heart",
         "sword",
-        "skull"
+        "shield"
       ]
     },
     {
@@ -325,7 +340,7 @@
         "vine",
         "arrow",
         "heart",
-        "skull"
+        "ice"
       ]
     }
   ],
@@ -847,6 +862,22 @@
     }
   ],
   "events": [
+    {
+      "id": "prison_key",
+      "chapter": 2,
+      "title": "해골이 새겨진 열쇠",
+      "text": "간수가 열쇠를 밀어 준다. 창고를 열면 유물 하나를 챙길 수 있다. 대신 감옥의 해골 하나가 릴에 따라붙는다.",
+      "options": [
+        {
+          "label": "열쇠를 돌린다 (유물 1개, 영구 해골 1칸)",
+          "effects": [{ "kind": "relic", "value": 0 }, { "kind": "curse", "value": 0 }]
+        },
+        {
+          "label": "열쇠를 돌려주고 잠시 쉰다 (HP +8)",
+          "effects": [{ "kind": "hp", "value": 8 }]
+        }
+      ]
+    },
     {
       "id": "royal_ledger",
       "chapter": 1,

@@ -673,8 +673,14 @@ namespace ReelDungeon.Core
 
         void PurgeOneCurse()
         {
-            var reel = Reels.FirstOrDefault(r => r.Count > 1 && r.Any(id => byId[id].curse));
-            reel?.Remove(reel.First(id => byId[id].curse));
+            int index = Reels.FindIndex(reel => reel.Count > 1 && reel.Any(id => byId[id].curse));
+            if (index < 0) return;
+            var faces = Reels[index];
+            // Purify a persistent curse first. If all curses here came from combat,
+            // take one off the cleanup list as well.
+            if (faces.Count(id => byId[id].curse) == tempCurses.Count(reel => reel == index))
+                tempCurses.Remove(index);
+            faces.Remove(faces.First(id => byId[id].curse));
         }
 
         Reward AddOffer()

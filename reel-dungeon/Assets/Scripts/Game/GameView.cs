@@ -22,7 +22,7 @@ public class GameView : MonoBehaviour
 
     TuningConfig cfg;
     Run run;
-    GUIStyle big, mid, small, tiny, button, smallButton, shopButton, pop, story_, panel;
+    GUIStyle big, mid, small, tiny, button, smallButton, shopButton, turnButton, pop, story_, panel;
     Texture2D glow, vignette;
     readonly Dictionary<string, Texture2D> tex = new Dictionary<string, Texture2D>();
     readonly Dictionary<string, int> frameCounts = new Dictionary<string, int>();
@@ -123,6 +123,7 @@ public class GameView : MonoBehaviour
             if (cfg.items.Any(it => it.id == id)) run.Relics.Add(id);
         int n = IntArg("--autoturns");
         for (int k = 0; k < n && run.Phase == Phase.Turn; k++) run.Commit();
+        if (HasArg("--screenshot") && HasArg("--skip-reward") && run.Phase == Phase.Reward) run.ChooseReward(-1);
         Sync();
         SpinAll();
         if (HasArg("--nostory")) talk.Clear();
@@ -812,15 +813,22 @@ public class GameView : MonoBehaviour
     void DrawEvent()
     {
         var e = run.CurrentEvent;
-        DrawPanel(new Rect(W / 2 - 400, 345, 800, 335));
-        Shadowed(new Rect(0, 350, W, 44), e.title, big, Gold);
+        DrawPanel(new Rect(W / 2 - 450, 345, 900, 335));
+        Shadowed(new Rect(W / 2 - 403, 354, 806, 44), e.title, big, Gold, TextAnchor.MiddleLeft);
+        Fill(new Rect(W / 2 - 403, 403, 806, 2), new Color(0.37f, 0.29f, 0.24f));
         story_.normal.textColor = new Color(0.9f, 0.9f, 0.95f);
-        GUI.Label(new Rect(W / 2 - 360, 398, 720, 70), e.text, story_);
+        GUI.Label(new Rect(W / 2 - 403, 414, 806, 66), e.text, story_);
         for (int i = 0; i < e.options.Length; i++)
         {
             var option = e.options[i];
             GUI.enabled = run.CanChoose(option);
-            if (GUI.Button(new Rect(W / 2 - 300, 474 + i * 56, 600, 48), option.label, smallButton))
+            var choice = new Rect(W / 2 - 403, 478 + i * 56, 806, 48);
+            bool available = GUI.enabled;
+            int effectStart = option.label.LastIndexOf(" (", System.StringComparison.Ordinal);
+            bool hasEffects = effectStart > 0 && option.label.EndsWith(")");
+            string choiceName = hasEffects ? option.label.Substring(0, effectStart) : option.label;
+            string effects = hasEffects ? option.label.Substring(effectStart + 2, option.label.Length - effectStart - 3) : "";
+            if (GUI.Button(choice, GUIContent.none, button))
             {
                 run.ChooseEvent(i);
                 Sfx("ui_click");
@@ -829,8 +837,16 @@ public class GameView : MonoBehaviour
                 Burst(new Vector2(W / 2, 500), Gold, 16, 160, 100, 0.6f, 6);
             }
             GUI.enabled = true;
+            bool risky = option.effects.Any(effect => effect.kind == "curse" || effect.kind == "fight"
+                || (effect.kind == "hp" && effect.value < 0));
+            var choiceColor = available ? Color.white : new Color(0.62f, 0.57f, 0.59f);
+            var effectColor = available ? (risky ? new Color(1f, 0.69f, 0.53f) : Gold) : choiceColor;
+            Shadowed(new Rect(choice.x + 20, choice.y, 390, choice.height), choiceName, small, choiceColor, TextAnchor.MiddleLeft);
+            Shadowed(new Rect(choice.x + 414, choice.y, 371, choice.height), effects, tiny, effectColor, TextAnchor.MiddleRight);
         }
     }
+
+    static readonly Rect IntentPlate = new Rect(EnemyX - 354, 78, 252, 86);
 
     void DrawArena()
     {
@@ -879,12 +895,13 @@ public class GameView : MonoBehaviour
             GUI.Label(new Rect(EnemyX - 80, top, 120, 28), new GUIContent("", $"독: 매 턴 {run.EnemyPoison} 피해, 그 뒤 1씩 줄어든다"));
         }
         Shadowed(new Rect(EnemyX - 150, top - 62, 300, 30), e.name, mid, run.Current?.Type == NodeType.Boss ? Gold : Color.white);
-        if (!busy && !AnySpinning())
+        if (!busy && talk.Count == 0)
         {
-            var o = run.Preview();
+            var o = AnySpinning() ? new SpinOutcome() : run.Preview();
             int atk = run.EnemyAttack(o);
             var mv = run.Intent;
-            string dmg = atk < run.EnemyIntent ? $"{atk} ({run.EnemyIntent})" : atk.ToString();
+            int reduced = run.EnemyIntent - atk;
+            string dmg = atk.ToString();
             var purple = new Color(0.75f, 0.5f, 1f);
             (string icon, string label, Color color, string tip) intent =
                 o.frozen ? ("0x72/flask_big_blue", "얼음!", Ice, "얼어서 이번 턴 아무것도 못 한다")
@@ -892,18 +909,15 @@ public class GameView : MonoBehaviour
                 : mv.Kind == "enrage" ? ("0x72/weapon_mace", $"분노 +{mv.Value}", HitRed, $"이후 모든 공격 +{mv.Value}")
                 : mv.Kind == "curse" ? ("0x72/skull", $"저주 {dmg}", purple, $"{atk} 피해 + 릴 하나에 해골 (이 전투 동안)")
                 : mv.Kind == "drain" ? ("0x72/flask_big_red", $"흡혈 {dmg}", HitRed, $"{atk} 피해, 막지 못한 만큼 회복")
-                : ("0x72/weapon_knight_sword", dmg, HitRed, $"{atk} 피해");
-            var iconTex = T(intent.icon);
-            float s = 40f / Mathf.Max(iconTex.width, iconTex.height);
-            // speech-bubble style plate in the gap between the party and the enemy
-            var plate = new Rect(EnemyX - 330, FloorY - 215, 200, 52);
-            Fill(new Rect(plate.x - 3, plate.y - 3, plate.width + 6, plate.height + 6), new Color(intent.color.r, intent.color.g, intent.color.b, 0.7f));
-            Fill(plate, new Color(0.08f, 0.07f, 0.1f, 0.9f));
-            var iconRect = new Rect(plate.x + 10 + (40 - iconTex.width * s) / 2, plate.y + 6, iconTex.width * s, iconTex.height * s);
-            GUI.DrawTexture(iconRect, iconTex);
-            var labelRect = new Rect(plate.x + 58, plate.y + 10, 140, 32);
-            Shadowed(labelRect, intent.label, mid, intent.color, TextAnchor.MiddleLeft);
-            GUI.Label(plate, new GUIContent("", "적의 다음 행동: " + intent.tip));
+                : ("0x72/weapon_knight_sword", $"공격 {dmg}", HitRed, $"파티에 {atk} 피해");
+            DrawPanel(IntentPlate);
+            Fill(new Rect(IntentPlate.x + 7, IntentPlate.y + 9, 4, IntentPlate.height - 18), intent.color);
+            DrawFit(T(intent.icon), new Rect(IntentPlate.x + 20, IntentPlate.y + 26, 38, 40));
+            Shadowed(new Rect(IntentPlate.x + 71, IntentPlate.y + 7, 165, 22), "적의 다음 행동", tiny, Color.white, TextAnchor.MiddleLeft);
+            Shadowed(new Rect(IntentPlate.x + 71, IntentPlate.y + 31, 166, 31), intent.label, mid, intent.color, TextAnchor.MiddleLeft);
+            if (reduced > 0 && !o.frozen)
+                Shadowed(new Rect(IntentPlate.x + 71, IntentPlate.y + 61, 166, 19), $"약화로 {reduced} 감소", tiny, Ice, TextAnchor.MiddleLeft);
+            GUI.Label(IntentPlate, new GUIContent("", intent.tip), GUIStyle.none);
             if (run.EnemyRage > 0) Shadowed(new Rect(EnemyX + 90, top - 4, 120, 24), $"분노 +{run.EnemyRage}", tiny, HitRed, TextAnchor.MiddleLeft);
         }
     }
@@ -996,6 +1010,7 @@ public class GameView : MonoBehaviour
         float startX = W / 2 - (count * ReelSize + (count - 1) * ReelGap) / 2;
         var counts = shownFaces.GroupBy(f => f.id).ToDictionary(g => g.Key, g => g.Count());
         bool settled = !busy && !AnySpinning();
+        DrawPanel(new Rect(60, 340, W - 120, 340));
         for (int i = 0; i < count; i++)
         {
             var m = run.Member(i);
@@ -1028,11 +1043,14 @@ public class GameView : MonoBehaviour
             {
                 float land = Mathf.Clamp01((Time.time - spinUntil[i]) / 0.18f);
                 Fill(local, Hex(face.color) * new Color(1, 1, 1, 0.35f));
-                Icon(face, local, 1 + 0.25f * (1 - land), 1);
+                Icon(face, new Rect(0, 0, r.width, r.height - 33), 0.88f + 0.20f * (1 - land), 1);
+                Fill(new Rect(0, r.height - 31, r.width, 31), new Color(0.08f, 0.07f, 0.11f, 0.94f));
+                Shadowed(new Rect(0, r.height - 30, r.width, 28), face.name, small, face.curse ? HitRed : Color.white);
                 if (face.id == m.signature && settled) Shadowed(new Rect(0, 2, r.width - 6, 20), "+1", tiny, Gold, TextAnchor.UpperRight);
-                if (run.Level(face.id) > 0) Shadowed(new Rect(6, r.height - 24, 60, 20), $"Lv{run.Level(face.id) + 1}", tiny, BlockBlue, TextAnchor.LowerLeft);
+                if (run.Level(face.id) > 0) Shadowed(new Rect(6, 2, 60, 20), $"Lv{run.Level(face.id) + 1}", tiny, BlockBlue, TextAnchor.LowerLeft);
             }
             GUI.EndGroup();
+            if (settled) GUI.Label(r, new GUIContent("", SymbolDetails(face)), GUIStyle.none);
 
             var portrait = Anim($"{m.sprite}_idle_anim");
             DrawTex(portrait, new Rect(r.x - 2, r.y - 34, portrait.width * 1.5f, portrait.height * 1.5f));
@@ -1071,80 +1089,178 @@ public class GameView : MonoBehaviour
             GUI.enabled = true;
         }
 
-        if (settled)
-        {
-            var o = run.Preview();
-            var line = $"공격 {o.damage}   방어 {o.block}   회복 {o.heal}" + (o.gold > 0 ? $"   골드 {o.gold}" : "") + (o.selfDamage > 0 ? $"   자해 {o.selfDamage}" : "");
-            Shadowed(new Rect(0, 578, W, 30), line, mid, Color.white);
-        }
-        Shadowed(new Rect(0, 622, W / 2 - 140, 40), $"다시 돌리기 {run.RerollsLeft}회", small, new Color(0.75f, 0.75f, 0.8f), TextAnchor.MiddleRight);
-        GUI.enabled = settled;
-        if (GUI.Button(new Rect(W / 2 - 120, 616, 240, 58), "확정!", button)) { Sfx("ui_click"); StartCoroutine(PlayTurn()); }
+        DrawTurnReadout(settled);
         if (settled)
         {
             int n = shownFaces.Length;
             var reels = new Rect(startX - 6, ReelY - 36, n * ReelSize + (n - 1) * ReelGap + 12, ReelSize + 44);
             Tip("reels", reels, "동료 한 명이 릴 하나예요. 서로 다른 릴에서 같은 심볼이 2개 이상 뜨면 콤보로 효과가 커져요!");
-            Tip("intent", new Rect(EnemyX - 330, FloorY - 215, 200, 52), "적이 다음에 할 행동이에요. 공격이 크면 방패로 막고, 방어 중이면 회복이나 게이지를 모아요.");
-            Tip("reroll", new Rect(startX, ReelY + ReelSize + 34, 42, 32), "↻ 버튼으로 턴마다 릴 하나를 다시 돌릴 수 있어요. 해골이 떴을 때 써 보세요.");
+            Tip("intent", IntentPlate, "적이 다음에 할 행동이에요. 공격이 크면 방패로 막고, 방어 중이면 회복이나 게이지를 모아요.");
+            Tip("reroll", new Rect(startX, ReelY + ReelSize + 34, 42, 32), "↻ 버튼으로 턴마다 릴 하나를 다시 돌릴 수 있어요. 공격이나 방패가 더 필요할 때 써 보세요.");
             int ready = Enumerable.Range(0, n).FirstOrDefault(i => run.SkillReady(i) && !run.Armed.Contains(i));
             if (run.SkillReady(ready) && !run.Armed.Contains(ready))
                 Tip("skill", new Rect(startX + ready * (ReelSize + ReelGap) + 46, ReelY + ReelSize + 34, ReelSize - 46, 32), "게이지(●●●)가 다 찼어요! 스킬 버튼을 누르면 확정할 때 함께 발동해요.");
-            Tip("confirm", new Rect(W / 2 - 120, 616, 240, 58), "준비가 되면 확정! 동료들이 공격하고, 그다음 적이 행동해요.");
+            Tip("confirm", TurnButtonRect, "준비가 되면 확정! 동료들이 공격하고, 그다음 적이 행동해요.");
         }
         GUI.enabled = true;
     }
 
+    static readonly Rect TurnButtonRect = new Rect(939, 600, 242, 58);
+
+    void DrawTurnReadout(bool settled)
+    {
+        Fill(new Rect(80, 574, W - 160, 94), new Color(0.13f, 0.11f, 0.16f));
+        Fill(new Rect(80, 574, W - 160, 2), new Color(0.38f, 0.31f, 0.26f));
+        Shadowed(new Rect(98, 579, 180, 23), "이번 턴 예상", small, Gold, TextAnchor.MiddleLeft);
+        Shadowed(new Rect(920, 577, 260, 24), $"다시 돌리기 {run.RerollsLeft}회", tiny, Color.white, TextAnchor.MiddleRight);
+        if (settled)
+        {
+            var outcome = run.Preview();
+            int direct = run.DamageDealt(outcome);
+            int poison = Mathf.Min(Mathf.Max(0, run.EnemyHp - direct), run.EnemyPoison + outcome.poison);
+            int incoming = direct + poison >= run.EnemyHp
+                ? 0 : Mathf.Max(0, run.EnemyAttack(outcome) - outcome.block) + outcome.selfDamage;
+            DrawTurnStat(98, "적 피해", direct + poison, "0x72/weapon_knight_sword", HitRed);
+            DrawTurnStat(260, "방어", outcome.block, "shield", BlockBlue);
+            DrawTurnStat(409, "회복", outcome.heal, "0x72/flask_big_red", HealGreen);
+            DrawTurnStat(555, "골드", outcome.gold, "0x72/coin_anim_f0", Gold);
+            DrawTurnStat(710, "받는 피해", incoming, "0x72/skull", incoming > 0 ? HitRed : Color.white);
+
+            string notes = string.Join("   ", new[] {
+                outcome.combo,
+                outcome.weaken > 0 ? $"약화 {outcome.weaken}" : "",
+                outcome.poison > 0 ? $"독 +{outcome.poison}" : "",
+                outcome.selfDamage > 0 ? $"저주 피해 {outcome.selfDamage}" : "",
+            }.Where(note => !string.IsNullOrEmpty(note)));
+            Shadowed(new Rect(98, 641, 760, 22), notes, tiny, outcome.badCombo ? HitRed : Gold, TextAnchor.MiddleLeft);
+        }
+        else
+        {
+            Shadowed(new Rect(98, 610, 720, 38), busy ? "전투 결과 처리 중" : "릴이 돌아가는 중", mid, Color.white, TextAnchor.MiddleLeft);
+        }
+
+        GUI.enabled = settled;
+        if (GUI.Button(TurnButtonRect, "턴 실행", turnButton)) { Sfx("ui_click"); StartCoroutine(PlayTurn()); }
+        GUI.enabled = true;
+    }
+
+    void DrawTurnStat(float x, string label, int value, string icon, Color color)
+    {
+        DrawFit(T(icon), new Rect(x, 607, 25, 26));
+        Shadowed(new Rect(x + 33, 605, 114, 31), $"{label} {value}", small, value == 0 ? Color.white : color, TextAnchor.MiddleLeft);
+    }
+
+    static void DrawFit(Texture2D texture, Rect bounds)
+    {
+        if (texture == null) return;
+        float scale = Mathf.Min(bounds.width / texture.width, bounds.height / texture.height);
+        float width = texture.width * scale, height = texture.height * scale;
+        DrawTex(texture, new Rect(bounds.center.x - width / 2, bounds.center.y - height / 2, width, height));
+    }
+
     void DrawMap()
     {
-        var map = run.Map;
-        int rows = map.Rows.Count;
-        Vector2 Pos(MapNode n) => new Vector2(150 + n.Row * (980f / (rows - 1)), 430 + n.Lane * 92);
-        Shadowed(new Rect(0, 348, W, 40), $"{run.ChapterDef.name} — 다음 갈 곳을 고르세요", mid, Gold);
+        var rows = run.Map.Rows;
+        var current = run.Current;
+        var available = new HashSet<MapNode>(run.Available);
+        var reached = Ice;
+        var quiet = new Color(0.62f, 0.59f, 0.68f);
+        var entry = new Vector2(110, 416);
+        float Column(int row) => Mathf.Lerp(entry.x, W - 110, (row + 1f) / rows.Count);
+        Vector2 Position(MapNode node) => new Vector2(Column(node.Row), 270 + node.Lane * 146);
 
-        var available = run.Available.ToList();
-        Tip("map", new Rect(120, 380, 160, 270), "금색으로 반짝이는 칸을 눌러 다음 장소로 가요. 칸에 마우스를 올리면 무엇이 있는지 보여요.");
-        foreach (var row in map.Rows)
-            foreach (var n in row)
-                foreach (var next in n.Next)
-                {
-                    bool lit = n == run.Current && available.Contains(next);
-                    var c = lit ? Gold : n.Visited && next.Visited ? new Color(0.9f, 0.85f, 0.7f, 0.9f) : new Color(1, 1, 1, 0.18f);
-                    Dotted(Pos(n), Pos(next), c, lit ? 6 : 4);
-                }
+        Fill(new Rect(0, 46, W, H - 46), Panel);
+        DrawPanel(new Rect(36, 64, W - 72, 598));
+        var location = current == null ? "입구" : $"{current.Row + 1} / {rows.Count} · {MapLabel(current.Type)}";
+        Shadowed(new Rect(64, 80, 550, 44), $"{run.Chapter + 1}장 · {run.ChapterDef.name}", big, Color.white, TextAnchor.MiddleLeft);
+        Shadowed(new Rect(66, 127, 540, 35), $"현재 위치 · {location}", mid, reached, TextAnchor.MiddleLeft);
+        Shadowed(new Rect(690, 86, 495, 29), $"파티 HP {shownHp} / {run.MaxHp}", small, HealGreen, TextAnchor.MiddleRight);
+        Shadowed(new Rect(690, 127, 495, 35), "금색 칸 중 다음 장소를 고르세요", small, Gold, TextAnchor.MiddleRight);
+        Fill(new Rect(64, 175, W - 128, 2), new Color(0.34f, 0.26f, 0.21f));
 
-        foreach (var row in map.Rows)
-            foreach (var n in row)
+        for (int row = 0; row < rows.Count; row++)
+            Shadowed(new Rect(Column(row) - 54, 185, 108, 27), row == rows.Count - 1 ? "보스" : $"{row + 1}", small,
+                row == current?.Row ? reached : quiet);
+
+        var connections = rows.SelectMany(row => row).SelectMany(node => node.Next.Select(next => (from: node, to: next)));
+        foreach (var link in connections)
+            Dotted(Position(link.from), Position(link.to), new Color(0.64f, 0.59f, 0.71f, 0.32f), 3);
+        foreach (var link in connections)
+        {
+            if (link.from.Visited && link.to.Visited)
+                Dotted(Position(link.from), Position(link.to), reached, 5);
+            else if (link.from == current && available.Contains(link.to))
+                Dotted(Position(link.from), Position(link.to), Gold, 6);
+        }
+        foreach (var node in rows[0])
+        {
+            if (current == null || node.Visited)
+                Dotted(entry, Position(node), node.Visited ? reached : Gold, 6);
+        }
+
+        DrawMapCard(entry, "입구", null, current == null, false, current != null, false, false);
+        if (current == null) Tip("map", new Rect(entry.x - 58, entry.y - 44, 116, 88),
+            "파란색이 현재 위치예요. 금색 길을 따라 어디로 갈지 고르세요.");
+
+        foreach (var node in rows.SelectMany(row => row))
+        {
+            var center = Position(node);
+            var hitbox = new Rect(center.x - 58, center.y - 44, 116, 88);
+            bool canTravel = available.Contains(node);
+            bool hovered = hitbox.Contains(Event.current.mousePosition);
+            DrawMapCard(center, MapLabel(node.Type), NodeIcon(node), node == current, canTravel, node.Visited,
+                node.Type == NodeType.Event, hovered && canTravel);
+            if (canTravel && GUI.Button(hitbox, new GUIContent("", NodeName(node.Type)), GUIStyle.none) && run.Choose(node))
             {
-                var p = Pos(n);
-                bool can = available.Contains(n);
-                bool here = n == run.Current;
-                float size = n.Type == NodeType.Boss ? 84 : 58;
-                var r = new Rect(p.x - size / 2, p.y - size / 2, size, size);
-                if (can) Glow(p, size * 2.2f, new Color(Gold.r, Gold.g, Gold.b, 0.35f + 0.25f * Mathf.Sin(Time.time * 5)));
-                if (here) Glow(p, size * 2f, new Color(1, 1, 1, 0.4f));
-                Fill(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), can ? Gold : here ? Color.white : new Color(0.35f, 0.3f, 0.28f));
-                Fill(r, n.Visited && !here ? new Color(0.2f, 0.18f, 0.2f) : new Color(0.14f, 0.12f, 0.16f));
-                var icon = NodeIcon(n);
-                if (icon == null) Shadowed(r, "?", big, n.Visited && !here ? new Color(1, 1, 1, 0.35f) : Gold);
-                else
-                {
-                    float s = Mathf.Min(r.width * 0.8f / icon.width, r.height * 0.8f / icon.height); // fill the box; small sprites stay readable
-                    var oldC = GUI.color;
-                    GUI.color = n.Visited && !here ? new Color(1, 1, 1, 0.35f) : n.Type == NodeType.Elite ? new Color(1f, 0.6f, 0.6f) : Color.white;
-                    GUI.DrawTexture(new Rect(p.x - icon.width * s / 2, p.y - icon.height * s / 2, icon.width * s, icon.height * s), icon);
-                    GUI.color = oldC;
-                }
-                GUI.enabled = can;
-                if (GUI.Button(r, new GUIContent("", NodeName(n.Type)), GUIStyle.none) && can)
-                {
-                    run.Choose(n);
-                    Sfx("map_step");
-                    Sync();
-                    SpinAll();
-                }
-                GUI.enabled = true;
+                Sfx("map_step");
+                Sync();
+                SpinAll();
+                return;
             }
+            if (!canTravel && hovered) GUI.Label(hitbox, new GUIContent("", NodeName(node.Type)), GUIStyle.none);
+        }
+    }
+
+    void DrawMapCard(Vector2 center, string label, Texture2D icon, bool here, bool available, bool visited, bool mystery, bool hovered)
+    {
+        var card = new Rect(center.x - 58, center.y - 44, 116, 88);
+        var border = here ? Ice : available ? Gold : visited ? new Color(0.35f, 0.49f, 0.55f) : new Color(0.33f, 0.30f, 0.37f);
+        var surface = here ? new Color(0.14f, 0.25f, 0.31f)
+            : hovered ? new Color(0.38f, 0.27f, 0.14f)
+            : available ? new Color(0.25f, 0.18f, 0.12f)
+            : new Color(0.14f, 0.12f, 0.17f);
+        Fill(card, border);
+        Fill(new Rect(card.x + 2, card.y + 2, card.width - 4, card.height - 4), surface);
+
+        var color = here ? Ice : available ? Color.white : new Color(0.72f, 0.69f, 0.76f);
+        if (icon != null)
+        {
+            float size = 40f / Mathf.Max(icon.width, icon.height);
+            var old = GUI.color;
+            GUI.color = new Color(1, 1, 1, here || available ? 1f : visited ? 0.6f : 0.47f);
+            DrawTex(icon, new Rect(center.x - icon.width * size / 2, card.y + 29 - icon.height * size / 2,
+                icon.width * size, icon.height * size));
+            GUI.color = old;
+        }
+        else
+        {
+            Shadowed(new Rect(card.x, card.y + 7, card.width, 46), mystery ? "?" : "▶", mid, color);
+        }
+        Shadowed(new Rect(card.x, card.y + 51, card.width, 26), label, small, color);
+
+        if (here)
+        {
+            var marker = new Rect(card.x, card.y - 28, card.width, 26);
+            Fill(marker, Ice);
+            Shadowed(marker, "현재 위치", small, Panel);
+        }
+    }
+
+    static string MapLabel(NodeType type)
+    {
+        var description = NodeName(type);
+        int separator = description.IndexOf(':');
+        return separator < 0 ? description : description.Substring(0, separator);
     }
 
     void DrawOffers()
@@ -1328,13 +1444,13 @@ public class GameView : MonoBehaviour
             Shadowed(row, ascensionChoice == 0 ? "어려움: 보통" : $"어려움 {ascensionChoice}: {what[ascensionChoice]}", small, ascensionChoice == 0 ? Color.white : HitRed);
         }
         bool canContinue = HasSave;
-        if (canContinue && GUI.Button(new Rect(W / 2 - 130, 470, 260, 56), "이어하기", button) && ContinueRun())
+        if (canContinue && GUI.Button(new Rect(W / 2 - 130, 470, 260, 56), "이어하기", turnButton) && ContinueRun())
         {
             onTitle = false;
             Sfx("combo");
             SaveRun();
         }
-        if (GUI.Button(new Rect(W / 2 - 130, canContinue ? 532 : 480, 260, canContinue ? 44 : 64), canContinue ? "새 모험 (저장된 판 지움)" : "모험 시작", canContinue ? smallButton : button))
+        if (GUI.Button(new Rect(W / 2 - 130, canContinue ? 532 : 480, 260, canContinue ? 44 : 64), canContinue ? "새 모험 (저장된 판 지움)" : "모험 시작", canContinue ? smallButton : turnButton))
         {
             NewRun();
             onTitle = false;
@@ -1511,11 +1627,17 @@ public class GameView : MonoBehaviour
         if (r.ItemId != null) { var item = run.Item(r.ItemId); return $"{item.name}: {item.desc}"; }
         if (r.SymbolId != null)
         {
-            var s = run.Symbol(r.SymbolId);
-            return $"{s.name}: 공격 {s.damage} 방어 {s.block} 회복 {s.heal}" + (s.gold > 0 ? $" 골드 {s.gold}" : "") + (s.weaken > 0 ? $" 약화 {s.weaken}" : "") + (s.selfDamage > 0 ? $" 자해 {s.selfDamage}" : "");
+            return SymbolDetails(run.Symbol(r.SymbolId));
         }
         return "";
     }
+
+    static string SymbolDetails(SymbolDef symbol) =>
+        $"{symbol.name}: 공격 {symbol.damage} 방어 {symbol.block} 회복 {symbol.heal}"
+        + (symbol.gold > 0 ? $" 골드 {symbol.gold}" : "")
+        + (symbol.weaken > 0 ? $" 약화 {symbol.weaken}" : "")
+        + (symbol.poison > 0 ? $" 독 +{symbol.poison}" : "")
+        + (symbol.selfDamage > 0 ? $" 저주 피해 {symbol.selfDamage}" : "");
 
     void OfferIcon(Reward r, Rect row)
     {
@@ -1665,6 +1787,15 @@ public class GameView : MonoBehaviour
         tiny = Make(15);
         pop = Make(52, display);
         button = UiSkin.Button(bold, 22);
+        turnButton = new GUIStyle(button) { border = new RectOffset(9, 9, 9, 9), fontSize = 25 };
+        var normalTurn = T("KenneyPixelAdventure/turn_normal");
+        var hoverTurn = T("KenneyPixelAdventure/turn_hover");
+        var pressedTurn = T("KenneyPixelAdventure/turn_pressed");
+        normalTurn.filterMode = hoverTurn.filterMode = pressedTurn.filterMode = FilterMode.Point;
+        turnButton.normal.background = normalTurn;
+        turnButton.hover.background = hoverTurn;
+        turnButton.active.background = pressedTurn;
+        turnButton.normal.textColor = turnButton.hover.textColor = turnButton.active.textColor = Hex("#2d1c17");
         smallButton = UiSkin.Button(font, 16);
         smallButton.padding = new RectOffset(2, 2, 3, 5); // skill names must fit narrow reel buttons
         shopButton = UiSkin.Button(font, 15);
