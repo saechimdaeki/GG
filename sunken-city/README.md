@@ -6,6 +6,15 @@
 
 M3 일부까지 — 펌프 밸브(물 채우기·빼기), 기둥 위 톱니, 마른 층 게. 그 이전: M2 플레이 가능 — 잠수·펌프 수리로 물 빼기(M1) → 마른 땅에 공방·숙소·조명탑 짓기, 장비 업그레이드, 주민 부탁, 단단한 벽 너머 깊은 구역과 수압, 맨 아래 봉인된 수문(M2 끝). 그림은 GPT 묶음 1·2 적용됨
 
+## 스크린샷
+
+| | |
+|---|---|
+| <img src="production/qa/evidence/view3d-wide-sea/01-open-sea-school.png" width="420"> | <img src="production/qa/evidence/view3d-wide-sea/03-inside-tower.png" width="420"> |
+| 물에 잠긴 바다 — 물고기 떼 | 가라앉은 탑 안 탐사 |
+| <img src="production/qa/evidence/art-bundle-r/02-town.png" width="420"> | <img src="production/qa/evidence/view3d-wide-sea/05-town.png" width="420"> |
+| 물을 뺀 구역에 들어선 마을 | 수면 위 마을 |
+
 ## 실행
 ```bash
 godot --path sunken-city

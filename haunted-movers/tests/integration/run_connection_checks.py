@@ -15,7 +15,7 @@ def check(label: str, code: int, output: str) -> None:
 
 
 def main() -> None:
-    result = subprocess.run(COMMAND, capture_output=True, text=True, timeout=20)
+    result = subprocess.run(COMMAND, capture_output=True, text=True, timeout=45)
     check("failure/cancel/retry", result.returncode, result.stdout + result.stderr)
     with tempfile.TemporaryDirectory(prefix="haunted-connection-") as folder:
         logs = [Path(folder) / "server.log", Path(folder) / "client.log"]
@@ -26,7 +26,7 @@ def main() -> None:
                 time.sleep(1)
                 processes.append(subprocess.Popen(COMMAND + ["--", "--client"], stdout=client_log, stderr=subprocess.STDOUT))
                 for process in processes:
-                    process.wait(timeout=20)
+                    process.wait(timeout=45)
             for label, process, log in zip(["server", "client"], processes, logs):
                 check(label, process.returncode, log.read_text())
         finally:

@@ -6,6 +6,15 @@
 - 작업 기록: [`production/epics/cursed-pawnshop/EPIC.md`](production/epics/cursed-pawnshop/EPIC.md)
 - 아트 프롬프트: [`art/PROMPTS.md`](art/PROMPTS.md)
 
+## 스크린샷
+
+| | |
+|---|---|
+| <img src="production/qa/evidence/story-007-m6-polish/title.png" width="420"> | <img src="production/qa/evidence/story-009-ui-tutorial/intro.png" width="420"> |
+| 타이틀 | 오프닝 — 낯선 편지와 물려받은 전당포 |
+| <img src="production/qa/evidence/story-002-m1-day-cycle/art-haggle.png" width="420"> | <img src="production/qa/evidence/story-006-m5-curse/candle.png" width="420"> |
+| 감정과 흥정 — 무게를 재고 값을 부름 | 촛불로 저주를 비춰 보기 |
+
 ## 실행 (Godot 4.7.2 필요)
 
 ```bash

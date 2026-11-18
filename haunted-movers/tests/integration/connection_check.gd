@@ -32,8 +32,8 @@ func _run() -> void:
 		for m in main.monsters:
 			m.park()
 		# the client runs its pickup / search / door checks in this window (slow CI runners
-		# needed more than 4 s); only then does the ghost "get" it
-		await create_timer(7.0).timeout
+		# can take ~10 s with each reply awaited); only then does the ghost "get" it
+		await create_timer(12.0).timeout
 		for id in main.multiplayer.get_peers():
 			main.kill_player(id)  # the ghost got the client: it should spectate us
 		_expect(main.run.phase == "day", "one death out of two ended the day")
@@ -72,7 +72,10 @@ func _run() -> void:
 			local_player.global_position = lying[0].global_position + Vector3(0.4, 0, 0)
 			await create_timer(0.4).timeout
 			main.request_pickup(lying[0].name)
-			await create_timer(0.6).timeout
+			for k in 30:  # wait for the host's reply, not a fixed beat: CI runners are slow
+				if local_player.slots.has(String(lying[0].name)):
+					break
+				await create_timer(0.1).timeout
 			_expect(local_player.slots.has(String(lying[0].name)) and lying[0].holder == main.multiplayer.get_unique_id(),
 				"client pickup through the host failed (slots %s, holder %d)" % [local_player.slots, lying[0].holder])
 		# Search a wardrobe/drawer through the host: every peer learns it's been searched.
@@ -86,7 +89,10 @@ func _run() -> void:
 			local_player.global_position = c.at + c.front
 			await create_timer(0.3).timeout
 			main.request_search(ci)
-			await create_timer(0.5).timeout
+			for k in 30:
+				if main.opened.has(ci):
+					break
+				await create_timer(0.1).timeout
 			_expect(main.opened.has(ci), "client search through the host was not confirmed")
 		# Open a room door through the host: every peer sees it swing open. (Pick one clear of
 		# mimics, and wait for the round trip rather than a fixed beat: CI runners are slow.)
@@ -101,13 +107,13 @@ func _run() -> void:
 			await create_timer(0.3).timeout
 			var was: bool = dd.open
 			main.request_room_door(di)
-			for k in 20:
+			for k in 30:
 				if main.interior.room_doors[di].open != was:
 					break
 				await create_timer(0.1).timeout
 			_expect(main.interior.room_doors[di].open != was, "client door toggle through the host was not seen")
 		if local_player != null:
-			for frame in 500:  # the host waits ~7 s after the new day before the "ghost" strikes
+			for frame in 600:  # the host waits ~12 s after the new day before the "ghost" strikes
 				if local_player.dead:
 					break
 				await create_timer(0.02).timeout

@@ -2,6 +2,15 @@
 
 친구 2~4명이 매일 모양이 바뀌는 귀신 들린 저택에 들어가 고물을 건져 트럭에 싣고, 몬스터를 피해 시간 안에 빠져나오는 협동 호러 게임 (리썰 컴퍼니식 규칙). 기획: [`design/game-brief.md`](design/game-brief.md)
 
+## 스크린샷
+
+| | |
+|---|---|
+| <img src="production/qa/evidence/house-turret-2026-11-17.png" width="420"> | <img src="production/qa/evidence/sharper-living-2026-11-17.png" width="420"> |
+| 매일 들어가는 귀신 들린 저택 | 저택 안 — 손전등만 믿고 고물 찾기 |
+| <img src="production/qa/evidence/mimic-2026-11-17.png" width="420"> | <img src="production/qa/evidence/truck-van-back-2026-11-17.png" width="420"> |
+| 오르골인 척하는 미믹 (왼쪽 평소 / 오른쪽 깨어남) | 이삿짐 탑차 — 고물을 싣고 출발 |
+
 ## 실행
 
 ```bash
