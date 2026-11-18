@@ -4,9 +4,13 @@
 # Used by release.yml for the release body and the per-game patch-notes issue.
 set -euo pipefail
 tag=$1 game=$2
-prev=$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)
+prev=$(git describe --tags --match 'v*' --abbrev=0 "$tag^" 2>/dev/null || true)
 range=${prev:+$prev..}$tag
-name=$(sed -n 's/^config\/name="\(.*\)"/\1/p' "$game/project.godot")
+if [[ -f "$game/project.godot" ]]; then
+  name=$(sed -n 's/^config\/name="\(.*\)"/\1/p' "$game/project.godot")
+else
+  name=$(head -1 "$game/README.md" | sed 's/^# //; s/ (.*//')
+fi
 
 section() {  # $1 = heading, $2 = conventional-commit type
   local lines

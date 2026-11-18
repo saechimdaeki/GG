@@ -9,14 +9,38 @@ on:
   push:
     tags: ['v*', 'reel-dungeon-preview-*']
 
-permissions:
-  contents: write
-  issues: write
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - name: Prepare draft release
+        run: |
+          if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$draft" != true ]]; then
+              echo "::error::Release $TAG has already been published."
+              exit 1
+            fi
+          else
+            gh release create "$TAG" --verify-tag --draft --title "$TAG" --notes ""
+          fi
+
   build:
     if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
+    needs: prepare
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 20
     strategy:
       matrix:
@@ -61,15 +85,17 @@ jobs:
           godot --headless --path . --export-release "Windows" out/${{ matrix.name }}-windows.exe
           ls -la out
           test -s out/${{ matrix.name }}-mac.zip && test -s out/${{ matrix.name }}-windows.exe
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.game }}
-          path: ${{ matrix.game }}/out/*
+      - name: Attach Godot packages to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" out/* --clobber
 
   build-unity:
+    needs: prepare
     runs-on: [self-hosted, macOS, ARM64, gg-unity-release]
     permissions:
-      contents: read
+      contents: write
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -111,16 +137,19 @@ jobs:
           else
             echo "::notice::Windows Build Support (Mono) is not installed; publishing the macOS package only."
           fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: reel-dungeon-packages
-          path: out/*.zip
-          if-no-files-found: error
+      - name: Attach Reel Dungeon packages to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" out/*.zip --clobber
 
   release:
     if: startsWith(github.ref, 'refs/tags/v') && github.event_name == 'push'
     needs: [build, build-unity]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.ref_name }}
@@ -128,10 +157,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # patch-notes.sh needs the previous tag
-      - uses: actions/download-artifact@v4
-        with:
-          path: out
-          merge-multiple: true
       - name: Patch notes, release, one issue per game
         # Each game gets its own issue labeled with its name; a game with no feat/fix commits gets none.
         run: |
@@ -151,4 +176,4 @@ jobs:
             gh issue create --title "[$name] 패치노트 $TAG" --label patch-notes --label "$name" --body-file notes.md
           done
           cat release.md
-          gh release create "$TAG" out/* --title "$TAG" --notes-file release.md
+          gh release edit "$TAG" --draft=false --notes-file release.md
