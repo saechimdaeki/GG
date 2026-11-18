@@ -6,14 +6,44 @@
 - 엔진: **Godot 4.7.2** (GDScript), macOS에서 개발
 - 기획서: [`design/game-brief.md`](design/game-brief.md) · 진행 로그: [`production/session-state/active.md`](production/session-state/active.md)
 
-## 스크린샷
+<p align="center"><img src="docs/media/raid.gif" width="720" alt="용사 침공 — 함정 콤보와 마왕 걷어차기, 웨이브 보상 카드"><br><sub>용사 침공 — 함정 콤보와 마왕 걷어차기, 웨이브 보상 카드</sub></p>
 
-| | |
-|---|---|
-| <img src="production/qa/evidence/title.png" width="420"> | <img src="production/qa/evidence/build-phase.png" width="420"> |
-| 타이틀 | 던전 짓기 — 함정과 몬스터 배치 |
-| <img src="production/qa/evidence/biome-volcano.png" width="420"> | <img src="production/qa/evidence/meta-tree.png" width="420"> |
-| 용사 침공 — 용암 지대에서 마왕이 직접 출격 | 영구 강화 트리 |
+## 이런 게임
+
+- **짓기 → 막기** — 벽·가시·스프링·기름·화염 함정과 고블린·슬라임·해골궁수를 배치, 철문으로 용사 경로를 비틀기
+- **마왕 직접 출격** — 근접·마법탄·대시·스킬, F로 용사를 용암·함정·벽에 걷어차기
+- **콤보** — 용암 다이브, 기름 폭발, 벽꽝, 볼링. 3초 안에 이으면 COMBO xN
+- **로그라이크** — 웨이브마다 규칙을 바꾸는 보상 카드, 영혼석으로 영구 강화, 지역 3종
+
+## 플레이 화면
+
+**짓기**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/title.png" width="280"> | <img src="production/qa/evidence/tutorial-pointer-toolbar.png" width="280"> | <img src="production/qa/evidence/build-phase.png" width="280"> |
+| 타이틀 | 집사 임프의 튜토리얼 | 함정과 몬스터 배치 |
+
+**침공**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/raid-phase.png" width="280"> | <img src="production/qa/evidence/hud-raid.png" width="280"> | <img src="production/qa/evidence/wave6-raid.png" width="280"> |
+| 용사 침공 — 코어를 지켜라 | 마왕 출격 | 후반 웨이브 |
+
+**지역**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/biome-volcano.png" width="280"> | <img src="production/qa/evidence/biome-necropolis.png" width="280"> | <img src="production/qa/evidence/map-themes-raid.png" width="280"> |
+| 화산 요새 | 망자의 묘역 | 지하 감옥 |
+
+**성장**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/raid-traps-cards.png" width="280"> | <img src="production/qa/evidence/story-intro.png" width="280"> | <img src="production/qa/evidence/meta-tree.png" width="280"> |
+| 웨이브 보상 카드 | 이야기 — 집사 임프 | 영구 강화 트리 |
 
 ## 실행
 

@@ -6,14 +6,44 @@
 - 작업 기록: [`production/epics/cursed-pawnshop/EPIC.md`](production/epics/cursed-pawnshop/EPIC.md)
 - 아트 프롬프트: [`art/PROMPTS.md`](art/PROMPTS.md)
 
-## 스크린샷
+<p align="center"><img src="production/qa/evidence/story-007-m6-polish/title.png" width="720" alt="타이틀"><br><sub>타이틀</sub></p>
 
-| | |
-|---|---|
-| <img src="production/qa/evidence/story-007-m6-polish/title.png" width="420"> | <img src="production/qa/evidence/story-009-ui-tutorial/intro.png" width="420"> |
-| 타이틀 | 오프닝 — 낯선 편지와 물려받은 전당포 |
-| <img src="production/qa/evidence/story-002-m1-day-cycle/art-haggle.png" width="420"> | <img src="production/qa/evidence/story-006-m5-curse/candle.png" width="420"> |
-| 감정과 흥정 — 무게를 재고 값을 부름 | 촛불로 저주를 비춰 보기 |
+## 이런 게임
+
+- **감정** — 돋보기로 흠집·각인을 찾고, 저울로 무게를 재고, 촛불로 저주를 비춰 진품·가짜·저주품을 가려내기
+- **흥정** — 질문하고 추궁하고 값을 부르기. 손님은 내 행동을 기억한다
+- **장사와 빚** — 산 물건을 진열해 팔고, 매주 고리대금업자 바알에게 빚을 갚기
+- **28일 이야기** — 사라진 전 주인 모로의 행방과 여러 엔딩
+
+## 플레이 화면
+
+**시작**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/story-009-ui-tutorial/intro.png" width="280"> | <img src="production/qa/evidence/story-009-ui-tutorial/tut1.png" width="280"> | <img src="production/qa/evidence/story-007-m6-polish/scene-morning.png" width="280"> |
+| 비 오는 밤, 낯선 편지 | 튜토리얼 — 첫 물건 | 전당포의 아침 |
+
+**감정과 흥정**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/story-002-m1-day-cycle/art-talk.png" width="280"> | <img src="production/qa/evidence/story-002-m1-day-cycle/art-haggle.png" width="280"> | <img src="production/qa/evidence/story-006-m5-curse/candle.png" width="280"> |
+| 손님과 대화 | 무게를 재고 값을 부르기 | 촛불로 저주 비추기 |
+
+**장사와 이야기**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/story-006-m5-curse/purify.png" width="280"> | <img src="production/qa/evidence/story-003-m2-trade/shelf.png" width="280"> | <img src="production/qa/evidence/story-005-m4-story/choice.png" width="280"> |
+| 저주 걸린 손님 | 진열대와 시세 | 이야기 선택 |
+
+**빚과 결말**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/story-007-m6-polish/scene-baal.png" width="280"> | <img src="production/qa/evidence/story-007-m6-polish/scene-ending.png" width="280"> | <img src="production/qa/evidence/selfplay-2026-10-30/endings.png" width="280"> |
+| 고리대금업자 바알 | 엔딩 | 여러 엔딩 |
 
 ## 실행 (Godot 4.7.2 필요)
 
