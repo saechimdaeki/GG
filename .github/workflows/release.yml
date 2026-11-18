@@ -1,6 +1,6 @@
 name: release
 
-# Push a tag like v0.2.0 → builds every game for Mac and Windows, attaches them to a GitHub Release,
+# Push a tag like v0.2.0 → builds every game for Mac and Windows (Godot games below, Unity games in build-unity), attaches them to a GitHub Release,
 # and posts patch notes (feat/fix commits since the last tag, .github/patch-notes.sh) as one issue
 # per game, labeled patch-notes + the game's name.
 # One matrix entry per game folder; add one when a new game joins the repo.
@@ -65,8 +65,49 @@ jobs:
           name: ${{ matrix.game }}
           path: ${{ matrix.game }}/out/*
 
+  # Unity games (Reel Dungeon) build through GameCI. Same secrets as smoke.yml's reel-dungeon job.
+  build-unity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: StandaloneOSX
+            zip: ReelDungeon-mac.zip
+          - target: StandaloneWindows64
+            zip: ReelDungeon-windows.zip
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space (Unity images are large)
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - uses: actions/cache@v4
+        with:
+          path: reel-dungeon/Library
+          key: Library-reel-dungeon-${{ matrix.target }}-${{ hashFiles('reel-dungeon/Assets/**', 'reel-dungeon/Packages/**', 'reel-dungeon/ProjectSettings/**') }}
+          restore-keys: Library-reel-dungeon-${{ matrix.target }}-
+      - uses: game-ci/unity-builder@v6
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: reel-dungeon
+          targetPlatform: ${{ matrix.target }}
+          buildName: ReelDungeon
+          buildMethod: BuildScript.BuildCI
+      - name: Zip
+        run: |
+          mkdir -p out
+          (cd build/${{ matrix.target }} && zip -qry "$GITHUB_WORKSPACE/out/${{ matrix.zip }}" .)
+          ls -la out && test -s out/${{ matrix.zip }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reel-dungeon-${{ matrix.target }}
+          path: out/*
+
   release:
-    needs: build
+    needs: [build, build-unity]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -84,9 +125,13 @@ jobs:
         run: |
           gh label create patch-notes --color FBCA04 --description "릴리스 패치노트 (자동)" --force
           : > release.md
-          for game in */project.godot; do
-            game=${game%/project.godot}
-            name=$(sed -n 's/^config\/name="\(.*\)"/\1/p' "$game/project.godot")
+          # Godot games name themselves in project.godot; Unity games by their README title ("# 릴 던전 (Reel Dungeon)" → 릴 던전)
+          for game in $(ls -d */project.godot */ProjectSettings/ProjectVersion.txt 2>/dev/null | cut -d/ -f1 | sort -u); do
+            if [ -f "$game/project.godot" ]; then
+              name=$(sed -n 's/^config\/name="\(.*\)"/\1/p' "$game/project.godot")
+            else
+              name=$(head -1 "$game/README.md" | sed 's/^# //; s/ (.*//')
+            fi
             .github/patch-notes.sh "$TAG" "$game" > notes.md
             [ -s notes.md ] || continue
             printf '## %s\n\n' "$name" >> release.md && cat notes.md >> release.md

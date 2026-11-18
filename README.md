@@ -16,7 +16,7 @@
 
 ## 플레이
 
-**다운로드** — [Releases](https://github.com/saechimdaeki/GG/releases/latest)에서 `<게임>-mac.zip` / `<게임>-windows.exe` (릴 던전은 아직 릴리스 자동 빌드에 없어서 아래처럼 소스에서 빌드)
+**다운로드** — [Releases](https://github.com/saechimdaeki/GG/releases/latest)에서 `<게임>-mac.zip` / `<게임>-windows.exe` (릴 던전은 `ReelDungeon-windows.zip`, 풀어서 `ReelDungeon.exe`)
 
 - Mac: zip을 풀면 `.app`. 서명이 없어서 처음엔 **우클릭 → 열기**
 - Windows: SmartScreen이 뜨면 **추가 정보 → 실행**
@@ -40,11 +40,23 @@ open Builds/Mac/ReelDungeon.app
 ## 개발
 
 - 릴 던전만 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
-- 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 릴 던전은 아직 CI에 없고, EditMode 테스트 62개를 로컬에서 돌립니다 (`reel-dungeon/README.md`의 실행 항목)
-- 태그를 푸시하면 Godot 게임들이 Mac·Windows로 빌드되어 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
+- 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 릴 던전은 [GameCI](https://game.ci)로 EditMode 테스트를 돌립니다
+- 태그를 푸시하면 모든 게임이 Mac·Windows로 빌드되어 (릴 던전은 GameCI `unity-builder`) 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
 
 ```bash
 git tag v0.4.0 && git push origin v0.4.0
 ```
 
 새 게임은 루트에 폴더 하나(엔진 프로젝트 통째로 + README)를 만들고, 위 표와 `smoke.yml`에 한 줄씩 추가합니다.
+
+### Unity 게임(릴 던전) CI에 필요한 비밀값
+
+GameCI가 Unity를 켜려면 저장소 **Settings → Secrets and variables → Actions**에 셋이 있어야 합니다. 없으면 `smoke`의 `reel-dungeon` 작업이 이 안내를 띄우고 실패합니다.
+
+| 이름 | 값 |
+|---|---|
+| `UNITY_EMAIL` | Unity 계정 이메일 |
+| `UNITY_PASSWORD` | Unity 계정 비밀번호 |
+| `UNITY_LICENSE` | Personal 라이선스 파일(`.ulf`) 내용 전체 |
+
+`.ulf` 만들기 ([GameCI 안내](https://game.ci/docs/github/activation/)): Unity Hub에 그 계정으로 로그인 → 설정(Preferences) → Licenses → Add → **Get a free personal license** → 맥은 `/Library/Application Support/Unity/Unity_lic.ulf`가 생겼는지 확인 → 파일 내용을 그대로 `UNITY_LICENSE`에 붙여 넣기. 복사한 뒤 Unity Hub에서 로그아웃해 두면 CI가 좌석을 씁니다.
