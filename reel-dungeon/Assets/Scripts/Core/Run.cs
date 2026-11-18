@@ -57,6 +57,11 @@ namespace ReelDungeon.Core
         public int EnemyHp { get; private set; }
         public int RerollsLeft { get; private set; }
         public string Log { get; private set; } = "";
+        /// <summary>Run stats for the result screen.</summary>
+        public int Turns { get; private set; }
+        public int Kills { get; private set; }
+        public int BestHit { get; private set; }
+        public int GoldEarned { get; private set; }
 
         public ChapterDef ChapterDef => cfg.chapters[Chapter];
         public int EnemyIntent => Enemy.attacks[enemyTurn % Enemy.attacks.Length];
@@ -200,6 +205,9 @@ namespace ReelDungeon.Core
 
             Hp = Math.Min(MaxHp, Hp + o.heal);
             Gold += o.gold;
+            GoldEarned += o.gold;
+            Turns++;
+            BestHit = Math.Max(BestHit, o.damage);
             EnemyHp -= o.damage;
             if (EnemyHp <= 0) { Win(o.damage); return; }
 
@@ -215,6 +223,8 @@ namespace ReelDungeon.Core
         {
             EnemyHp = 0;
             Gold += Enemy.gold;
+            GoldEarned += Enemy.gold;
+            Kills++;
             Log = $"{Enemy.name} 처치! ({damage} 피해, +{Enemy.gold} 골드)";
             var type = Current.Type;
             Offers.Clear();

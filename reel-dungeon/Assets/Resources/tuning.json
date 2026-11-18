@@ -264,12 +264,12 @@
       "boss": {
         "name": "오우거",
         "sprite": "ogre_idle_anim",
-        "hp": 60,
+        "hp": 48,
         "gold": 40,
         "attacks": [
+          6,
           8,
-          8,
-          14
+          11
         ]
       }
     },
@@ -280,7 +280,7 @@
         {
           "name": "해골 병사",
           "sprite": "skelet_idle_anim",
-          "hp": 26,
+          "hp": 30,
           "gold": 12,
           "attacks": [
             6,
@@ -290,7 +290,7 @@
         {
           "name": "꼬마 좀비",
           "sprite": "tiny_zombie_idle_anim",
-          "hp": 22,
+          "hp": 26,
           "gold": 12,
           "attacks": [
             5,
@@ -301,7 +301,7 @@
         {
           "name": "진흙 괴물",
           "sprite": "muddy_anim",
-          "hp": 28,
+          "hp": 32,
           "gold": 12,
           "attacks": [
             4,
@@ -334,12 +334,12 @@
       "boss": {
         "name": "거대 좀비",
         "sprite": "big_zombie_idle_anim",
-        "hp": 110,
+        "hp": 100,
         "gold": 60,
         "attacks": [
           10,
           12,
-          18
+          16
         ]
       }
     },
@@ -404,12 +404,12 @@
       "boss": {
         "name": "대악마",
         "sprite": "big_demon_idle_anim",
-        "hp": 170,
+        "hp": 155,
         "gold": 0,
         "attacks": [
-          12,
-          15,
-          22
+          11,
+          14,
+          20
         ]
       }
     }

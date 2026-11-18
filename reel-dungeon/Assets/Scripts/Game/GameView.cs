@@ -47,7 +47,14 @@ public class GameView : MonoBehaviour
     readonly HashSet<int> toldBoss = new HashSet<int>();
     bool toldEnd;
 
+    bool onTitle = true;
+
     struct Say { public string name, sprite, text; }
+
+    // sound
+    AudioSource sfx, music;
+    bool[] stopped = new bool[0];
+    float nextTick;
 
     readonly List<Popup> popups = new List<Popup>();
     readonly List<Particle> particles = new List<Particle>();
@@ -67,6 +74,11 @@ public class GameView : MonoBehaviour
     {
         cfg = JsonUtility.FromJson<TuningConfig>(Resources.Load<TextAsset>("tuning").text);
         story = JsonUtility.FromJson<StoryData>(Resources.Load<TextAsset>("story").text);
+        sfx = gameObject.AddComponent<AudioSource>();
+        music = gameObject.AddComponent<AudioSource>();
+        music.loop = true;
+        music.volume = 0.3f;
+        if (Camera.main == null || Camera.main.GetComponent<AudioListener>() == null) gameObject.AddComponent<AudioListener>();
         NewRun();
         if (Camera.main)
         {
@@ -94,6 +106,8 @@ public class GameView : MonoBehaviour
         Sync();
         SpinAll();
         if (HasArg("--nostory")) talk.Clear();
+        if (System.Environment.GetCommandLineArgs().Any(a => a.StartsWith("--") && a != "--screenshot" && a != "--at" && a != "--after")) onTitle = false;
+        if (HasArg("--title")) onTitle = true;
         for (int k = IntArg("--skiplines"); k > 0 && talk.Count > 0; k--) talk.Dequeue(); // screenshots of later lines
     }
 
@@ -155,6 +169,7 @@ public class GameView : MonoBehaviour
         if (!toldEnd && (run.Phase == Phase.Won || run.Phase == Phase.Lost))
         {
             toldEnd = true;
+            Sfx(run.Phase == Phase.Won ? "win" : "lose");
             Tell(run.Phase == Phase.Won ? story.ending : story.defeat);
         }
     }
@@ -199,6 +214,33 @@ public class GameView : MonoBehaviour
         for (int i = 0; i < spinUntil.Length; i++) spinUntil[i] = Time.time + 0.45f + 0.15f * i;
     }
 
+    void Update()
+    {
+        if (stopped.Length != spinUntil.Length) stopped = new bool[spinUntil.Length];
+        bool any = false;
+        for (int i = 0; i < spinUntil.Length; i++)
+        {
+            if (Spinning(i)) { any = true; stopped[i] = false; }
+            else if (!stopped[i]) { stopped[i] = true; Sfx("reel_stop", 0.7f, 0.9f + 0.05f * i); }
+        }
+        if (any && Time.time > nextTick) { Sfx("reel_tick", 0.35f, Random.Range(0.9f, 1.1f)); nextTick = Time.time + 0.07f; }
+
+        var track = (busy || run.Phase == Phase.Turn) && run.Current?.Type == NodeType.Boss ? "bgm_boss" : "bgm_dungeon";
+        if (music.clip == null || music.clip.name != track)
+        {
+            music.clip = Resources.Load<AudioClip>("Audio/" + track);
+            music.Play();
+        }
+    }
+
+    void Sfx(string name, float volume = 1, float pitch = 1)
+    {
+        var clip = Resources.Load<AudioClip>("Audio/" + name); // Resources caches loaded assets
+        if (clip == null) return;
+        sfx.pitch = pitch;
+        sfx.PlayOneShot(clip, volume);
+    }
+
     bool Spinning(int i) => Time.time < spinUntil[i];
     bool AnySpinning() => spinUntil.Any(t => Time.time < t);
 
@@ -218,6 +260,7 @@ public class GameView : MonoBehaviour
         {
             int i = armed[k];
             Pop(run.Member(i).skillName + "!", Gold, new Vector2(FrontX - 120, 120 + k * 40), 36);
+            Sfx("skill");
             yield return SkillFx(i);
         }
 
@@ -232,8 +275,13 @@ public class GameView : MonoBehaviour
         {
             shownGold = goldBefore + o.gold;
             Pop($"+{o.gold} 골드", Gold, new Vector2(W - 150, 60), 30);
+            Sfx("coin");
         }
-        if (o.combo != "") Pop(o.combo, o.badCombo ? HitRed : Gold, new Vector2(W / 2, 150), 40);
+        if (o.combo != "")
+        {
+            Pop(o.combo, o.badCombo ? HitRed : Gold, new Vector2(W / 2, 150), 40);
+            Sfx(o.badCombo ? "hurt" : "combo", 0.8f);
+        }
 
         // 3. every member whose face hits (or whose skill fired) attacks in its own style
         if (o.damage > 0)
@@ -262,6 +310,7 @@ public class GameView : MonoBehaviour
         if (run.Phase == Phase.Reward || run.Phase == Phase.Won)
         {
             enemyDeathAt = Time.time;
+            Sfx("kill");
             Burst(EnemyBody(), new Color(0.6f, 0.4f, 0.7f), 30, 260, 300, 0.9f, 10);
             Burst(EnemyBody(), Color.white, 12, 180, 0, 0.5f, 6);
             Flash(Color.white, 0.25f);
@@ -288,12 +337,14 @@ public class GameView : MonoBehaviour
                 {
                     Pop($"막음 {blocked}", BlockBlue, MemberHead(0) + new Vector2(80, 10), 34);
                     AddFx("ring", heroCenter, 0.35f, 120, BlockBlue);
+                    Sfx("block", 0.7f);
                     Burst(heroCenter + new Vector2(40, 0), BlockBlue, 8, 160, 0, 0.4f, 6);
                 }
                 if (taken > 0)
                 {
                     heroHitAt = Time.time;
                     AddFx("claw", heroCenter, 0.35f, 110, HitRed);
+                    Sfx("hurt");
                     Burst(heroCenter, HitRed, 14, 220, 200, 0.6f, 7);
                     Flash(HitRed, 0.35f);
                     Shake(10);
@@ -322,34 +373,40 @@ public class GameView : MonoBehaviour
         {
             case "arrow":
                 yield return Tween(v => offset[i] = new Vector2(-14 * Mathf.Sin(v * Mathf.PI), 0), 0, 1, 0.12f);
+                Sfx("arrow");
                 yield return FireShot(T("0x72/weapon_arrow"), from, target, 0.2f, 20, 0, 3, 90, Color.white, false);
                 break;
             case "magic":
                 yield return Tween(v => offset[i] = new Vector2(0, -20 * Mathf.Sin(v * Mathf.PI)), 0, 1, 0.15f);
                 bool ice = shownFaces[i].id == "ice";
+                Sfx(ice ? "ice" : "magic", 0.8f);
                 yield return FireShot(glow, from + new Vector2(20, -40), target, 0.28f, 50, 0, 1.4f, 0, ice ? Ice : new Color(1f, 0.55f, 0.2f), true);
                 break;
             case "leap":
                 yield return Tween(v => offset[i] = new Vector2(v * (StrikeX - MemberX(i)), -Mathf.Sin(v * Mathf.PI) * 140), 0, 1, 0.3f);
                 AddFx("ring", new Vector2(StrikeX + 40, FloorY - 10), 0.4f, 260, new Color(1f, 0.8f, 0.5f));
+                Sfx("heavy");
                 Burst(new Vector2(StrikeX + 40, FloorY - 10), new Color(0.7f, 0.6f, 0.5f), 16, 220, 400, 0.6f, 8);
                 Shake(10);
                 break;
             case "beam":
                 yield return Tween(v => offset[i] = new Vector2(0, -16 * Mathf.Sin(v * Mathf.PI)), 0, 1, 0.15f);
                 AddFx("beam", target, 0.45f, 90, new Color(1f, 0.95f, 0.6f));
+                Sfx("beam", 0.7f);
                 Burst(target, new Color(1f, 0.95f, 0.6f), 14, 120, -120, 0.8f, 6);
                 yield return new WaitForSeconds(0.12f);
                 break;
             default: // melee
                 yield return Tween(v => offset[i] = new Vector2(v * (StrikeX - MemberX(i)), 0), 0, 1, 0.14f);
                 AddFx("slash", target, 0.25f, 150, Color.white);
+                Sfx("slash");
                 break;
         }
         // impact
         shownEnemyHp = Mathf.Max(0, shownEnemyHp - share);
         if (last) shownEnemyHp = Mathf.Max(0, enemyBefore - total);
         enemyHitAt = Time.time;
+        Sfx("hit", 0.8f, Random.Range(0.9f, 1.15f));
         Burst(target, Gold, 10, 260, 300, 0.45f, 6);
         Pop($"-{share}", Color.white, target + new Vector2(Random.Range(-40, 40), Random.Range(-20, 20)), 40);
         yield return Hitstop(0.05f);
@@ -368,6 +425,8 @@ public class GameView : MonoBehaviour
             case "shieldBash":
                 auraBlue.Add(i);
                 yield return FireShot(T("shield"), at, enemy, 0.3f, 60, 720, 5, 0, Color.white, false);
+                Sfx("block");
+                Sfx("heavy");
                 AddFx("ring", enemy, 0.45f, 300, BlockBlue);
                 Burst(enemy, BlockBlue, 20, 300, 200, 0.6f, 8);
                 Flash(Color.white, 0.4f);
@@ -378,6 +437,7 @@ public class GameView : MonoBehaviour
             case "volley":
                 for (int k = 0; k < 3; k++)
                 {
+                    Sfx("arrow", 0.8f, 1 + k * 0.1f);
                     StartCoroutine(FireShot(T("0x72/weapon_arrow"), at + new Vector2(0, -10 + k * 10), enemy + new Vector2(0, -20 + k * 20), 0.18f, 30 + k * 15, 0, 3, 90, Gold, false));
                     yield return new WaitForSeconds(0.08f);
                 }
@@ -386,6 +446,7 @@ public class GameView : MonoBehaviour
                 break;
             case "freeze":
                 frozenUntil = Time.time + 3f;
+                Sfx("ice");
                 for (int k = 0; k < 6; k++) AddFx("ice", enemy + new Vector2(Mathf.Cos(k) * 70, Mathf.Sin(k * 2.1f) * 50), 2.6f, 50 + k * 6, Ice);
                 Burst(enemy, Ice, 24, 160, 0, 1f, 7);
                 Flash(Ice, 0.35f);
@@ -394,6 +455,7 @@ public class GameView : MonoBehaviour
             case "rage":
                 auraRed.Add(i);
                 Flash(HitRed, 0.45f);
+                Sfx("heavy", 0.8f, 0.7f);
                 for (int k = 0; k < 4; k++)
                 {
                     Burst(at + new Vector2(0, 30), new Color(1f, 0.3f, 0.1f), 10, 80, -260, 0.6f, 9);
@@ -402,6 +464,7 @@ public class GameView : MonoBehaviour
                 break;
             case "prayer":
                 AddFx("beam", MemberCenter(Mathf.Min(1, run.Party.Count - 1)), 0.7f, 260, new Color(0.8f, 1f, 0.7f));
+                Sfx("beam");
                 for (int k = 0; k < run.Party.Count; k++) Burst(MemberCenter(k), HealGreen, 10, 50, -140, 1f, 6);
                 yield return new WaitForSeconds(0.35f);
                 break;
@@ -482,7 +545,8 @@ public class GameView : MonoBehaviour
         DrawParticles();
         DrawHeader();
 
-        if (talk.Count > 0 && !busy) DrawStory();   // dialogue blocks every other panel until it is read
+        if (onTitle) DrawTitle();
+        else if (talk.Count > 0 && !busy) DrawStory();   // dialogue blocks every other panel until it is read
         else if (busy || run.Phase == Phase.Turn) DrawReels();
         else if (run.Phase == Phase.Map) DrawMap();
         else if (run.Phase == Phase.Reward) DrawOffers();
@@ -507,6 +571,8 @@ public class GameView : MonoBehaviour
         Shadowed(new Rect(0, 8, W, 36), $"{run.Chapter + 1}장 · {run.ChapterDef.name} · {where}", small, Color.white);
         DrawTex(T("0x72/coin_anim_f" + (int)(Time.time * 8) % 4), new Rect(W - 150, 14, 18, 21));
         Shadowed(new Rect(W - 126, 10, 120, 30), shownGold.ToString(), mid, Gold, TextAnchor.MiddleLeft);
+        if (GUI.Button(new Rect(W - 190, 10, 30, 30), new GUIContent(AudioListener.volume > 0 ? "♪" : "×", "소리 켜기/끄기"), smallButton))
+            AudioListener.volume = AudioListener.volume > 0 ? 0 : 1;
 
         // relics, top left; hover for what they do
         for (int k = 0; k < run.Relics.Count; k++)
@@ -560,6 +626,7 @@ public class GameView : MonoBehaviour
             if (GUI.Button(new Rect(W / 2 - 300, 474 + i * 56, 600, 48), option.label, smallButton))
             {
                 run.ChooseEvent(i);
+                Sfx("ui_click");
                 Sync();
                 if (run.Phase == Phase.Turn) SpinAll();
                 Burst(new Vector2(W / 2, 500), Gold, 16, 160, 100, 0.6f, 6);
@@ -707,7 +774,7 @@ public class GameView : MonoBehaviour
             GUI.enabled = !busy && (run.SkillReady(i) || run.Armed.Contains(i));
             var label = run.Armed.Contains(i) ? "취소" : m.skillName;
             if (GUI.Button(new Rect(r.x + bw + 4, r.yMax + 34, r.width - bw - 4, 32), new GUIContent(label, $"{m.name} · {m.skillName}: {m.skillDesc}"), smallButton))
-                run.ToggleSkill(i);
+                if (run.ToggleSkill(i)) Sfx(run.Armed.Contains(i) ? "skill" : "ui_click", 0.6f);
             GUI.enabled = true;
         }
 
@@ -719,7 +786,7 @@ public class GameView : MonoBehaviour
         }
         Shadowed(new Rect(0, 622, W / 2 - 140, 40), $"다시 돌리기 {run.RerollsLeft}회", small, new Color(0.75f, 0.75f, 0.8f), TextAnchor.MiddleRight);
         GUI.enabled = settled;
-        if (GUI.Button(new Rect(W / 2 - 120, 616, 240, 58), "확정!", button)) StartCoroutine(PlayTurn());
+        if (GUI.Button(new Rect(W / 2 - 120, 616, 240, 58), "확정!", button)) { Sfx("ui_click"); StartCoroutine(PlayTurn()); }
         GUI.enabled = true;
     }
 
@@ -766,6 +833,7 @@ public class GameView : MonoBehaviour
                 if (GUI.Button(r, new GUIContent("", NodeName(n.Type)), GUIStyle.none) && can)
                 {
                     run.Choose(n);
+                    Sfx("map_step");
                     Sync();
                     SpinAll();
                 }
@@ -784,6 +852,7 @@ public class GameView : MonoBehaviour
             if (GUI.Button(r, new GUIContent(offer.Text, OfferTip(offer)), button))
             {
                 run.ChooseReward(i);
+                Sfx(offer.Kind == RewardKind.Gold ? "coin" : "ui_click");
                 Sync();
                 if (offer.Kind == RewardKind.Recruit) Burst(MemberCenter(run.Party.Count - 1) + new Vector2(-300, 0), Gold, 20, 150, -100, 0.8f, 6);
             }
@@ -807,7 +876,7 @@ public class GameView : MonoBehaviour
             GUI.enabled = !item.Sold && run.Gold >= item.Price;
             if (GUI.Button(r, new GUIContent(item.Sold ? "판매 완료" : item.Text, OfferTip(item)), smallButton))
             {
-                run.Buy(i);
+                if (run.Buy(i)) Sfx("coin");
                 Sync();
                 Burst(new Vector2(r.xMax + 60, r.center.y), Gold, 12, 120, 200, 0.5f, 5);
             }
@@ -823,11 +892,56 @@ public class GameView : MonoBehaviour
         }
     }
 
+    void DrawTitle()
+    {
+        Fill(new Rect(0, 0, W, H), new Color(0, 0, 0, 0.35f));
+        float bob = Mathf.Sin(Time.time * 2) * 6;
+        Glow(new Vector2(W / 2, 220 + bob), 700, new Color(1f, 0.75f, 0.3f, 0.25f));
+        pop.fontSize = 96;
+        Shadowed(new Rect(0, 150 + bob, W, 130), "릴 던전", pop, Gold);
+        Shadowed(new Rect(0, 270 + bob, W, 40), "동료 한 명이 릴 하나 · 운명의 릴을 되찾아라", mid, Color.white);
+        // three spinning mini reels as a logo flourish
+        var faces = cfg.symbols.Where(x => !x.curse).ToArray();
+        for (int k = 0; k < 3; k++)
+        {
+            var r = new Rect(W / 2 - 165 + k * 115, 340, 100, 100);
+            Fill(new Rect(r.x - 4, r.y - 4, r.width + 8, r.height + 8), Gold);
+            Fill(r, new Color(0.12f, 0.1f, 0.14f));
+            var sym = faces[((int)(Time.time * (3 + k)) + k * 2) % faces.Length];
+            Fill(r, Hex(sym.color) * new Color(1, 1, 1, 0.35f));
+            Icon(sym, r, 1, 1);
+        }
+        if (GUI.Button(new Rect(W / 2 - 130, 480, 260, 64), "모험 시작", button))
+        {
+            onTitle = false;
+            lineStart = Time.time;
+            Sfx("combo");
+        }
+        if (GUI.Button(new Rect(W / 2 - 130, 556, 260, 48), "종료", smallButton)) Application.Quit();
+        Shadowed(new Rect(0, 640, W, 30), "아트: 0x72 DungeonTileset II (CC0) · 소리: 직접 합성", tiny, new Color(1, 1, 1, 0.5f));
+    }
+
     void DrawEnd()
     {
-        Fill(new Rect(0, 345, W, 335), new Color(0, 0, 0, 0.55f));
-        Shadowed(new Rect(0, 400, W, 70), run.Phase == Phase.Won ? "던전 정복!" : "쓰러졌다...", big, run.Phase == Phase.Won ? Gold : HitRed);
-        if (GUI.Button(new Rect(W / 2 - 130, 500, 260, 64), "다시 시작", button)) NewRun();
+        bool won = run.Phase == Phase.Won;
+        Fill(new Rect(W / 2 - 360, 345, 720, 335), new Color(0, 0, 0, 0.6f));
+        Shadowed(new Rect(0, 352, W, 60), won ? "던전 정복!" : "쓰러졌다...", big, won ? Gold : HitRed);
+        string reached = won ? "운명의 릴을 되찾았다" : $"{run.Chapter + 1}장 {run.ChapterDef.name}에서 쓰러짐";
+        Shadowed(new Rect(0, 410, W, 30), reached, mid, Color.white);
+        var stats = new[]
+        {
+            ("처치", run.Kills.ToString()), ("턴", run.Turns.ToString()), ("최고 한 방", run.BestHit.ToString()),
+            ("모은 골드", run.GoldEarned.ToString()), ("동료", $"{run.Party.Count}명"), ("유물", $"{run.Relics.Count}개"),
+        };
+        for (int k = 0; k < stats.Length; k++)
+        {
+            var cell = new Rect(W / 2 - 330 + (k % 3) * 220, 452 + (k / 3) * 62, 210, 56);
+            Fill(cell, new Color(1, 1, 1, 0.06f));
+            Shadowed(new Rect(cell.x, cell.y + 2, cell.width, 22), stats[k].Item1, tiny, new Color(0.8f, 0.8f, 0.85f));
+            Shadowed(new Rect(cell.x, cell.y + 22, cell.width, 32), stats[k].Item2, mid, Gold);
+        }
+        if (GUI.Button(new Rect(W / 2 - 270, 590, 260, 56), "다시 도전", button)) { NewRun(); Sfx("ui_click"); }
+        if (GUI.Button(new Rect(W / 2 + 10, 590, 260, 56), "타이틀로", button)) { NewRun(); onTitle = true; Sfx("ui_click"); }
     }
 
     void DrawPopups()

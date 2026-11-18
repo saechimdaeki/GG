@@ -32,6 +32,20 @@
 - 동료마다 공격 모션이 다르다: 기사 베기, 엘프 화살, 마법사 마법탄, 드워프 내려찍기, 천사 빛줄기.
 - 수치는 전부 `Assets/Resources/tuning.json`.
 
+## 소리
+
+효과음 19개와 배경음악 2곡(던전, 보스)은 `tools/gen_audio.py`가 합성한다 (`python3 tools/gen_audio.py`, numpy 필요).
+
+## 밸런스
+
+자동 플레이 봇이 수백 판을 돌려 승률과 판이 끝나는 지점을 보여준다.
+
+```bash
+"$U" -batchmode -quit -projectPath "$PWD" -executeMethod BalanceSim.Run -simRuns 1000 -logFile - | grep "\[sim\]"
+```
+
+2026-11-18 기준 봇 승률 43.8%. 판이 끝나는 곳: 1장 보스 11%, 2장 보스 13%, 3장 보스 22%.
+
 ## 실행
 
 ```bash

@@ -467,4 +467,17 @@ public class RunTests
         run.ChooseEvent(3);
         CollectionAssert.Contains(new[] { 80, 140 }, run.Gold);
     }
+
+    [Test]
+    public void Stats_CountTurnsKillsBestHitAndGold()
+    {
+        var run = Enter(Config("sword", Trio, Enemy(30, 1, gold: 12)));
+        run.Commit(); // 18
+        run.Faces[0] = run.Faces[1] = run.Faces[2] = run.Symbol("sword");
+        run.Commit(); // kill
+        Assert.AreEqual(2, run.Turns);
+        Assert.AreEqual(1, run.Kills);
+        Assert.AreEqual(18, run.BestHit);
+        Assert.AreEqual(12, run.GoldEarned);
+    }
 }
