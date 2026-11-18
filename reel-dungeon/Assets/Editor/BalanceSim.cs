@@ -18,6 +18,8 @@ public static class BalanceSim
         var args = Environment.GetCommandLineArgs();
         int i = Array.IndexOf(args, "-simRuns");
         int runs = i >= 0 && int.TryParse(args[i + 1], out var n) ? n : 500;
+        int a = Array.IndexOf(args, "-simAscension");
+        int ascension = a >= 0 && int.TryParse(args[a + 1], out var asc) ? asc : 0;
 
         var endings = new Dictionary<string, int>();
         int wins = 0;
@@ -27,7 +29,7 @@ public static class BalanceSim
         for (int c = 0; c < bossHp.Length; c++) bossHp[c] = new List<float>();
         for (int seed = 0; seed < runs; seed++)
         {
-            var (run, t) = Play(cfg, seed, bossHp);
+            var (run, t) = Play(cfg, seed, bossHp, ascension);
             turns += t;
             party += run.Party.Count;
             gold += run.Gold;
@@ -41,7 +43,7 @@ public static class BalanceSim
 
         var report = new List<string>
         {
-            $"runs {runs}  win {100.0 * wins / runs:F1}%  avg turns {turns / runs:F1}  avg party {party / runs:F2}  avg gold left {gold / runs:F0}",
+            $"ascension {ascension}  runs {runs}  win {100.0 * wins / runs:F1}%  avg turns {turns / runs:F1}  avg party {party / runs:F2}  avg gold left {gold / runs:F0}",
             $"gold: earned {earned / runs:F0}, spent {(earned - gold) / runs:F0} ({100 * (earned - gold) / earned:F0}%), upgrades bought {upgrades / runs:F1}",
             "ended in chapter: " + string.Join("  ", chapterReached.Select((v, k) => k < cfg.chapters.Length ? $"{k + 1}장 {v}" : $"클리어 {v}")),
             "HP at boss start: " + string.Join("  ", bossHp.Select((l, k) => l.Count == 0 ? $"{k + 1}장 -" : $"{k + 1}장 {100 * l.Average():F0}%")),
@@ -51,10 +53,10 @@ public static class BalanceSim
         foreach (var line in report) Console.WriteLine("[sim] " + line);
     }
 
-    static (Run run, int turns) Play(TuningConfig cfg, int seed, List<float>[] bossHp)
+    static (Run run, int turns) Play(TuningConfig cfg, int seed, List<float>[] bossHp, int ascension)
     {
         var rng = new System.Random(seed * 7919 + 1);
-        var run = new Run(cfg, new System.Random(seed));
+        var run = new Run(cfg, new System.Random(seed), ascension);
         int turns = 0;
         for (int step = 0; step < 5000 && run.Phase != Phase.Won && run.Phase != Phase.Lost; step++)
         {
@@ -111,7 +113,11 @@ public static class BalanceSim
         {
             if (!run.SkillReady(k)) continue;
             var skill = run.Member(k).skill;
-            bool worth = skill == "freeze" ? run.EnemyIntent >= 8 : skill == "prayer" ? HpFrac(run) < 0.7f : true;
+            bool worth = skill == "freeze" || skill == "thorns" ? run.EnemyIntent >= 8
+                : skill == "prayer" ? HpFrac(run) < 0.7f
+                : skill == "transmute" ? run.Faces.Any(f => f.curse)
+                : skill == "backstab" ? run.EnemyPoison + run.Preview().poison >= 3
+                : true;
             if (worth) run.ToggleSkill(k);
         }
         run.Commit();
@@ -121,7 +127,10 @@ public static class BalanceSim
     {
         switch (r.Kind)
         {
-            case RewardKind.Recruit: return 100;
+            case RewardKind.Recruit:
+                // a player compares recruits: average punch of the reel they bring
+                var reel = run.Companion(r.CompanionId).reel.Select(run.Symbol).ToArray();
+                return 100 + (int)(10 * reel.Average(x => x.damage * 2 + x.block + x.heal + x.poison * 3 + x.weaken));
             case RewardKind.Relic: return 90;
             case RewardKind.Equip: return 70;
             case RewardKind.Upgrade: return 75;

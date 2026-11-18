@@ -27,7 +27,7 @@ namespace ReelDungeon.Core
         public bool[] mapVisited;
         public int currentRow = -1, currentLane = -1;
         public string enemyName;
-        public int enemyHp, enemyTurn, enemyRage, rerollsLeft;
+        public int enemyHp, enemyTurn, enemyRage, rerollsLeft, enemyPoison, enemyMaxHp, ascension;
         public int[] tempCurses;
         public string[] faces;
         public int[] armed;
@@ -72,6 +72,7 @@ namespace ReelDungeon.Core
                 currentLane = Current == null ? -1 : Array.IndexOf(Map.Rows[Current.Row], Current),
                 enemyName = Enemy?.name ?? "",
                 enemyHp = EnemyHp, enemyTurn = enemyTurn, enemyRage = EnemyRage, rerollsLeft = RerollsLeft,
+                enemyPoison = EnemyPoison, enemyMaxHp = EnemyMaxHp, ascension = Ascension,
                 tempCurses = tempCurses.ToArray(),
                 faces = Faces.Select(f => f?.id ?? "").ToArray(),
                 armed = Armed.ToArray(),
@@ -118,6 +119,9 @@ namespace ReelDungeon.Core
             run.EnemyHp = s.enemyHp;
             run.enemyTurn = s.enemyTurn;
             run.EnemyRage = s.enemyRage;
+            run.EnemyPoison = s.enemyPoison;
+            run.EnemyMaxHp = s.enemyMaxHp > 0 ? s.enemyMaxHp : run.Enemy?.hp ?? 0; // saves from before difficulty levels
+            run.Ascension = s.ascension;
             run.RerollsLeft = s.rerollsLeft;
             run.tempCurses.AddRange(s.tempCurses);
             run.Faces = s.faces.Select(id => id == "" ? null : run.byId[id]).ToArray();

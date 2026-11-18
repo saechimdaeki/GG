@@ -15,6 +15,7 @@ public class GameView : MonoBehaviour
     const float FloorY = 318, FrontX = 470, MemberGap = 92, EnemyX = 960, StrikeX = 820;
     const float ReelY = 376, ReelSize = 126, ReelGap = 30, Tile = 48;
 
+    static readonly Color Poison = new Color(0.55f, 0.95f, 0.35f);
     static readonly Color Gold = new Color(1f, 0.85f, 0.3f), HitRed = new Color(1f, 0.35f, 0.3f),
         HealGreen = new Color(0.45f, 1f, 0.5f), BlockBlue = new Color(0.5f, 0.75f, 1f), Ice = new Color(0.6f, 0.9f, 1f),
         Panel = new Color(0.07f, 0.06f, 0.09f);
@@ -48,6 +49,8 @@ public class GameView : MonoBehaviour
     bool toldEnd;
 
     bool onTitle = true;
+    int ascensionChoice;
+    static int AscensionUnlocked => HasArg("--unlockall") ? 5 : PlayerPrefs.GetInt("ascension", 0);
 
     // pause menu, settings (saved in PlayerPrefs) and screen fades
     bool paused, showSettings;
@@ -205,7 +208,7 @@ public class GameView : MonoBehaviour
 
     void NewRun()
     {
-        run = new Run(cfg, new System.Random());
+        run = new Run(cfg, new System.Random(), ascensionChoice);
         spinUntil = new float[0];
         joinedAt = new float[0];
         offset = new Vector2[0];
@@ -238,6 +241,11 @@ public class GameView : MonoBehaviour
         if (!toldEnd && (run.Phase == Phase.Won || run.Phase == Phase.Lost))
         {
             toldEnd = true;
+            if (run.Phase == Phase.Won && run.Ascension >= AscensionUnlocked && run.Ascension < 5)
+            {
+                PlayerPrefs.SetInt("ascension", run.Ascension + 1); // beating a level opens the next
+                PlayerPrefs.Save();
+            }
             Sfx(run.Phase == Phase.Won ? "win" : "lose");
             Tell(run.Phase == Phase.Won ? story.ending : story.defeat);
         }
@@ -328,6 +336,7 @@ public class GameView : MonoBehaviour
         var o = run.Preview();
         var armed = run.Armed.ToList();
         int hpBefore = run.Hp, enemyBefore = run.EnemyHp, goldBefore = run.Gold, attack = run.EnemyAttack(o);
+        int poisonTick = run.EnemyPoison + o.poison;
         int guard = run.EnemyGuard, dealt = run.DamageDealt(o);
         var move = run.Intent;
         run.Commit();
@@ -387,6 +396,18 @@ public class GameView : MonoBehaviour
                 Pop($"-{dealt}", Gold, EnemyBody() + new Vector2(0, -50), 80);
                 Shake(14);
             }
+        }
+
+        // poison bites after the hits (if the enemy is still standing)
+        if (poisonTick > 0 && shownEnemyHp > 0)
+        {
+            yield return new WaitForSeconds(0.12f);
+            Burst(EnemyBody(), Poison, 18, 120, -120, 0.7f, 7);
+            Pop($"-{poisonTick} 독", Poison, EnemyBody() + new Vector2(70, -30), 40);
+            Sfx("hit", 0.5f, 1.4f);
+            shownEnemyHp = Mathf.Max(0, shownEnemyHp - poisonTick);
+            enemyHitAt = Time.time;
+            yield return new WaitForSeconds(0.25f);
         }
 
         // 4. enemy dies, or strikes back
@@ -467,6 +488,17 @@ public class GameView : MonoBehaviour
                     Pop("저주! 릴에 해골", new Color(0.75f, 0.5f, 1f), new Vector2(W / 2, ReelY + 30), 36);
                 }
                 yield return Tween(v => enemyOffset = new Vector2(-v * (EnemyX - FrontX - 110), 0), 1, 0, 0.2f);
+                // thorns / spikes: the enemy hurt itself on the party
+                if (run.Phase == Phase.Turn && run.EnemyHp < shownEnemyHp)
+                {
+                    int back = shownEnemyHp - run.EnemyHp;
+                    AddFx("ring", MemberCenter(0), 0.4f, 200, Poison);
+                    Burst(EnemyBody(), new Color(0.4f, 0.8f, 0.3f), 14, 200, 200, 0.5f, 6);
+                    Pop($"-{back} 반사", Poison, EnemyBody() + new Vector2(-40, -70), 38);
+                    Sfx("slash", 0.7f, 1.3f);
+                    enemyHitAt = Time.time;
+                    shownEnemyHp = run.EnemyHp;
+                }
             }
             yield return new WaitForSeconds(0.25f);
         }
@@ -493,7 +525,8 @@ public class GameView : MonoBehaviour
                 yield return Tween(v => offset[i] = new Vector2(0, -20 * Mathf.Sin(v * Mathf.PI)), 0, 1, 0.15f);
                 bool ice = shownFaces[i].id == "ice";
                 Sfx(ice ? "ice" : "magic", 0.8f);
-                yield return FireShot(glow, from + new Vector2(20, -40), target, 0.28f, 50, 0, 1.4f, 0, ice ? Ice : new Color(1f, 0.55f, 0.2f), true);
+                var bolt = ice ? Ice : shownFaces[i].id == "fire" ? new Color(1f, 0.55f, 0.2f) : Hex(shownFaces[i].color);
+                yield return FireShot(glow, from + new Vector2(20, -40), target, 0.28f, 50, 0, 1.4f, 0, bolt, true);
                 break;
             case "leap":
                 yield return Tween(v => offset[i] = new Vector2(v * (StrikeX - MemberX(i)), -Mathf.Sin(v * Mathf.PI) * 140), 0, 1, 0.3f);
@@ -581,10 +614,45 @@ public class GameView : MonoBehaviour
                 for (int k = 0; k < run.Party.Count; k++) Burst(MemberCenter(k), HealGreen, 10, 50, -140, 1f, 6);
                 yield return new WaitForSeconds(0.35f);
                 break;
+            case "backstab":
+                for (int k = 0; k < 3; k++)
+                {
+                    AddFx("slash", enemy + new Vector2(Random.Range(-30, 30), Random.Range(-30, 30)), 0.2f, 140, Poison);
+                    Sfx("slash", 0.8f, 1.2f + k * 0.1f);
+                    yield return new WaitForSeconds(0.08f);
+                }
+                Burst(enemy, Poison, 20, 220, 100, 0.6f, 7);
+                break;
+            case "transmute":
+                Sfx("coin");
+                for (int k = 0; k < shownFaces.Length; k++)
+                    if (shownFaces[k].curse) Burst(ReelCenter(k), Gold, 24, 160, 100, 0.7f, 7);
+                Flash(Gold, 0.25f);
+                yield return new WaitForSeconds(0.35f);
+                break;
+            case "bless":
+                AddFx("beam", MemberCenter(Mathf.Min(2, run.Party.Count - 1)), 0.7f, 360, new Color(1f, 0.95f, 0.7f));
+                Sfx("skill", 0.8f, 1.3f);
+                for (int k = 0; k < run.Party.Count; k++) if (k != i) Burst(MemberCenter(k), Gold, 8, 60, -160, 0.9f, 6);
+                yield return new WaitForSeconds(0.35f);
+                break;
+            case "thorns":
+                Sfx("ice", 0.6f, 0.7f);
+                for (int k = 0; k < run.Party.Count; k++) AddFx("ring", MemberCenter(k), 0.6f, 160, Poison);
+                Burst(MemberCenter(0) + new Vector2(60, 0), new Color(0.3f, 0.6f, 0.2f), 20, 120, 0, 0.8f, 8);
+                yield return new WaitForSeconds(0.3f);
+                break;
             default:
                 yield return new WaitForSeconds(0.2f);
                 break;
         }
+    }
+
+    Vector2 ReelCenter(int i)
+    {
+        int n = shownFaces.Length;
+        float startX = W / 2 - (n * ReelSize + (n - 1) * ReelGap) / 2;
+        return new Vector2(startX + i * (ReelSize + ReelGap) + ReelSize / 2, ReelY + ReelSize / 2);
     }
 
     IEnumerator FireShot(Texture2D t, Vector2 from, Vector2 to, float dur, float arc, float spin, float scale, float angle, Color c, bool glowing)
@@ -692,7 +760,8 @@ public class GameView : MonoBehaviour
     {
         int rows = run.Map.Rows.Count;
         string where = run.Current == null ? "입구" : run.Current.Type == NodeType.Boss ? "보스" : $"{run.Current.Row + 1} / {rows}";
-        Shadowed(new Rect(0, 8, W, 36), $"{run.Chapter + 1}장 · {run.ChapterDef.name} · {where}", small, Color.white);
+        string diff = run.Ascension > 0 ? $" · 어려움 {run.Ascension}" : "";
+        Shadowed(new Rect(0, 8, W, 36), $"{run.Chapter + 1}장 · {run.ChapterDef.name} · {where}{diff}", small, Color.white);
         DrawTex(T("0x72/coin_anim_f" + (int)(Time.time * 8) % 4), new Rect(W - 150, 14, 18, 21));
         Shadowed(new Rect(W - 126, 10, 120, 30), shownGold.ToString(), mid, Gold, TextAnchor.MiddleLeft);
         if (!onTitle && GUI.Button(new Rect(W - 190, 10, 30, 30), new GUIContent("Ⅱ", "일시정지 · 설정 (Esc)"), smallButton)) SetPaused(true);
@@ -796,7 +865,13 @@ public class GameView : MonoBehaviour
         if (eHit) DrawChar(eTex, ex, FloorY + enemyOffset.y, true, new Color(1, 1, 1, 0.6f), 0, 1.05f); // white-ish flash layer
         if (dead > 0) return;
         float top = EnemyHead().y;
-        Bar(EnemyX, top - 4, shownEnemyHp, e.hp, HitRed, 160);
+        Bar(EnemyX, top - 4, shownEnemyHp, Mathf.Max(1, run.EnemyMaxHp), HitRed, 160);
+        if (run.EnemyPoison > 0 && !busy)
+        {
+            DrawTex(T("0x72/weapon_knife"), new Rect(EnemyX - 80, top + 4, 8, 20));
+            Shadowed(new Rect(EnemyX - 66, top + 2, 120, 24), $"독 {run.EnemyPoison}", tiny, Poison, TextAnchor.MiddleLeft);
+            GUI.Label(new Rect(EnemyX - 80, top, 120, 28), new GUIContent("", $"독: 매 턴 {run.EnemyPoison} 피해, 그 뒤 1씩 줄어든다"));
+        }
         Shadowed(new Rect(EnemyX - 150, top - 62, 300, 30), e.name, mid, run.Current?.Type == NodeType.Boss ? Gold : Color.white);
         if (!busy && !AnySpinning())
         {
@@ -956,7 +1031,9 @@ public class GameView : MonoBehaviour
             var portrait = Anim($"{m.sprite}_idle_anim");
             DrawTex(portrait, new Rect(r.x - 2, r.y - 34, portrait.width * 1.5f, portrait.height * 1.5f));
             string pips = new string('●', run.Gauge[i]) + new string('○', Mathf.Max(0, run.SkillCharge - run.Gauge[i]));
+            tiny.fontSize = m.name.Length > 3 ? 13 : 15;
             Shadowed(new Rect(r.x + 24, r.y - 28, r.width - 20, 22), $"{m.name} {pips}", tiny, run.SkillReady(i) ? Gold : Color.white, TextAnchor.MiddleLeft);
+            tiny.fontSize = 15;
             if (run.Equipment[i] != null)
             {
                 var item = run.Item(run.Equipment[i]);
@@ -981,8 +1058,10 @@ public class GameView : MonoBehaviour
             }
             GUI.enabled = !busy && (run.SkillReady(i) || run.Armed.Contains(i));
             var label = run.Armed.Contains(i) ? "취소" : m.skillName;
+            smallButton.fontSize = label.Length > 4 ? 13 : 16;
             if (GUI.Button(new Rect(r.x + bw + 4, r.yMax + 34, r.width - bw - 4, 32), new GUIContent(label, $"{m.name} · {m.skillName}: {m.skillDesc}"), smallButton))
                 if (run.ToggleSkill(i)) Sfx(run.Armed.Contains(i) ? "skill" : "ui_click", 0.6f);
+            smallButton.fontSize = 16;
             GUI.enabled = true;
         }
 
@@ -1233,6 +1312,15 @@ public class GameView : MonoBehaviour
             Fill(r, Hex(sym.color) * new Color(1, 1, 1, 0.35f));
             Icon(sym, r, 1, 1);
         }
+        // difficulty picker, once the first clear unlocks it
+        if (AscensionUnlocked > 0)
+        {
+            var row = new Rect(W / 2 - 200, 446, 400, 24);
+            if (GUI.Button(new Rect(row.x, row.y - 2, 28, 28), "◀", smallButton) && ascensionChoice > 0) { ascensionChoice--; NewRun(); }
+            if (GUI.Button(new Rect(row.xMax - 28, row.y - 2, 28, 28), "▶", smallButton) && ascensionChoice < AscensionUnlocked) { ascensionChoice++; NewRun(); }
+            string[] what = { "보통", "적 체력 +10%", "+ 휴식 회복 절반", "+ 상점 가격 +20%", "+ 적 공격 +1", "+ 시작 골드 0, 보스 체력 +15%" };
+            Shadowed(row, ascensionChoice == 0 ? "어려움: 보통" : $"어려움 {ascensionChoice}: {what[ascensionChoice]}", small, ascensionChoice == 0 ? Color.white : HitRed);
+        }
         bool canContinue = HasSave;
         if (canContinue && GUI.Button(new Rect(W / 2 - 130, 470, 260, 56), "이어하기", button) && ContinueRun())
         {
@@ -1374,7 +1462,7 @@ public class GameView : MonoBehaviour
 
     // ---------- helpers ----------
 
-    float MemberX(int i) => FrontX - i * MemberGap;
+    float MemberX(int i) => FrontX - i * Mathf.Min(MemberGap, 400f / Mathf.Max(1, run.Party.Count - 1));
     Vector2 MemberFeet(int i) => new Vector2(MemberX(i), FloorY - (i % 2) * 14);
     Vector2 MemberCenter(int i) => MemberFeet(i) + new Vector2(0, -70);
     Vector2 MemberHead(int i) => new Vector2(MemberX(i), FloorY - 28 * Px - 16);
@@ -1564,7 +1652,7 @@ public class GameView : MonoBehaviour
         var font = Resources.Load<Font>("Fonts/Galmuri11") ?? Font.CreateDynamicFontFromOSFont(new[] { "Apple SD Gothic Neo", "Malgun Gothic" }, 32);
         var bold = Resources.Load<Font>("Fonts/Galmuri11-Bold") ?? font;
         var display = Resources.Load<Font>("Fonts/Galmuri14") ?? bold;
-        GUIStyle Make(int size, Font f = null) => new GUIStyle(GUI.skin.label) { font = f ?? font, fontSize = size, alignment = TextAnchor.MiddleCenter };
+        GUIStyle Make(int size, Font f = null) => new GUIStyle(GUI.skin.label) { font = f ?? font, fontSize = size, alignment = TextAnchor.MiddleCenter, wordWrap = false, clipping = TextClipping.Overflow };
         big = Make(40, bold);
         mid = Make(24);
         small = Make(18);

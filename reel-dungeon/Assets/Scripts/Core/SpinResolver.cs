@@ -6,7 +6,7 @@ namespace ReelDungeon.Core
     /// <summary>What one spin (plus any armed skills) does this turn.</summary>
     public class SpinOutcome
     {
-        public int damage, block, heal, selfDamage, weaken, gold;
+        public int damage, block, heal, selfDamage, weaken, gold, poison;
         public bool frozen;
         public string combo = "";
         public bool badCombo;
@@ -30,6 +30,7 @@ namespace ReelDungeon.Core
                 o.selfDamage += (int)(s.selfDamage * n * m);
                 o.weaken += (int)(s.weaken * n * m);
                 o.gold += (int)(s.gold * n * m);
+                o.poison += (int)(s.poison * n * m);
                 if (n >= 2)
                 {
                     o.combo += $"{s.name} x{n}! ";

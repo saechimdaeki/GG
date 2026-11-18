@@ -9,6 +9,7 @@ public class RunTests
     static SymbolDef Shield => new SymbolDef { id = "shield", name = "방패", block = 3 };
     static SymbolDef Coin => new SymbolDef { id = "coin", name = "코인", gold = 3 };
     static SymbolDef Skull => new SymbolDef { id = "skull", name = "해골", selfDamage = 2, curse = true };
+    static SymbolDef Dagger => new SymbolDef { id = "dagger", name = "단검", damage = 2, poison = 1 };
 
     static CompanionDef Mate(string id, string skill, int value, params string[] reel) => new CompanionDef
     {
@@ -23,12 +24,13 @@ public class RunTests
         nodePool = new[] { "Combat" },
         prices = new Prices { addSymbol = 25, removeCurse = 40, heal = 15, healAmount = 12, recruit = 60, equip = 50, relic = 80, upgrade = 35, upgradeStep = 20, trim = 30, reroll = 15, rerollStep = 10 },
         startingParty = party,
-        symbols = new[] { Sword, Shield, Coin, Skull },
+        symbols = new[] { Sword, Shield, Coin, Dagger, Skull },
         companions = new[]
         {
             Mate("a", "shieldBash", 0, face), Mate("b", "volley", 6, face), Mate("c", "rage", 0, face),
             Mate("d", "freeze", 0, face), Mate("e", "prayer", 8, face, "skull"),
             Mate("g", "volley", 6, face, "shield", "shield", "sword"),
+            Mate("h", "backstab", 2, face), Mate("i", "transmute", 0, face), Mate("j", "bless", 1, face), Mate("k", "thorns", 100, face),
         },
         chapters = Enumerable.Range(0, chapters)
             .Select(_ => new ChapterDef { name = "장", enemies = new[] { enemy }, elites = new[] { enemy }, boss = boss ?? enemy }).ToArray(),
@@ -38,6 +40,7 @@ public class RunTests
             Item("t_sword", "equip", "sword", "damage", 2), Item("t_charm", "equip", "", "charge", 1),
             Item("t_ring", "relic", "", "noSelfDamage", 1), Item("t_heart", "relic", "", "maxHp", 15),
             Item("t_glass", "relic", "", "reroll", 1), Item("t_horn", "relic", "", "battleCharge", 1),
+            Item("t_spikes", "relic", "", "spikes", 3), Item("t_regen", "relic", "", "regen", 2), Item("t_first", "relic", "", "firstStrike", 8),
         },
         events = new[] { Altar },
     };
@@ -660,5 +663,133 @@ public class RunTests
         Assert.AreEqual(run.Preview().damage, back.Preview().damage);
         Assert.AreEqual(55, back.MaxHp);
         Assert.IsNull(back.Equipment[1]);
+    }
+
+    // ---------- content: poison, new skills, new relics, difficulty, new events ----------
+
+    [Test]
+    public void Poison_StacksThenTicksAndShrinks()
+    {
+        var run = Enter(Config("dagger", Trio, Enemy(999, 1)));
+        run.Faces[2] = run.Symbol("dagger");
+        run.Commit(); // 12 damage, 6 poison lands and bites
+        Assert.AreEqual(999 - 12 - 6, run.EnemyHp);
+        Assert.AreEqual(5, run.EnemyPoison);
+    }
+
+    [Test]
+    public void Backstab_AddsDamagePerPoison()
+    {
+        var run = Enter(Config("dagger", new[] { "a", "b", "h" }, Enemy(999, 1)));
+        run.Gauge[2] = 3;
+        run.ToggleSkill(2);
+        Assert.AreEqual(12 + 6 * 2, run.Preview().damage);
+    }
+
+    [Test]
+    public void Transmute_TurnsSkullsIntoCoins()
+    {
+        var run = Enter(Config("sword", new[] { "a", "b", "i" }, Enemy(999, 1)));
+        for (int k = 0; k < 3; k++) run.Faces[k] = run.Symbol("skull");
+        run.Gauge[2] = 3;
+        run.ToggleSkill(2);
+        var o = run.Preview();
+        Assert.AreEqual(18, o.gold);
+        Assert.AreEqual(0, o.selfDamage);
+    }
+
+    [Test]
+    public void Bless_ChargesTheOthers()
+    {
+        var run = Enter(Config("sword", new[] { "a", "b", "j" }, Enemy(999, 1)));
+        run.Gauge[2] = 3;
+        run.ToggleSkill(2);
+        run.Commit();
+        Assert.AreEqual(2, run.Gauge[0]); // +1 signature face, +1 bless
+        Assert.AreEqual(0, run.Gauge[2]);
+    }
+
+    [Test]
+    public void Thorns_ReflectsTheAttack()
+    {
+        var run = Enter(Config("sword", new[] { "a", "b", "k" }, Moves(999, "attack:10")));
+        run.Gauge[2] = 3;
+        run.ToggleSkill(2);
+        run.Commit();
+        Assert.AreEqual(999 - 18 - 10, run.EnemyHp);
+    }
+
+    [Test]
+    public void Relics_SpikesRegenFirstStrike()
+    {
+        var run = Enter(Config("sword", Trio, Enemy(999, 5)));
+        run.Faces[2] = run.Symbol("sword");
+        run.Relics.Add("t_first");
+        Assert.AreEqual(18 + 8, run.Preview().damage);
+        run.Relics.Add("t_spikes");
+        run.Relics.Add("t_regen");
+        run.Commit(); // 26 dealt, 5 taken, 3 spikes back, then 2 regen at the next turn
+        Assert.AreEqual(999 - 26 - 3, run.EnemyHp);
+        Assert.AreEqual(40 - 5 + 2, run.Hp);
+        run.Faces[0] = run.Faces[1] = run.Faces[2] = run.Symbol("sword");
+        Assert.AreEqual(18, run.Preview().damage); // first strike only on turn one
+    }
+
+    [Test]
+    public void Ascension_RaisesEnemyHpAttackAndPrices()
+    {
+        var cfg = Config("sword", Trio, Enemy(100, 5));
+        var run = new Run(cfg, new Random(1), 5);
+        Assert.AreEqual(0, run.Gold);
+        run.Choose(run.Map.Rows[0][0]);
+        Assert.AreEqual(110, run.EnemyMaxHp);
+        Assert.AreEqual(6, run.EnemyIntent);
+        var shop = new Run(cfg, new Random(1), 3);
+        shop.Map.Rows[0][0].Type = NodeType.Shop;
+        shop.Choose(shop.Map.Rows[0][0]);
+        Assert.AreEqual(42, shop.ShopItems.First(r => r.Kind == RewardKind.Upgrade).Price);
+    }
+
+    static TuningConfig WithEvent(TuningConfig cfg, params EventOption[] options)
+    {
+        cfg.events = new[] { new EventDef { id = "t", title = "t", options = options } };
+        return cfg;
+    }
+
+    [Test]
+    public void Events_SlotUpgradeChargeDupe()
+    {
+        var cfg = WithEvent(Config("sword", Trio, Enemy(10, 5)),
+            Option("slot", ("slot", 15)), Option("up", ("upgrade", 0)), Option("charge", ("charge", 0)), Option("dupe", ("dupe", 2)));
+        var run = Enter(cfg, NodeType.Event);
+        run.ChooseEvent(0);
+        Assert.AreEqual(85, run.Gold);
+
+        run = Enter(cfg, NodeType.Event);
+        run.ChooseEvent(1);
+        Assert.AreEqual(1, run.SymbolLevel.Values.Sum());
+
+        run = Enter(cfg, NodeType.Event);
+        run.ChooseEvent(2);
+        Assert.IsTrue(run.Gauge.All(g => g == 3));
+
+        run = Enter(cfg, NodeType.Event);
+        int faces = run.Reels.Sum(r => r.Count);
+        run.ChooseEvent(3);
+        Assert.AreEqual(faces + 2, run.Reels.Sum(r => r.Count));
+    }
+
+    [Test]
+    public void Save_KeepsPoisonAndDifficulty()
+    {
+        var cfg = Config("dagger", Trio, Enemy(999, 1));
+        var run = new Run(cfg, new Random(1), 2);
+        run.Choose(run.Map.Rows[0][0]);
+        for (int k = 0; k < 3; k++) run.Faces[k] = run.Symbol("dagger");
+        run.Commit();
+        var back = Reload(cfg, run);
+        Assert.AreEqual(run.EnemyPoison, back.EnemyPoison);
+        Assert.AreEqual(2, back.Ascension);
+        Assert.AreEqual(run.EnemyMaxHp, back.EnemyMaxHp);
     }
 }

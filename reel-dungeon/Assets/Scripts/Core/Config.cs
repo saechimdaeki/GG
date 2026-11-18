@@ -64,6 +64,8 @@ namespace ReelDungeon.Core
         public int selfDamage;
         public int weaken;
         public int gold;
+        /// <summary>Poison stacks put on the enemy; it loses that much HP each turn, then the stack shrinks by 1.</summary>
+        public int poison;
         public bool curse;
     }
 
@@ -116,8 +118,9 @@ namespace ReelDungeon.Core
     /// <summary>
     /// Equipment (slot "equip", one per member) or a relic (slot "relic", party-wide).
     /// When a reel it covers shows <see cref="symbol"/>, <see cref="stat"/> gains <see cref="value"/>.
-    /// Stats: damage, block, heal, gold, weaken, charge (extra gauge on the signature face),
-    /// and relic-only noSelfDamage, reroll, maxHp, battleCharge, which ignore the symbol.
+    /// Stats: damage, block, heal, gold, weaken, poison, charge (extra gauge on the signature face),
+    /// and relic-only noSelfDamage, reroll, maxHp, battleCharge, regen (heal each turn), firstStrike
+    /// (damage on a fight's first turn), spikes (damage to an enemy that attacks), maxParty, which ignore the symbol.
     /// </summary>
     [Serializable]
     public class ItemDef
@@ -149,7 +152,7 @@ namespace ReelDungeon.Core
         public EventEffect[] effects;
     }
 
-    /// <summary>Kinds: hp, gold, relic, equip, curse, removeCurse, recruit, gamble, fight.</summary>
+    /// <summary>Kinds: hp, gold, relic, equip, curse, removeCurse, recruit, gamble, fight, slot, upgrade, charge, dupe.</summary>
     [Serializable]
     public class EventEffect
     {

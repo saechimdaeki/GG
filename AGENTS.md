@@ -10,3 +10,7 @@
 
 규칙: GDScript, 정적 타입, snake_case 파일/변수, PascalCase 클래스. 튜닝 수치는 `@export` 또는 `src/data/` 에.
 검증: `godot --headless --path . --quit-after 60` 출력에 ERROR 없어야 함.
+
+## 릴 던전 (`reel-dungeon/`, Unity) 작업일 때
+
+위 Godot 규칙 대신 **`reel-dungeon/HANDOFF.md`를 먼저 읽는다.** 작업 폴더·커밋 절차(별도 worktree), 빌드·테스트·밸런스 봇 명령, 코드 지도, 남은 일이 다 있다. 사용자에게는 항상 한국어로 답한다.

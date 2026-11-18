@@ -110,6 +110,41 @@
       "gold": 3
     },
     {
+      "id": "dagger",
+      "name": "단검",
+      "color": "#5a9a5a",
+      "icon": "0x72/weapon_knife",
+      "damage": 3,
+      "poison": 1
+    },
+    {
+      "id": "flask",
+      "name": "플라스크",
+      "color": "#7ac8a0",
+      "icon": "0x72/flask_green",
+      "damage": 3,
+      "heal": 2,
+      "gold": 1
+    },
+    {
+      "id": "holy",
+      "name": "성검",
+      "color": "#e8e0b0",
+      "icon": "0x72/weapon_duel_sword",
+      "damage": 2,
+      "block": 2,
+      "heal": 1
+    },
+    {
+      "id": "vine",
+      "name": "덩굴",
+      "color": "#4c8a3c",
+      "icon": "vine",
+      "damage": 2,
+      "heal": 1,
+      "weaken": 1
+    },
+    {
       "id": "skull",
       "name": "해골",
       "color": "#6b6b6b",
@@ -216,6 +251,82 @@
         "shield",
         "skull"
       ]
+    },
+    {
+      "id": "rogue",
+      "attack": "melee",
+      "name": "도적",
+      "sprite": "lizard_m",
+      "signature": "dagger",
+      "skill": "backstab",
+      "skillName": "급소 찌르기",
+      "skillDesc": "적의 독 1당 피해 +2",
+      "skillValue": 2,
+      "reel": [
+        "dagger",
+        "dagger",
+        "sword",
+        "heart",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "alchemist",
+      "attack": "magic",
+      "name": "연금술사",
+      "sprite": "doc",
+      "signature": "flask",
+      "skill": "transmute",
+      "skillName": "변환",
+      "skillDesc": "이번 턴 해골을 모두 코인으로 바꾼다",
+      "skillValue": 0,
+      "reel": [
+        "flask",
+        "flask",
+        "flask",
+        "heart",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "paladin",
+      "attack": "melee",
+      "name": "성기사",
+      "sprite": "knight_f",
+      "signature": "holy",
+      "skill": "bless",
+      "skillName": "축복",
+      "skillDesc": "다른 동료 게이지 +1",
+      "skillValue": 1,
+      "reel": [
+        "holy",
+        "holy",
+        "shield",
+        "heart",
+        "sword",
+        "skull"
+      ]
+    },
+    {
+      "id": "druid",
+      "attack": "magic",
+      "name": "드루이드",
+      "sprite": "elf_f",
+      "signature": "vine",
+      "skill": "thorns",
+      "skillName": "가시덩굴",
+      "skillDesc": "이번 턴 적 공격의 100%를 되돌려준다",
+      "skillValue": 100,
+      "reel": [
+        "vine",
+        "vine",
+        "vine",
+        "arrow",
+        "heart",
+        "skull"
+      ]
     }
   ],
   "chapters": [
@@ -255,6 +366,17 @@
             "enrage:2",
             "attack:6",
             "attack:7"
+          ]
+        },
+        {
+          "name": "꼬마 민달팽이",
+          "sprite": "tiny_slug_anim",
+          "hp": 11,
+          "gold": 7,
+          "moves": [
+            "attack:4",
+            "curse:2",
+            "attack:5"
           ]
         }
       ],
@@ -321,6 +443,17 @@
             "attack:12",
             "guard:6"
           ]
+        },
+        {
+          "name": "호박 머리",
+          "sprite": "pumpkin_dude_idle_anim",
+          "hp": 30,
+          "gold": 12,
+          "moves": [
+            "guard:6",
+            "drain:9",
+            "attack:11"
+          ]
         }
       ],
       "elites": [
@@ -350,7 +483,7 @@
       "boss": {
         "name": "거대 좀비",
         "sprite": "big_zombie_idle_anim",
-        "hp": 110,
+        "hp": 100,
         "gold": 60,
         "moves": [
           "attack:10",
@@ -426,7 +559,7 @@
       "boss": {
         "name": "대악마",
         "sprite": "big_demon_idle_anim",
-        "hp": 175,
+        "hp": 162,
         "gold": 0,
         "moves": [
           "attack:11",
@@ -599,6 +732,116 @@
       "symbol": "heart",
       "stat": "heal",
       "value": 2
+    },
+    {
+      "id": "venom_blade",
+      "name": "독칼",
+      "desc": "단검이 뜨면 독 +1",
+      "icon": "0x72/weapon_machete",
+      "slot": "equip",
+      "symbol": "dagger",
+      "stat": "poison",
+      "value": 1
+    },
+    {
+      "id": "holy_lance",
+      "name": "성창",
+      "desc": "성검이 뜨면 방어 +3",
+      "icon": "0x72/weapon_spear",
+      "slot": "equip",
+      "symbol": "holy",
+      "stat": "block",
+      "value": 3
+    },
+    {
+      "id": "thorn_bow",
+      "name": "가시 활",
+      "desc": "덩굴이 뜨면 적 공격 -1",
+      "icon": "0x72/weapon_bow_2",
+      "slot": "equip",
+      "symbol": "vine",
+      "stat": "weaken",
+      "value": 1
+    },
+    {
+      "id": "lucky_cleaver",
+      "name": "행운의 식칼",
+      "desc": "플라스크가 뜨면 골드 +3",
+      "icon": "0x72/weapon_cleaver",
+      "slot": "equip",
+      "symbol": "flask",
+      "stat": "gold",
+      "value": 3
+    },
+    {
+      "id": "katana",
+      "name": "바람 검",
+      "desc": "화살이 뜨면 공격 +2",
+      "icon": "0x72/weapon_katana",
+      "slot": "equip",
+      "symbol": "arrow",
+      "stat": "damage",
+      "value": 2
+    },
+    {
+      "id": "saw_sword",
+      "name": "톱날 검",
+      "desc": "해골이 떠도 공격 +4",
+      "icon": "0x72/weapon_saw_sword",
+      "slot": "equip",
+      "symbol": "skull",
+      "stat": "damage",
+      "value": 4
+    },
+    {
+      "id": "snake_fang",
+      "name": "독사의 송곳니",
+      "desc": "모든 릴: 단검이 뜨면 독 +1",
+      "icon": "0x72/weapon_knife",
+      "slot": "relic",
+      "symbol": "dagger",
+      "stat": "poison",
+      "value": 1
+    },
+    {
+      "id": "regen_ring",
+      "name": "재생의 반지",
+      "desc": "매 턴 HP 2 회복",
+      "icon": "0x72/ui_heart_half",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "regen",
+      "value": 2
+    },
+    {
+      "id": "first_strike",
+      "name": "선제의 부적",
+      "desc": "전투 첫 턴 공격 +8",
+      "icon": "0x72/weapon_anime_sword",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "firstStrike",
+      "value": 8
+    },
+    {
+      "id": "spiked_armor",
+      "name": "가시 갑옷",
+      "desc": "적이 공격할 때마다 3 피해",
+      "icon": "0x72/weapon_baton_with_spikes",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "spikes",
+      "value": 3
+    },
+    {
+      "id": "sixth_seat",
+      "name": "여섯 번째 의자",
+      "desc": "동료를 6명까지 데려갈 수 있다",
+      "icon": "0x72/crate",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "maxParty",
+      "value": 1
     }
   ],
   "events": [
@@ -759,6 +1002,108 @@
         {
           "label": "거절한다",
           "effects": []
+        }
+      ]
+    },
+    {
+      "id": "old_slot",
+      "title": "낡은 슬롯머신",
+      "text": "벽에 박힌 슬롯머신이 아직 돌아간다. 레버에 '운명의 릴 시제품'이라고 적혀 있다.",
+      "options": [
+        {
+          "label": "15골드를 넣고 당긴다 (유물·장비·회복·꽝)",
+          "effects": [
+            {
+              "kind": "slot",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "label": "그냥 지나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "smith",
+      "title": "떠돌이 대장장이",
+      "text": "수염이 그을린 드워프가 모루를 두드린다. \"그 심볼, 좀 손봐줄까?\"",
+      "options": [
+        {
+          "label": "30골드에 맡긴다 (무작위 심볼 강화)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": -30
+            },
+            {
+              "kind": "upgrade",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "사양한다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "training",
+      "title": "버려진 훈련장",
+      "text": "녹슨 허수아비가 줄지어 서 있다. 땀 좀 흘리면 감이 올 것 같다.",
+      "options": [
+        {
+          "label": "훈련한다 (HP -6, 모든 스킬 게이지 가득)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -6
+            },
+            {
+              "kind": "charge",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "쉬어 간다 (HP +6)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mirror",
+      "title": "거울에 비친 릴",
+      "text": "거울 속 릴이 현실의 릴과 다르게 돈다. 손을 넣으면 무언가 빠져나올 것 같다.",
+      "options": [
+        {
+          "label": "손을 넣는다 (릴 하나의 심볼 2개 복제)",
+          "effects": [
+            {
+              "kind": "dupe",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "label": "깨버린다 (+20 골드, HP -4)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 20
+            },
+            {
+              "kind": "hp",
+              "value": -4
+            }
+          ]
         }
       ]
     }
