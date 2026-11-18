@@ -49,14 +49,6 @@ git tag v0.4.0 && git push origin v0.4.0
 
 새 게임은 루트에 폴더 하나(엔진 프로젝트 통째로 + README)를 만들고, 위 표와 `smoke.yml`에 한 줄씩 추가합니다.
 
-### Unity 게임(릴 던전) CI에 필요한 비밀값
+### 릴 던전 Unity CI와 배포
 
-GameCI가 Unity를 켜려면 저장소 **Settings → Secrets and variables → Actions**에 셋이 있어야 합니다. 없으면 `smoke`의 `reel-dungeon` 작업이 이 안내를 띄우고 실패합니다.
-
-| 이름 | 값 |
-|---|---|
-| `UNITY_EMAIL` | Unity 계정 이메일 |
-| `UNITY_PASSWORD` | Unity 계정 비밀번호 |
-| `UNITY_LICENSE` | Personal 라이선스 파일(`.ulf`) 내용 전체 |
-
-`.ulf` 만들기 ([GameCI 안내](https://game.ci/docs/github/activation/)): Unity Hub에 그 계정으로 로그인 → 설정(Preferences) → Licenses → Add → **Get a free personal license** → 맥은 `/Library/Application Support/Unity/Unity_lic.ulf`가 생겼는지 확인 → 파일 내용을 그대로 `UNITY_LICENSE`에 붙여 넣기. 복사한 뒤 Unity Hub에서 로그아웃해 두면 CI가 좌석을 씁니다.
+릴 던전 EditMode 테스트와 배포 빌드는 Unity가 활성화된 Apple Silicon 러너 `gg-release-mac`에서 실행합니다. Mac이 로그인 상태로 켜져 있어야 합니다. EditMode는 저장소 소유자의 내부 PR과 `main` 푸시에서 실행합니다. 배포 미리보기는 `reel-dungeon-preview-*` 태그로, 정식 릴리스는 `v*` 태그로 시작합니다.
