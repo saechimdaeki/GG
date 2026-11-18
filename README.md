@@ -6,10 +6,10 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
-| <img src="haunted-movers/production/qa/evidence/house-turret-2026-11-17.png" width="220"> | **[유령집 이삿짐센터](haunted-movers/)** | 2~4인 온라인 협동 호러 — 귀신 들린 저택에서 고물 건지기 (1인칭 3D) | 플레이 가능, 플레이테스트 중 |
-| <img src="demon-lord-is-busy/production/qa/evidence/biome-volcano.png" width="220"> | **[마왕님은 바쁘다](demon-lord-is-busy/)** | 던전 디펜스 + 액션 로그라이크 (2D) | 플레이 가능, 플레이테스트 중 |
-| <img src="cursed-pawnshop/production/qa/evidence/story-002-m1-day-cycle/art-haggle.png" width="220"> | **[저주받은 전당포](cursed-pawnshop/)** | 크툴루풍 감정·장사 시뮬, 28일 캠페인 (2D) | 완성 |
-| <img src="sunken-city/production/qa/evidence/view3d-wide-sea/01-open-sea-school.png" width="220"> | **[가라앉은 도시](sunken-city/)** | 잠수 탐험 + 영역 재건 (2D 사이드뷰) | 보류 (M3 일부까지) |
+| <img src="haunted-movers/docs/media/run.gif" width="260"> | **[유령집 이삿짐센터](haunted-movers/)** | 2~4인 온라인 협동 호러 — 귀신 들린 저택에서 고물 건지기 (1인칭 3D) | 플레이 가능, 플레이테스트 중 |
+| <img src="demon-lord-is-busy/docs/media/raid.gif" width="260"> | **[마왕님은 바쁘다](demon-lord-is-busy/)** | 던전 디펜스 + 액션 로그라이크 (2D) | 플레이 가능, 플레이테스트 중 |
+| <img src="cursed-pawnshop/production/qa/evidence/story-002-m1-day-cycle/art-haggle.png" width="260"> | **[저주받은 전당포](cursed-pawnshop/)** | 크툴루풍 감정·장사 시뮬, 28일 캠페인 (2D) | 완성 |
+| <img src="sunken-city/docs/media/dive.gif" width="260"> | **[가라앉은 도시](sunken-city/)** | 잠수 탐험 + 영역 재건 (2D 사이드뷰) | 보류 (M3 일부까지) |
 
 게임마다 폴더 안 README에 스크린샷, 조작, 진행 상황이 있습니다.
 

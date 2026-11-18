@@ -6,14 +6,44 @@
 
 M3 일부까지 — 펌프 밸브(물 채우기·빼기), 기둥 위 톱니, 마른 층 게. 그 이전: M2 플레이 가능 — 잠수·펌프 수리로 물 빼기(M1) → 마른 땅에 공방·숙소·조명탑 짓기, 장비 업그레이드, 주민 부탁, 단단한 벽 너머 깊은 구역과 수압, 맨 아래 봉인된 수문(M2 끝). 그림은 GPT 묶음 1·2 적용됨
 
-## 스크린샷
+<p align="center"><img src="docs/media/dive.gif" width="720" alt="수면에서 잠수해 가라앉은 유적으로"><br><sub>수면에서 잠수해 가라앉은 유적으로</sub></p>
 
-| | |
-|---|---|
-| <img src="production/qa/evidence/view3d-wide-sea/01-open-sea-school.png" width="420"> | <img src="production/qa/evidence/view3d-wide-sea/03-inside-tower.png" width="420"> |
-| 물에 잠긴 바다 — 물고기 떼 | 가라앉은 탑 안 탐사 |
-| <img src="production/qa/evidence/art-bundle-r/02-town.png" width="420"> | <img src="production/qa/evidence/view3d-wide-sea/05-town.png" width="420"> |
-| 물을 뺀 구역에 들어선 마을 | 수면 위 마을 |
+## 이런 게임
+
+- **잠수 탐사** — 산소를 관리하며 헤엄치고, 잔해를 부숴 황동 조각·파이프·톱니를 모으기
+- **물 빼기** — 펌프를 고치면 구역의 물이 빠지고 걸어 다닐 수 있게 됨. 밸브로 다시 채우기도
+- **마을 재건** — 마른 땅에 공방·숙소·조명탑을 짓고 주민 부탁 들어주기
+- **더 깊이** — 수압이 센 깊은 구역, 게·장어, 맨 아래 봉인된 수문
+
+## 플레이 화면
+
+**바다**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/view3d-wide-sea/01-open-sea-school.png" width="280"> | <img src="production/qa/evidence/view3d-wide-sea/02-kelp-towers.png" width="280"> | <img src="production/qa/evidence/view3d-wide-sea/04-deep-ruins.png" width="280"> |
+| 물고기 떼가 지나가는 바다 | 해초 사이 가라앉은 탑 | 깊은 유적 |
+
+**탐사**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/art-bundle-r/01-start.png" width="280"> | <img src="production/qa/evidence/view3d-wide-sea/03-inside-tower.png" width="280"> | <img src="production/qa/evidence/art-bundle-r/04-deep.png" width="280"> |
+| 출발점 — 수몰된 탑 | 탑 안 | 수압이 센 깊은 구역 |
+
+**마을**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/art-bundle-r/02-town.png" width="280"> | <img src="production/qa/evidence/art-bundle-r/03-lodge-portraits.png" width="280"> | <img src="production/qa/evidence/view3d-wide-sea/05-town.png" width="280"> |
+| 물을 뺀 구역의 마을 | 숙소 주민들의 부탁 | 수면 위 마을 |
+
+**밸브**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/m3-valve/01-refilled-pillar.png" width="280"> | <img src="production/qa/evidence/m3-valve/02-crab-dry-floor.png" width="280"> | <img src="production/qa/evidence/m2-village/02-lodge-menu.png" width="280"> |
+| 물을 다시 채워 닿는 기둥 | 마른 층의 돌 껍데기 게 | 숙소 메뉴 |
 
 ## 실행
 ```bash

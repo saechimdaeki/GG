@@ -2,14 +2,52 @@
 
 친구 2~4명이 매일 모양이 바뀌는 귀신 들린 저택에 들어가 고물을 건져 트럭에 싣고, 몬스터를 피해 시간 안에 빠져나오는 협동 호러 게임 (리썰 컴퍼니식 규칙). 기획: [`design/game-brief.md`](design/game-brief.md)
 
-## 스크린샷
+<p align="center"><img src="docs/media/run.gif" width="720" alt="트럭에서 저택으로 → 문을 열고 들어가 스캔 → 오르골인 줄 알았던 미믹"><br><sub>트럭에서 저택으로 → 문을 열고 들어가 스캔 → 오르골인 줄 알았던 미믹</sub></p>
 
-| | |
-|---|---|
-| <img src="production/qa/evidence/house-turret-2026-11-17.png" width="420"> | <img src="production/qa/evidence/sharper-living-2026-11-17.png" width="420"> |
-| 매일 들어가는 귀신 들린 저택 | 저택 안 — 손전등만 믿고 고물 찾기 |
-| <img src="production/qa/evidence/mimic-2026-11-17.png" width="420"> | <img src="production/qa/evidence/truck-van-back-2026-11-17.png" width="420"> |
-| 오르골인 척하는 미믹 (왼쪽 평소 / 오른쪽 깨어남) | 이삿짐 탑차 — 고물을 싣고 출발 |
+## 이런 게임
+
+- **매일 바뀌는 저택** — 거실·침실·주방·서재·창고·욕실이 날마다 새로 배치되고, 문을 열고 닫으며 탐색
+- **고물 줍기와 4칸 인벤토리** — 무거울수록 느려지고, 우클릭 스캔으로 값어치 확인, 옷장·서랍 뒤지기
+- **괴물 5종** — 쳐다보면 멈추는 마네킹, 머리에 달라붙는 먼지귀신, 돌진하는 박제 멧돼지, 오르골로 위장한 미믹, 벽을 통과하는 소복 귀신
+- **싸우거나 도망치거나** — 쇠지렛대·삽·섬광탄·퇴마 테이프, 손전등으로 유령 쫓기, 체력 100
+- **2~4인 온라인** — Steam 없이 같은 와이파이·IP로 접속, 근접 음성 채팅과 트럭 무전
+
+## 플레이 화면
+
+**저택과 트럭**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/house-turret-2026-11-17.png" width="280"> | <img src="production/qa/evidence/objective-arrow-2026-11-17.png" width="280"> | <img src="production/qa/evidence/truck-van-back-2026-11-17.png" width="280"> |
+| 밤의 저택 | 첫 목표와 방향 안내 | 이삿짐 탑차 — 여기에 싣는다 |
+
+**저택 안**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/sharper-living-2026-11-17.png" width="280"> | <img src="production/qa/evidence/polyhaven-study-2026-11-17.png" width="280"> | <img src="production/qa/evidence/room-door-open-2026-11-18.png" width="280"> |
+| 손전등 하나로 거실 탐색 | 서재 — 식탁과 의자 | 문을 열면 다음 방 |
+
+**고물 찾기**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/lc-scan-2026-11-17.png" width="280"> | <img src="production/qa/evidence/search-found-2026-11-17.png" width="280"> | <img src="production/qa/evidence/vault-door-2026-11-17.png" width="280"> |
+| 우클릭 스캔 — 보이는 고물과 값 | 가구 뒤지기 — 타자기 발견! | 열쇠로 여는 금고방 |
+
+**괴물**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/ghost-v3-2026-11-17.png" width="280"> | <img src="production/qa/evidence/mimic-2026-11-17.png" width="280"> | <img src="production/qa/evidence/monsters-v2-2026-11-17.png" width="280"> |
+| 소복 귀신 (평소 / 쫓을 때) | 미믹 (오르골인 척 / 깨어남) | 마네킹·먼지귀신·멧돼지·유령 |
+
+**위험과 도구**
+
+| | | |
+|---|---|---|
+| <img src="production/qa/evidence/bear-trap-2026-11-17.png" width="280"> | <img src="production/qa/evidence/lc-radio-map-2026-11-17.png" width="280"> | <img src="production/qa/evidence/health-bar-2026-11-17.png" width="280"> |
+| 곰덫과 삐걱대는 마루 | 트럭 무전 — 저택 지도 | 체력·스태미나 HUD |
 
 ## 실행
 
