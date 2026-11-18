@@ -297,6 +297,28 @@ public class RunTests
         Assert.AreEqual(RewardKind.Gold, run.Offers.Single().Kind);
     }
 
+    [Test]
+    public void Recruit_ChapterBonusSurvivesSaveAndOnlyAddsToNewReel()
+    {
+        var cfg = Config("sword", Trio, Enemy(10, 5), chapters: 2);
+        cfg.chapters[0].recruitSignatureBonus = true;
+        var run = Run.FromSave(cfg, Enter(cfg, NodeType.Recruit).ToSave());
+        var offer = run.Offers[0];
+        var recruit = run.Companion(offer.CompanionId);
+        var existing = run.Reels.Select(reel => reel.ToArray()).ToArray();
+        Assert.AreEqual(recruit.signature, offer.SymbolId);
+        run.ChooseReward(0);
+        CollectionAssert.AreEqual(recruit.reel.Append(recruit.signature), run.Reels.Last());
+        for (int i = 0; i < existing.Length; i++) CollectionAssert.AreEqual(existing[i], run.Reels[i]);
+
+        var later = new Run(cfg, new Random(1));
+        later.JumpToChapter(1);
+        var node = later.Map.Rows[0][0];
+        node.Type = NodeType.Recruit;
+        Assert.IsTrue(later.Choose(node));
+        Assert.IsTrue(later.Offers.All(r => r.SymbolId == null));
+    }
+
     // ---------- skills ----------
 
     [Test]
@@ -754,6 +776,47 @@ public class RunTests
     {
         cfg.events = new[] { new EventDef { id = "t", title = "t", options = options } };
         return cfg;
+    }
+
+    [Test]
+    public void LedgerFight_AfterResumeOffersOwnedSignaturesAndAppliesChosenUpgrade()
+    {
+        var cfg = WithEvent(Config("sword", Trio, Enemy(1, 1)), Option("fight", ("fight", 0)), Option("leave"));
+        cfg.events[0].options[0].victoryUpgradeChoices = 3;
+        cfg.companions.First(c => c.id == "e").signature = "dagger";
+        cfg.companions.First(c => c.id == "e").reel = new[] { "sword", "dagger", "skull" };
+
+        var run = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(run.ChooseEvent(0));
+        Assert.AreEqual(Phase.Turn, run.Phase);
+        run = Run.FromSave(cfg, run.ToSave());
+        for (int i = 0; i < run.Faces.Length; i++) run.Faces[i] = run.Symbol("sword");
+        run.Commit();
+        Assert.AreEqual(Phase.Reward, run.Phase);
+        Assert.IsTrue(run.Offers.All(r => r.Kind == RewardKind.Upgrade));
+        CollectionAssert.AreEqual(new[] { "dagger", "sword" }, run.Offers.Select(r => r.SymbolId));
+        run = Run.FromSave(cfg, run.ToSave());
+        run.ChooseReward(0);
+        Assert.AreEqual(1, run.Level("dagger"));
+        Assert.AreEqual(0, run.Level("sword"));
+
+        var skipped = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(skipped.ChooseEvent(1));
+        Assert.AreEqual(Phase.Map, skipped.Phase);
+        Assert.AreEqual(0, skipped.Level("dagger"));
+    }
+
+    [Test]
+    public void ChapterEvent_DoesNotAppearInOtherChapters()
+    {
+        var cfg = Config("sword", Trio, Enemy(10, 5), chapters: 2);
+        cfg.events = new[] { new EventDef { id = "ledger", chapter = 1 }, Altar };
+        var run = new Run(cfg, new Random(1));
+        run.JumpToChapter(1);
+        var node = run.Map.Rows[0][0];
+        node.Type = NodeType.Event;
+        Assert.IsTrue(run.Choose(node));
+        Assert.AreEqual("altar", run.CurrentEvent.id);
     }
 
     [Test]

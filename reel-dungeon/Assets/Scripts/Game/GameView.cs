@@ -226,18 +226,23 @@ public class GameView : MonoBehaviour
     /// <summary>Queue the story lines the latest state change calls for.</summary>
     void StoryCheck()
     {
+        var chapter = run.Chapter < story.chapters.Length ? story.chapters[run.Chapter] : null;
         if (run.Chapter != toldChapter)
         {
             toldChapter = run.Chapter;
-            if (run.Chapter < story.chapters.Length) Tell(story.chapters[run.Chapter].intro);
+            Tell(chapter?.intro);
         }
         for (; toldParty < run.Party.Count; toldParty++)
         {
             var line = story.recruits.FirstOrDefault(r => r.id == run.Party[toldParty]);
             if (line != null) Tell(new[] { new Line { speaker = line.id, text = line.text } });
         }
-        if (run.Phase == Phase.Turn && run.Current?.Type == NodeType.Boss && toldBoss.Add(run.Chapter) && run.Chapter < story.chapters.Length)
-            Tell(story.chapters[run.Chapter].boss);
+        if (chapter != null && run.Phase == Phase.Turn && run.Current?.Type == NodeType.Boss && toldBoss.Add(run.Chapter))
+        {
+            Tell(chapter.boss);
+            var response = chapter.bossResponses?.FirstOrDefault(line => run.Party.Contains(line.speaker));
+            if (response != null) Tell(new[] { response });
+        }
         if (!toldEnd && (run.Phase == Phase.Won || run.Phase == Phase.Lost))
         {
             toldEnd = true;
@@ -247,7 +252,7 @@ public class GameView : MonoBehaviour
                 PlayerPrefs.Save();
             }
             Sfx(run.Phase == Phase.Won ? "win" : "lose");
-            Tell(run.Phase == Phase.Won ? story.ending : story.defeat);
+            Tell(run.Phase == Phase.Won ? story.ending : chapter?.defeat ?? story.defeat);
         }
     }
 
@@ -403,7 +408,8 @@ public class GameView : MonoBehaviour
         {
             yield return new WaitForSeconds(0.12f);
             Burst(EnemyBody(), Poison, 18, 120, -120, 0.7f, 7);
-            Pop($"-{poisonTick} 독", Poison, EnemyBody() + new Vector2(70, -30), 40);
+            // Keep the poison text clear of the direct-hit numbers above the enemy.
+            Pop($"-{poisonTick} 독", Poison, EnemyBody() + new Vector2(120, 34), 40);
             Sfx("hit", 0.5f, 1.4f);
             shownEnemyHp = Mathf.Max(0, shownEnemyHp - poisonTick);
             enemyHitAt = Time.time;
@@ -1513,7 +1519,7 @@ public class GameView : MonoBehaviour
 
     void OfferIcon(Reward r, Rect row)
     {
-        if (r.SymbolId != null) Icon(run.Symbol(r.SymbolId), new Rect(row.x + 8, row.y + 6, row.height - 12, row.height - 12), 1, 1);
+        if (r.SymbolId != null && r.CompanionId == null) Icon(run.Symbol(r.SymbolId), new Rect(row.x + 8, row.y + 6, row.height - 12, row.height - 12), 1, 1);
         if (r.CompanionId != null)
         {
             var portrait = Anim($"{run.Companion(r.CompanionId).sprite}_idle_anim");

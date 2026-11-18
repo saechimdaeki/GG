@@ -172,7 +172,7 @@ namespace ReelDungeon.Core
                 case NodeType.Rest: OpenRest(); break;
                 case NodeType.Recruit: OpenRecruit(); break;
                 case NodeType.Treasure: OpenTreasure(); break;
-                case NodeType.Event: OpenEvent(Pick(cfg.events)); break;
+                case NodeType.Event: OpenEvent(Pick(cfg.events.Where(e => e.chapter == 0 || e.chapter == Chapter + 1).ToArray())); break;
             }
             return true;
         }
@@ -361,6 +361,20 @@ namespace ReelDungeon.Core
                 OpenOffers("보스의 보물을 하나 고르세요");
                 return;
             }
+            if (victoryUpgradeChoices > 0)
+            {
+                var owned = Reels.SelectMany(reel => reel).ToHashSet();
+                var candidates = Party.AsEnumerable().Reverse().Select(id => companions[id].signature)
+                    .Concat(Reels.SelectMany(reel => reel)).Distinct()
+                    .Where(id => owned.Contains(id) && !byId[id].curse);
+                Offers.AddRange(candidates.Take(victoryUpgradeChoices).Select(UpgradeOffer));
+                victoryUpgradeChoices = 0;
+                if (Offers.Count > 0)
+                {
+                    OpenOffers("왕실 장부: 강화할 심볼을 고르세요");
+                    return;
+                }
+            }
             Offers.Add(AddOffer());
             // elites, mimics and event fights drop equipment
             Offers.Add(type == NodeType.Combat ? AddOffer() : EquipOffer());
@@ -428,7 +442,7 @@ namespace ReelDungeon.Core
             Offers.Clear();
             var free = cfg.companions.Where(c => !Party.Contains(c.id)).OrderBy(_ => rng.Next()).Take(3);
             if (Party.Count < MaxParty)
-                foreach (var c in free) Offers.Add(RecruitOffer(c));
+                foreach (var c in free) Offers.Add(RecruitOffer(c, ChapterDef.recruitSignatureBonus));
             if (Offers.Count == 0) Offers.Add(GoldOffer(cfg.treasureGold, "파티가 가득 찼다"));
             OpenOffers("동료가 될 모험가를 만났다");
         }
@@ -451,6 +465,8 @@ namespace ReelDungeon.Core
         }
 
         // ---------- events ----------
+
+        int victoryUpgradeChoices;
 
         void OpenEvent(EventDef e)
         {
@@ -506,6 +522,7 @@ namespace ReelDungeon.Core
                         break;
                     case "fight":
                         StartFight(Pick(ChapterDef.elites));
+                        victoryUpgradeChoices = option.victoryUpgradeChoices;
                         log.Add("싸움이 벌어졌다!");
                         break;
                     case "slot": // pay, pull, one of four outcomes
@@ -620,7 +637,7 @@ namespace ReelDungeon.Core
                 case RewardKind.AddSymbol: Reels[r.Reel].Add(r.SymbolId); break;
                 case RewardKind.RemoveSymbol: Reels[r.Reel].Remove(r.SymbolId); break;
                 case RewardKind.Heal: Hp = Math.Min(MaxHp, Hp + r.Amount); break;
-                case RewardKind.Recruit: Recruit(r.CompanionId); break;
+                case RewardKind.Recruit: Recruit(r.CompanionId, r.SymbolId); break;
                 case RewardKind.Gold: Gold += r.Amount; break;
                 case RewardKind.Equip: Equipment[r.Reel] = r.ItemId; break;
                 case RewardKind.Upgrade: SymbolLevel[r.SymbolId] = Level(r.SymbolId) + 1; break;
@@ -632,10 +649,13 @@ namespace ReelDungeon.Core
         }
 
         /// <summary>Add a member and their reel (already spun). Does not check maxParty; callers do.</summary>
-        public void Recruit(string id)
+        public void Recruit(string id) => Recruit(id, null);
+
+        void Recruit(string id, string bonusSymbol)
         {
             Party.Add(id);
             Reels.Add(companions[id].reel.ToList());
+            if (bonusSymbol != null) Reels[Reels.Count - 1].Add(bonusSymbol);
             Gauge.Add(0);
             Equipment.Add(null);
             var faces = Faces;
@@ -693,8 +713,16 @@ namespace ReelDungeon.Core
             return new Reward { Kind = RewardKind.RemoveSymbol, Reel = reel, SymbolId = id, Text = $"{Member(reel).name} 릴 다듬기: {byId[id].name} 빼기" };
         }
 
-        Reward RecruitOffer(CompanionDef c) =>
-            new Reward { Kind = RewardKind.Recruit, CompanionId = c.id, Text = $"{c.name} 영입 ({c.skillName})" };
+        Reward RecruitOffer(CompanionDef c, bool bonus = false)
+        {
+            var reward = new Reward { Kind = RewardKind.Recruit, CompanionId = c.id, Text = $"{c.name} 영입 ({c.skillName})" };
+            if (bonus)
+            {
+                reward.SymbolId = c.signature;
+                reward.Text += $" · {byId[c.signature].name} +1칸";
+            }
+            return reward;
+        }
 
         Reward GoldOffer(int amount, string why) =>
             new Reward { Kind = RewardKind.Gold, Amount = amount, Text = $"{why}: {amount} 골드" };

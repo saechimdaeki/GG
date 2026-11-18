@@ -129,7 +129,9 @@ public static class BalanceSim
         {
             case RewardKind.Recruit:
                 // a player compares recruits: average punch of the reel they bring
-                var reel = run.Companion(r.CompanionId).reel.Select(run.Symbol).ToArray();
+                var faces = run.Companion(r.CompanionId).reel.AsEnumerable();
+                if (r.SymbolId != null) faces = faces.Append(r.SymbolId);
+                var reel = faces.Select(run.Symbol);
                 return 100 + (int)(10 * reel.Average(x => x.damage * 2 + x.block + x.heal + x.poison * 3 + x.weaken));
             case RewardKind.Relic: return 90;
             case RewardKind.Equip: return 70;
