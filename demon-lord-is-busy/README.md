@@ -6,6 +6,15 @@
 - 엔진: **Godot 4.7.2** (GDScript), macOS에서 개발
 - 기획서: [`design/game-brief.md`](design/game-brief.md) · 진행 로그: [`production/session-state/active.md`](production/session-state/active.md)
 
+## 스크린샷
+
+| | |
+|---|---|
+| <img src="production/qa/evidence/title.png" width="420"> | <img src="production/qa/evidence/build-phase.png" width="420"> |
+| 타이틀 | 던전 짓기 — 함정과 몬스터 배치 |
+| <img src="production/qa/evidence/biome-volcano.png" width="420"> | <img src="production/qa/evidence/meta-tree.png" width="420"> |
+| 용사 침공 — 용암 지대에서 마왕이 직접 출격 | 영구 강화 트리 |
+
 ## 실행
 
 Godot 4.7.2 가 `godot` 명령으로 잡혀 있어야 함 (`godot --version` → `4.7.2.stable`).
