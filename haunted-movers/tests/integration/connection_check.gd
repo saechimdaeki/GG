@@ -28,7 +28,12 @@ func _run() -> void:
 		main._end_day(250)
 		await create_timer(0.2).timeout
 		main.next_day()
-		await create_timer(4.0).timeout
+		main._next_spawn = 99  # no monsters: they'd bite the client or barge doors mid-check
+		for m in main.monsters:
+			m.park()
+		# the client runs its pickup / search / door checks in this window (slow CI runners
+		# needed more than 4 s); only then does the ghost "get" it
+		await create_timer(7.0).timeout
 		for id in main.multiplayer.get_peers():
 			main.kill_player(id)  # the ghost got the client: it should spectate us
 		_expect(main.run.phase == "day", "one death out of two ended the day")
@@ -102,7 +107,7 @@ func _run() -> void:
 				await create_timer(0.1).timeout
 			_expect(main.interior.room_doors[di].open != was, "client door toggle through the host was not seen")
 		if local_player != null:
-			for frame in 200:
+			for frame in 500:  # the host waits ~7 s after the new day before the "ghost" strikes
 				if local_player.dead:
 					break
 				await create_timer(0.02).timeout
