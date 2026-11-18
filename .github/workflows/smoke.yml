@@ -64,6 +64,12 @@ jobs:
             echo "::error::UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD 저장소 비밀값이 없습니다. 루트 README '개발 → Unity 게임 CI에 필요한 비밀값'대로 등록하세요."
             exit 1
           fi
+      - name: Free disk space (Unity editor images are 5 GB+ compressed)
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache /usr/local/share/boost /usr/share/swift /usr/local/share/powershell
+          docker image prune -af > /dev/null
+          df -h /
       - uses: actions/cache@v4
         with:
           path: reel-dungeon/Library
@@ -78,6 +84,8 @@ jobs:
         with:
           projectPath: reel-dungeon
           testMode: editmode
+          # EditMode tests need no build modules: the plain editor image, not the default (much larger) linux-il2cpp one
+          customImage: unityci/editor:ubuntu-6000.6.9f1-base-3
           artifactsPath: reel-dungeon-test-results
       - uses: actions/upload-artifact@v4
         if: always()
