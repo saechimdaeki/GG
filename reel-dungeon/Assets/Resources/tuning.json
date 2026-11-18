@@ -1,0 +1,1130 @@
+{
+  "playerMaxHp": 50,
+  "rerollsPerTurn": 1,
+  "pairMultiplier": 1.5,
+  "tripleMultiplier": 2.0,
+  "restHeal": 10,
+  "chapterHeal": 15,
+  "skillCharge": 3,
+  "maxParty": 5,
+  "startingGold": 20,
+  "treasureGold": 30,
+  "mimicChance": 0.3,
+  "mapRows": 7,
+  "nodePool": [
+    "Combat",
+    "Combat",
+    "Combat",
+    "Combat",
+    "Elite",
+    "Shop",
+    "Shop",
+    "Treasure",
+    "Recruit",
+    "Event",
+    "Event"
+  ],
+  "prices": {
+    "addSymbol": 25,
+    "removeCurse": 40,
+    "heal": 15,
+    "healAmount": 12,
+    "recruit": 60,
+    "equip": 50,
+    "relic": 80,
+    "upgrade": 35,
+    "upgradeStep": 20,
+    "trim": 30,
+    "reroll": 15,
+    "rerollStep": 10
+  },
+  "startingParty": [
+    "knight",
+    "elf"
+  ],
+  "symbols": [
+    {
+      "id": "sword",
+      "name": "칼",
+      "color": "#c94c4c",
+      "icon": "0x72/weapon_knight_sword",
+      "damage": 3
+    },
+    {
+      "id": "shield",
+      "name": "방패",
+      "color": "#4c7cc9",
+      "icon": "shield",
+      "block": 3
+    },
+    {
+      "id": "heart",
+      "name": "물약",
+      "color": "#d66fa8",
+      "icon": "0x72/flask_big_red",
+      "heal": 2
+    },
+    {
+      "id": "arrow",
+      "name": "화살",
+      "color": "#7cae4c",
+      "icon": "0x72/weapon_arrow",
+      "damage": 2
+    },
+    {
+      "id": "fire",
+      "name": "불꽃",
+      "color": "#e08a2e",
+      "icon": "0x72/weapon_red_magic_staff",
+      "damage": 5,
+      "selfDamage": 1
+    },
+    {
+      "id": "ice",
+      "name": "얼음",
+      "color": "#5cc8d8",
+      "icon": "0x72/flask_big_blue",
+      "damage": 1,
+      "weaken": 2
+    },
+    {
+      "id": "axe",
+      "name": "도끼",
+      "color": "#a8743c",
+      "icon": "0x72/weapon_axe",
+      "damage": 4
+    },
+    {
+      "id": "light",
+      "name": "빛",
+      "color": "#e8d45c",
+      "icon": "0x72/flask_big_yellow",
+      "damage": 2,
+      "heal": 1
+    },
+    {
+      "id": "coin",
+      "name": "코인",
+      "color": "#c8a832",
+      "icon": "0x72/coin_anim_f0",
+      "gold": 3
+    },
+    {
+      "id": "dagger",
+      "name": "단검",
+      "color": "#5a9a5a",
+      "icon": "0x72/weapon_knife",
+      "damage": 3,
+      "poison": 1
+    },
+    {
+      "id": "flask",
+      "name": "플라스크",
+      "color": "#7ac8a0",
+      "icon": "0x72/flask_green",
+      "damage": 3,
+      "heal": 2,
+      "gold": 1
+    },
+    {
+      "id": "holy",
+      "name": "성검",
+      "color": "#e8e0b0",
+      "icon": "0x72/weapon_duel_sword",
+      "damage": 2,
+      "block": 2,
+      "heal": 1
+    },
+    {
+      "id": "vine",
+      "name": "덩굴",
+      "color": "#4c8a3c",
+      "icon": "vine",
+      "damage": 2,
+      "heal": 1,
+      "weaken": 1
+    },
+    {
+      "id": "skull",
+      "name": "해골",
+      "color": "#6b6b6b",
+      "icon": "0x72/skull",
+      "selfDamage": 2,
+      "curse": true
+    }
+  ],
+  "companions": [
+    {
+      "id": "knight",
+      "attack": "melee",
+      "name": "기사",
+      "sprite": "knight_m",
+      "signature": "shield",
+      "skill": "shieldBash",
+      "skillName": "방패 강타",
+      "skillDesc": "이번 턴 방어만큼 추가 피해",
+      "skillValue": 0,
+      "reel": [
+        "sword",
+        "sword",
+        "shield",
+        "shield",
+        "heart",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "elf",
+      "attack": "arrow",
+      "name": "엘프",
+      "sprite": "elf_m",
+      "signature": "arrow",
+      "skill": "volley",
+      "skillName": "연사",
+      "skillDesc": "화살 3발로 6 추가 피해",
+      "skillValue": 6,
+      "reel": [
+        "arrow",
+        "arrow",
+        "arrow",
+        "sword",
+        "heart",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "wizard",
+      "attack": "magic",
+      "name": "마법사",
+      "sprite": "wizzard_m",
+      "signature": "ice",
+      "skill": "freeze",
+      "skillName": "얼음 감옥",
+      "skillDesc": "이번 턴 적의 공격을 막는다",
+      "skillValue": 0,
+      "reel": [
+        "fire",
+        "fire",
+        "ice",
+        "ice",
+        "heart",
+        "skull"
+      ]
+    },
+    {
+      "id": "dwarf",
+      "attack": "leap",
+      "name": "드워프",
+      "sprite": "dwarf_m",
+      "signature": "axe",
+      "skill": "rage",
+      "skillName": "분노",
+      "skillDesc": "이번 턴 피해 2배",
+      "skillValue": 0,
+      "reel": [
+        "axe",
+        "axe",
+        "shield",
+        "shield",
+        "sword",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "angel",
+      "attack": "beam",
+      "name": "천사",
+      "sprite": "angel",
+      "signature": "light",
+      "skill": "prayer",
+      "skillName": "기도",
+      "skillDesc": "8 회복 + 해골 하나 정화",
+      "skillValue": 8,
+      "reel": [
+        "light",
+        "light",
+        "heart",
+        "heart",
+        "shield",
+        "skull"
+      ]
+    },
+    {
+      "id": "rogue",
+      "attack": "melee",
+      "name": "도적",
+      "sprite": "lizard_m",
+      "signature": "dagger",
+      "skill": "backstab",
+      "skillName": "급소 찌르기",
+      "skillDesc": "적의 독 1당 피해 +2",
+      "skillValue": 2,
+      "reel": [
+        "dagger",
+        "dagger",
+        "sword",
+        "heart",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "alchemist",
+      "attack": "magic",
+      "name": "연금술사",
+      "sprite": "doc",
+      "signature": "flask",
+      "skill": "transmute",
+      "skillName": "변환",
+      "skillDesc": "이번 턴 해골을 모두 코인으로 바꾼다",
+      "skillValue": 0,
+      "reel": [
+        "flask",
+        "flask",
+        "flask",
+        "heart",
+        "coin",
+        "skull"
+      ]
+    },
+    {
+      "id": "paladin",
+      "attack": "melee",
+      "name": "성기사",
+      "sprite": "knight_f",
+      "signature": "holy",
+      "skill": "bless",
+      "skillName": "축복",
+      "skillDesc": "다른 동료 게이지 +1",
+      "skillValue": 1,
+      "reel": [
+        "holy",
+        "holy",
+        "shield",
+        "heart",
+        "sword",
+        "skull"
+      ]
+    },
+    {
+      "id": "druid",
+      "attack": "magic",
+      "name": "드루이드",
+      "sprite": "elf_f",
+      "signature": "vine",
+      "skill": "thorns",
+      "skillName": "가시덩굴",
+      "skillDesc": "이번 턴 적 공격의 100%를 되돌려준다",
+      "skillValue": 100,
+      "reel": [
+        "vine",
+        "vine",
+        "vine",
+        "arrow",
+        "heart",
+        "skull"
+      ]
+    }
+  ],
+  "chapters": [
+    {
+      "name": "늪지",
+      "recruitSignatureBonus": true,
+      "floorTint": "#b4d0a0",
+      "enemies": [
+        {
+          "name": "늪 괴물",
+          "sprite": "swampy_anim",
+          "hp": 14,
+          "gold": 8,
+          "moves": [
+            "attack:5",
+            "guard:5",
+            "attack:7"
+          ]
+        },
+        {
+          "name": "거대 민달팽이",
+          "sprite": "slug_anim",
+          "hp": 16,
+          "gold": 8,
+          "moves": [
+            "attack:4",
+            "curse:3",
+            "attack:7"
+          ]
+        },
+        {
+          "name": "고블린",
+          "sprite": "goblin_idle_anim",
+          "hp": 18,
+          "gold": 10,
+          "moves": [
+            "attack:6",
+            "enrage:2",
+            "attack:6",
+            "attack:7"
+          ]
+        },
+        {
+          "name": "꼬마 민달팽이",
+          "sprite": "tiny_slug_anim",
+          "hp": 11,
+          "gold": 7,
+          "moves": [
+            "attack:4",
+            "curse:2",
+            "attack:5"
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "name": "오크 전사",
+          "sprite": "orc_warrior_idle_anim",
+          "hp": 34,
+          "gold": 25,
+          "moves": [
+            "attack:7",
+            "guard:8",
+            "attack:11"
+          ]
+        }
+      ],
+      "boss": {
+        "name": "오우거",
+        "sprite": "ogre_idle_anim",
+        "hp": 48,
+        "gold": 40,
+        "moves": [
+          "attack:6",
+          "enrage:2",
+          "attack:10",
+          "guard:7",
+          "attack:8"
+        ]
+      }
+    },
+    {
+      "name": "지하 감옥",
+      "floorTint": "#a4b0d0",
+      "enemies": [
+        {
+          "name": "해골 병사",
+          "sprite": "skelet_idle_anim",
+          "hp": 30,
+          "gold": 12,
+          "moves": [
+            "attack:9",
+            "guard:7",
+            "attack:12"
+          ]
+        },
+        {
+          "name": "꼬마 좀비",
+          "sprite": "tiny_zombie_idle_anim",
+          "hp": 26,
+          "gold": 12,
+          "moves": [
+            "drain:7",
+            "attack:9",
+            "drain:8"
+          ]
+        },
+        {
+          "name": "진흙 괴물",
+          "sprite": "muddy_anim",
+          "hp": 32,
+          "gold": 12,
+          "moves": [
+            "curse:6",
+            "attack:12",
+            "guard:6"
+          ]
+        },
+        {
+          "name": "호박 머리",
+          "sprite": "pumpkin_dude_idle_anim",
+          "hp": 30,
+          "gold": 12,
+          "moves": [
+            "guard:6",
+            "drain:9",
+            "attack:11"
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "name": "강령술사",
+          "sprite": "necromancer_anim",
+          "hp": 45,
+          "gold": 30,
+          "moves": [
+            "curse:5",
+            "drain:9",
+            "attack:12"
+          ]
+        },
+        {
+          "name": "가면 오크",
+          "sprite": "masked_orc_idle_anim",
+          "hp": 48,
+          "gold": 30,
+          "moves": [
+            "attack:10",
+            "enrage:3",
+            "attack:9"
+          ]
+        }
+      ],
+      "boss": {
+        "name": "거대 좀비",
+        "sprite": "big_zombie_idle_anim",
+        "hp": 100,
+        "gold": 60,
+        "moves": [
+          "attack:10",
+          "drain:12",
+          "guard:10",
+          "drain:14",
+          "attack:13"
+        ]
+      }
+    },
+    {
+      "name": "용암 동굴",
+      "floorTint": "#e0a080",
+      "enemies": [
+        {
+          "name": "임프",
+          "sprite": "imp_idle_anim",
+          "hp": 34,
+          "gold": 15,
+          "moves": [
+            "attack:11",
+            "attack:11",
+            "enrage:3"
+          ]
+        },
+        {
+          "name": "워골",
+          "sprite": "wogol_idle_anim",
+          "hp": 40,
+          "gold": 15,
+          "moves": [
+            "guard:9",
+            "attack:15",
+            "drain:10"
+          ]
+        },
+        {
+          "name": "초트",
+          "sprite": "chort_run_anim",
+          "hp": 38,
+          "gold": 15,
+          "moves": [
+            "attack:13",
+            "curse:8",
+            "attack:11"
+          ]
+        },
+        {
+          "name": "오크 주술사",
+          "sprite": "orc_shaman_idle_anim",
+          "hp": 42,
+          "gold": 15,
+          "moves": [
+            "curse:6",
+            "attack:16",
+            "guard:7"
+          ]
+        }
+      ],
+      "elites": [
+        {
+          "name": "얼음 좀비",
+          "sprite": "ice_zombie_anim",
+          "hp": 65,
+          "gold": 35,
+          "moves": [
+            "attack:12",
+            "guard:10",
+            "attack:15"
+          ]
+        }
+      ],
+      "boss": {
+        "name": "대악마",
+        "sprite": "big_demon_idle_anim",
+        "hp": 162,
+        "gold": 0,
+        "moves": [
+          "attack:11",
+          "curse:8",
+          "guard:13",
+          "enrage:3",
+          "attack:17",
+          "drain:14",
+          "attack:18"
+        ]
+      }
+    }
+  ],
+  "mimic": {
+    "name": "미믹",
+    "sprite": "chest_mimic_open_anim",
+    "hp": 26,
+    "gold": 40,
+    "moves": [
+      "attack:7",
+      "drain:6"
+    ]
+  },
+  "items": [
+    {
+      "id": "long_sword",
+      "name": "기사의 장검",
+      "desc": "칼이 뜨면 공격 +2",
+      "icon": "0x72/weapon_lavish_sword",
+      "slot": "equip",
+      "symbol": "sword",
+      "stat": "damage",
+      "value": 2
+    },
+    {
+      "id": "vamp_blade",
+      "name": "흡혈 검",
+      "desc": "칼이 뜨면 회복 +2",
+      "icon": "0x72/weapon_red_gem_sword",
+      "slot": "equip",
+      "symbol": "sword",
+      "stat": "heal",
+      "value": 2
+    },
+    {
+      "id": "frost_bow",
+      "name": "서리 활",
+      "desc": "화살이 뜨면 적 공격 -1",
+      "icon": "0x72/weapon_bow",
+      "slot": "equip",
+      "symbol": "arrow",
+      "stat": "weaken",
+      "value": 1
+    },
+    {
+      "id": "tower_shield",
+      "name": "탑 방패",
+      "desc": "방패가 뜨면 방어 +3",
+      "icon": "shield",
+      "slot": "equip",
+      "symbol": "shield",
+      "stat": "block",
+      "value": 3
+    },
+    {
+      "id": "ember_staff",
+      "name": "불씨 지팡이",
+      "desc": "불꽃이 뜨면 공격 +3",
+      "icon": "0x72/weapon_green_magic_staff",
+      "slot": "equip",
+      "symbol": "fire",
+      "stat": "damage",
+      "value": 3
+    },
+    {
+      "id": "war_hammer",
+      "name": "전쟁 망치",
+      "desc": "도끼가 뜨면 공격 +3",
+      "icon": "0x72/weapon_big_hammer",
+      "slot": "equip",
+      "symbol": "axe",
+      "stat": "damage",
+      "value": 3
+    },
+    {
+      "id": "gold_blade",
+      "name": "황금 검",
+      "desc": "코인이 뜨면 골드 +3",
+      "icon": "0x72/weapon_golden_sword",
+      "slot": "equip",
+      "symbol": "coin",
+      "stat": "gold",
+      "value": 3
+    },
+    {
+      "id": "mana_charm",
+      "name": "마나 부적",
+      "desc": "대표 심볼이 뜨면 게이지 +1 더",
+      "icon": "0x72/flask_blue",
+      "slot": "equip",
+      "symbol": "",
+      "stat": "charge",
+      "value": 1
+    },
+    {
+      "id": "lucky_coin",
+      "name": "행운의 동전",
+      "desc": "모든 릴: 코인이 뜨면 골드 +2",
+      "icon": "0x72/coin_anim_f0",
+      "slot": "relic",
+      "symbol": "coin",
+      "stat": "gold",
+      "value": 2
+    },
+    {
+      "id": "skull_ring",
+      "name": "해골 반지",
+      "desc": "해골 자해를 받지 않는다",
+      "icon": "0x72/skull",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "noSelfDamage",
+      "value": 1
+    },
+    {
+      "id": "hourglass",
+      "name": "모래시계",
+      "desc": "턴마다 다시 돌리기 +1",
+      "icon": "0x72/flask_yellow",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "reroll",
+      "value": 1
+    },
+    {
+      "id": "giant_heart",
+      "name": "거인의 심장",
+      "desc": "최대 HP +15",
+      "icon": "0x72/ui_heart_full",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "maxHp",
+      "value": 15
+    },
+    {
+      "id": "war_horn",
+      "name": "전투 뿔피리",
+      "desc": "전투 시작 시 모든 게이지 +1",
+      "icon": "0x72/weapon_mace",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "battleCharge",
+      "value": 1
+    },
+    {
+      "id": "whetstone",
+      "name": "숫돌",
+      "desc": "모든 릴: 칼이 뜨면 공격 +1",
+      "icon": "0x72/weapon_rusty_sword",
+      "slot": "relic",
+      "symbol": "sword",
+      "stat": "damage",
+      "value": 1
+    },
+    {
+      "id": "holy_water",
+      "name": "성수",
+      "desc": "모든 릴: 물약이 뜨면 회복 +2",
+      "icon": "0x72/flask_green",
+      "slot": "relic",
+      "symbol": "heart",
+      "stat": "heal",
+      "value": 2
+    },
+    {
+      "id": "venom_blade",
+      "name": "독칼",
+      "desc": "단검이 뜨면 독 +1",
+      "icon": "0x72/weapon_machete",
+      "slot": "equip",
+      "symbol": "dagger",
+      "stat": "poison",
+      "value": 1
+    },
+    {
+      "id": "holy_lance",
+      "name": "성창",
+      "desc": "성검이 뜨면 방어 +3",
+      "icon": "0x72/weapon_spear",
+      "slot": "equip",
+      "symbol": "holy",
+      "stat": "block",
+      "value": 3
+    },
+    {
+      "id": "thorn_bow",
+      "name": "가시 활",
+      "desc": "덩굴이 뜨면 적 공격 -1",
+      "icon": "0x72/weapon_bow_2",
+      "slot": "equip",
+      "symbol": "vine",
+      "stat": "weaken",
+      "value": 1
+    },
+    {
+      "id": "lucky_cleaver",
+      "name": "행운의 식칼",
+      "desc": "플라스크가 뜨면 골드 +3",
+      "icon": "0x72/weapon_cleaver",
+      "slot": "equip",
+      "symbol": "flask",
+      "stat": "gold",
+      "value": 3
+    },
+    {
+      "id": "katana",
+      "name": "바람 검",
+      "desc": "화살이 뜨면 공격 +2",
+      "icon": "0x72/weapon_katana",
+      "slot": "equip",
+      "symbol": "arrow",
+      "stat": "damage",
+      "value": 2
+    },
+    {
+      "id": "saw_sword",
+      "name": "톱날 검",
+      "desc": "해골이 떠도 공격 +4",
+      "icon": "0x72/weapon_saw_sword",
+      "slot": "equip",
+      "symbol": "skull",
+      "stat": "damage",
+      "value": 4
+    },
+    {
+      "id": "snake_fang",
+      "name": "독사의 송곳니",
+      "desc": "모든 릴: 단검이 뜨면 독 +1",
+      "icon": "0x72/weapon_knife",
+      "slot": "relic",
+      "symbol": "dagger",
+      "stat": "poison",
+      "value": 1
+    },
+    {
+      "id": "regen_ring",
+      "name": "재생의 반지",
+      "desc": "매 턴 HP 2 회복",
+      "icon": "0x72/ui_heart_half",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "regen",
+      "value": 2
+    },
+    {
+      "id": "first_strike",
+      "name": "선제의 부적",
+      "desc": "전투 첫 턴 공격 +8",
+      "icon": "0x72/weapon_anime_sword",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "firstStrike",
+      "value": 8
+    },
+    {
+      "id": "spiked_armor",
+      "name": "가시 갑옷",
+      "desc": "적이 공격할 때마다 3 피해",
+      "icon": "0x72/weapon_baton_with_spikes",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "spikes",
+      "value": 3
+    },
+    {
+      "id": "sixth_seat",
+      "name": "여섯 번째 의자",
+      "desc": "동료를 6명까지 데려갈 수 있다",
+      "icon": "0x72/crate",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "maxParty",
+      "value": 1
+    }
+  ],
+  "events": [
+    {
+      "id": "royal_ledger",
+      "chapter": 1,
+      "title": "왕실 장부",
+      "text": "뒤집힌 수레 밑 왕실 장부에 심볼을 고치는 법이 적혀 있다. 정예가 수레로 돌아오고 있다.",
+      "options": [
+        {
+          "label": "장부를 빼앗는다 (정예 승리 시 심볼 강화)",
+          "effects": [{ "kind": "fight", "value": 0 }],
+          "victoryUpgradeChoices": 3
+        },
+        {
+          "label": "수레를 버리고 갈대 사이로 빠져나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "altar",
+      "title": "피 묻은 제단",
+      "text": "낡은 제단이 낮게 울린다. 바닥의 홈을 따라 오래된 피가 말라붙어 있다.",
+      "options": [
+        {
+          "label": "피를 바친다 (HP -10, 유물)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -10
+            },
+            {
+              "kind": "relic",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "못 본 척 지나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "merchant",
+      "title": "짐을 잃은 상인",
+      "text": "상인이 젖은 영수증을 내민다. \"왕실은 빈 수레만 돌려줘도 돈을 줘요. 오크가 끌고 갔는데 도와줄래요?\"",
+      "options": [
+        {
+          "label": "오크를 쫓아간다 (정예 전투)",
+          "effects": [
+            {
+              "kind": "fight",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "30골드에 남은 장비를 산다",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": -30
+            },
+            {
+              "kind": "equip",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "떠난다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "spring",
+      "title": "검게 물든 샘",
+      "text": "샘물은 따뜻하고 달콤한 냄새가 난다. 바닥에 해골 무늬가 어른거린다.",
+      "options": [
+        {
+          "label": "마신다 (HP +15, 릴에 해골)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 15
+            },
+            {
+              "kind": "curse",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "병에 담아 판다 (+25 골드)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chapel",
+      "title": "무너진 예배당",
+      "text": "촛불 아래 이름들이 빼곡하다. 해골을 뽑은 날 이웃에게 받은 빵값을 갚겠다고 적은 쪽지도 있다.",
+      "options": [
+        {
+          "label": "기도한다 (해골 하나 정화)",
+          "effects": [
+            {
+              "kind": "removeCurse",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "헌금함을 턴다 (+40 골드, HP -6)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 40
+            },
+            {
+              "kind": "hp",
+              "value": -6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sleeper",
+      "title": "잠든 모험가",
+      "text": "벽에 기대어 졸고 있는 모험가가 있다. 장비가 꽤 쓸 만해 보인다.",
+      "options": [
+        {
+          "label": "깨워서 동료로 삼는다",
+          "effects": [
+            {
+              "kind": "recruit",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "조용히 지나간다 (HP +5)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gambler",
+      "title": "도박꾼 고블린",
+      "text": "고블린이 낡은 슬롯머신을 두드린다. \"한 판 해? 20골드면 세 배!\"",
+      "options": [
+        {
+          "label": "20골드를 건다 (반반 확률로 60골드)",
+          "effects": [
+            {
+              "kind": "gamble",
+              "value": 20
+            }
+          ]
+        },
+        {
+          "label": "거절한다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "old_slot",
+      "title": "낡은 슬롯머신",
+      "text": "레버에 '운명의 릴 시제품'이 새겨져 있다. 그 아래 누군가 긁어 썼다. '네가 버린 칸은 다른 데서 뜬다.'",
+      "options": [
+        {
+          "label": "15골드를 넣고 당긴다 (유물·장비·회복·꽝)",
+          "effects": [
+            {
+              "kind": "slot",
+              "value": 15
+            }
+          ]
+        },
+        {
+          "label": "그냥 지나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "smith",
+      "title": "떠돌이 대장장이",
+      "text": "수염이 그을린 드워프가 모루를 두드린다. \"그 심볼, 좀 손봐줄까?\"",
+      "options": [
+        {
+          "label": "30골드에 맡긴다 (무작위 심볼 강화)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": -30
+            },
+            {
+              "kind": "upgrade",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "사양한다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "training",
+      "title": "버려진 훈련장",
+      "text": "녹슨 허수아비가 줄지어 서 있다. 땀 좀 흘리면 감이 올 것 같다.",
+      "options": [
+        {
+          "label": "훈련한다 (HP -6, 모든 스킬 게이지 가득)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -6
+            },
+            {
+              "kind": "charge",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "쉬어 간다 (HP +6)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mirror",
+      "title": "거울에 비친 릴",
+      "text": "거울 속 릴이 현실의 릴과 다르게 돈다. 손을 넣으면 무언가 빠져나올 것 같다.",
+      "options": [
+        {
+          "label": "손을 넣는다 (릴 하나의 심볼 2개 복제)",
+          "effects": [
+            {
+              "kind": "dupe",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "label": "깨버린다 (+20 골드, HP -4)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 20
+            },
+            {
+              "kind": "hp",
+              "value": -4
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

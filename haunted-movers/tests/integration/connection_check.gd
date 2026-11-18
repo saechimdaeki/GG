@@ -142,6 +142,9 @@ func _run() -> void:
 		_expect(main.players.get_child_count() == 1 and main.is_host_active(), "cannot host after cancelling a join")
 	print("PASS connection" if _fails == 0 else "FAIL connection %d" % _fails)
 	main.multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
+	# Drain the queued scene teardown before the runner checks exit diagnostics.
+	main.queue_free()
+	await process_frame
 	quit(0 if _fails == 0 else 1)
 
 func _expect(ok: bool, message: String) -> void:

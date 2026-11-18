@@ -47,6 +47,22 @@ Task:
 
 ## Notes
 
+### 2026-11-18 릴 던전 인계
+
+- 지도 화면을 확대하고 현재 위치, 지나온 경로, 다음에 갈 수 있는 칸을 표시했다. 16:9 입구와 16:10 이동 후 화면 검증, macOS 빌드 및 EditMode 65/65 통과.
+
+- 보스 전투 개편. 오우거의 분노 후 강타, 거대 좀비의 연속 흡혈, 대악마의 저주·방어 후 강공격을 macOS 빌드에서 확인했다. EditMode 65/65 통과, 난이도별 봇 2,000판 결과는 README에 갱신했다. 다음은 첫 판 플레이테스트.
+
+- PR #20 Godot 통합 테스트는 종료 전에 씬 해제를 기다리도록 수정했다. Godot 4.7.2 로컬 ENet 테스트와 headless 시작이 통과했다. 기존 RID/ObjectDB 경고는 출력됐다.
+
+- 1장 맵 영입에 대표 심볼 1칸 보너스를 추가했다. 새 왕실 장부 사건은 정예 승리 시 보유 심볼 강화 보상을 주며, 승리 보상과 전투 중 저장 복원을 테스트했다. macOS 빌드 성공, EditMode 65/65 통과. 다음 콘텐츠는 보스별 전투 패턴 차별화.
+
+- 콘텐츠 확장. 세 장의 단서와 결말 재작성, 동료별 합류·보스 반응, 장별 패배 대사, 이벤트 3곳 문구 수정 완료. 다음 콘텐츠 작업은 첫 장의 영입·강화 선택 연결. 리서치와 검증 기준은 `reel-dungeon/production/design/content-direction.md`.
+
+- 완료. Unity 6000.6.9f1 macOS 빌드의 3장 보스전에서 체력바 아래 독 수치를 확인하고, 일반 피해 숫자와 겹치는 독 피해 팝업을 보스 오른쪽 아래로 옮겼다. 전후 캡처는 `reel-dungeon/production/qa/evidence/poison-*-2026-11-18.png`.
+- 검증. macOS 빌드 성공, EditMode 62/62 통과. 변경은 작업 폴더 `GG/reel-dungeon`에 있다.
+- 다음. 사람이 일반 난이도로 한 판 끝까지 플레이하면서 1장 체감 난이도 확인. Windows 빌드는 Unity Hub에서 Windows Build Support (Mono)를 설치한 뒤 진행.
+
 [Free-form. Decisions and their rationale, what was tried and rejected, context
 that would be expensive to reconstruct. Not machine-read — write for the person
 or agent picking this up cold.]
