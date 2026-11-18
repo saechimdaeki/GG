@@ -23,6 +23,8 @@ public class ChapterStory
 {
     public Line[] intro;
     public Line[] boss;
+    public Line[] bossResponses;
+    public Line[] defeat;
 }
 
 [Serializable]

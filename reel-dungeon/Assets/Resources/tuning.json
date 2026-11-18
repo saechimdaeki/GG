@@ -51,6 +51,22 @@
       "damage": 3
     },
     {
+      "id": "parry",
+      "name": "받아치기",
+      "color": "#4f8fa4",
+      "icon": "0x72/weapon_spear",
+      "damage": 2,
+      "block": 2
+    },
+    {
+      "id": "bounty",
+      "name": "현상금 검",
+      "color": "#a57e3c",
+      "icon": "0x72/weapon_golden_sword",
+      "damage": 2,
+      "gold": 2
+    },
+    {
       "id": "shield",
       "name": "방패",
       "color": "#4c7cc9",
@@ -76,8 +92,7 @@
       "name": "불꽃",
       "color": "#e08a2e",
       "icon": "0x72/weapon_red_magic_staff",
-      "damage": 5,
-      "selfDamage": 1
+      "damage": 4
     },
     {
       "id": "ice",
@@ -171,7 +186,7 @@
         "shield",
         "heart",
         "coin",
-        "skull"
+        "parry"
       ]
     },
     {
@@ -191,7 +206,7 @@
         "sword",
         "heart",
         "coin",
-        "skull"
+        "bounty"
       ]
     },
     {
@@ -210,7 +225,7 @@
         "ice",
         "ice",
         "heart",
-        "skull"
+        "heart"
       ]
     },
     {
@@ -230,7 +245,7 @@
         "shield",
         "sword",
         "coin",
-        "skull"
+        "parry"
       ]
     },
     {
@@ -249,7 +264,7 @@
         "heart",
         "heart",
         "shield",
-        "skull"
+        "light"
       ]
     },
     {
@@ -268,7 +283,7 @@
         "sword",
         "heart",
         "coin",
-        "skull"
+        "dagger"
       ]
     },
     {
@@ -287,7 +302,7 @@
         "flask",
         "heart",
         "coin",
-        "skull"
+        "heart"
       ]
     },
     {
@@ -306,7 +321,7 @@
         "shield",
         "heart",
         "sword",
-        "skull"
+        "shield"
       ]
     },
     {
@@ -325,13 +340,14 @@
         "vine",
         "arrow",
         "heart",
-        "skull"
+        "ice"
       ]
     }
   ],
   "chapters": [
     {
       "name": "늪지",
+      "recruitSignatureBonus": true,
       "floorTint": "#b4d0a0",
       "enemies": [
         {
@@ -401,9 +417,9 @@
         "moves": [
           "attack:6",
           "enrage:2",
-          "attack:8",
-          "curse:4",
-          "attack:10"
+          "attack:10",
+          "guard:7",
+          "attack:8"
         ]
       }
     },
@@ -487,10 +503,10 @@
         "gold": 60,
         "moves": [
           "attack:10",
-          "drain:11",
-          "enrage:3",
-          "attack:14",
-          "curse:6"
+          "drain:12",
+          "guard:10",
+          "drain:14",
+          "attack:13"
         ]
       }
     },
@@ -564,8 +580,9 @@
         "moves": [
           "attack:11",
           "curse:8",
+          "guard:13",
           "enrage:3",
-          "attack:14",
+          "attack:17",
           "drain:14",
           "attack:18"
         ]
@@ -846,6 +863,39 @@
   ],
   "events": [
     {
+      "id": "prison_key",
+      "chapter": 2,
+      "title": "해골이 새겨진 열쇠",
+      "text": "간수가 열쇠를 밀어 준다. 창고를 열면 유물 하나를 챙길 수 있다. 대신 감옥의 해골 하나가 릴에 따라붙는다.",
+      "options": [
+        {
+          "label": "열쇠를 돌린다 (유물 1개, 영구 해골 1칸)",
+          "effects": [{ "kind": "relic", "value": 0 }, { "kind": "curse", "value": 0 }]
+        },
+        {
+          "label": "열쇠를 돌려주고 잠시 쉰다 (HP +8)",
+          "effects": [{ "kind": "hp", "value": 8 }]
+        }
+      ]
+    },
+    {
+      "id": "royal_ledger",
+      "chapter": 1,
+      "title": "왕실 장부",
+      "text": "뒤집힌 수레 밑 왕실 장부에 심볼을 고치는 법이 적혀 있다. 정예가 수레로 돌아오고 있다.",
+      "options": [
+        {
+          "label": "장부를 빼앗는다 (정예 승리 시 심볼 강화)",
+          "effects": [{ "kind": "fight", "value": 0 }],
+          "victoryUpgradeChoices": 3
+        },
+        {
+          "label": "수레를 버리고 갈대 사이로 빠져나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
       "id": "altar",
       "title": "피 묻은 제단",
       "text": "낡은 제단이 낮게 울린다. 바닥의 홈을 따라 오래된 피가 말라붙어 있다.",
@@ -872,7 +922,7 @@
     {
       "id": "merchant",
       "title": "짐을 잃은 상인",
-      "text": "오크에게 짐을 빼앗긴 상인이 울상이다. \"제 수레만 찾아주시면…\"",
+      "text": "상인이 젖은 영수증을 내민다. \"왕실은 빈 수레만 돌려줘도 돈을 줘요. 오크가 끌고 갔는데 도와줄래요?\"",
       "options": [
         {
           "label": "오크를 쫓아간다 (정예 전투)",
@@ -934,7 +984,7 @@
     {
       "id": "chapel",
       "title": "무너진 예배당",
-      "text": "천장이 무너진 예배당에 아직 촛불 하나가 꺼지지 않았다.",
+      "text": "촛불 아래 이름들이 빼곡하다. 해골을 뽑은 날 이웃에게 받은 빵값을 갚겠다고 적은 쪽지도 있다.",
       "options": [
         {
           "label": "기도한다 (해골 하나 정화)",
@@ -1008,7 +1058,7 @@
     {
       "id": "old_slot",
       "title": "낡은 슬롯머신",
-      "text": "벽에 박힌 슬롯머신이 아직 돌아간다. 레버에 '운명의 릴 시제품'이라고 적혀 있다.",
+      "text": "레버에 '운명의 릴 시제품'이 새겨져 있다. 그 아래 누군가 긁어 썼다. '네가 버린 칸은 다른 데서 뜬다.'",
       "options": [
         {
           "label": "15골드를 넣고 당긴다 (유물·장비·회복·꽝)",

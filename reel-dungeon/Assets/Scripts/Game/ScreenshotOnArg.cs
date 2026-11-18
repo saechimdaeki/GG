@@ -1,4 +1,5 @@
 using System.Collections;
+using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -35,8 +36,15 @@ public class ScreenshotOnArg : MonoBehaviour
             int after = int.TryParse(Arg("--after"), out var n) ? n : 60;
             for (int i = 0; i < after; i++) yield return null;
         }
-        yield return new WaitForEndOfFrame();
-        ScreenCapture.CaptureScreenshot(Arg("--screenshot"));
+        string destination = Arg("--screenshot");
+        int frames = int.TryParse(Arg("--capture-frames"), out var count) ? Mathf.Clamp(count, 1, 120) : 1;
+        if (frames > 1) Time.captureFramerate = 12;
+        for (int frame = 0; frame < frames; frame++)
+        {
+            yield return new WaitForEndOfFrame();
+            string path = frames == 1 ? destination : Path.ChangeExtension(destination, $".{frame:D3}.png");
+            ScreenCapture.CaptureScreenshot(path);
+        }
         for (int i = 0; i < 3; i++) yield return null;   // the file is written after the frame
         Application.Quit();
     }

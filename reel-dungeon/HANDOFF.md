@@ -83,7 +83,11 @@ python3 tools/gen_audio.py; python3 tools/make_icon.py
 
 ## 6. 남은 일 (우선순위 순)
 
-1. **독 수치 화면 확인** — 독 계산은 테스트로 확인했지만, 적 체력바 아래 "독 N" 표시와 "-N 독" 팝업은 스크린샷으로 못 봤다. `--recruit rogue` 로 몇 번 찍어 확인.
+1장 콘텐츠 추가 완료. [영입 대표 심볼 보너스](production/qa/evidence/recruit-signature-bonus-2026-11-18.png)와 [왕실 장부 사건](production/qa/evidence/event-royal-ledger-2026-11-18.png)을 macOS 빌드에서 확인했다. 장부 정예전을 이어한 뒤 보유 심볼 중 하나를 강화하는 흐름을 포함해 EditMode 65개 통과. 난이도별 2,000판 재측정 결과는 README의 밸런스 항목에 갱신했다.
+
+2026-11-18 콘텐츠 확장. 왕실 수레에서 감옥 명부와 대악마까지 이어지는 이야기를 추가했다. 새 동료 4명의 합류 대사를 채우고, 각 보스 앞에서 파티에 속한 동료의 반응 한 줄을 선택한다. 상인·예배당·시제품 이벤트의 텍스트에도 같은 세계의 단서를 넣었다. 다음 콘텐츠 작업과 플레이테스트 기준은 [콘텐츠 방향](production/design/content-direction.md)에 있다.
+
+1. **독 수치 화면 확인 완료 (2026-11-18)** — macOS 3장 보스전에서 [체력바 아래 독 1](production/qa/evidence/poison-status-2026-11-18.png)을 확인했다. [일반 피해와 겹치던 독 피해 팝업](production/qa/evidence/poison-popup-before-2026-11-18.png)을 보스 오른쪽 아래로 옮겼고, [새 빌드에서 일반 피해 -2와 독 피해 -1이 따로 읽히는 화면](production/qa/evidence/poison-popup-after-2026-11-18.png)을 확인했다. macOS 빌드 성공, EditMode 62/62 통과.
 2. **사람이 한 판 끝까지** — 특히 1장 사망 비중이 높다(봇: 1장 21%, 오우거·오크 전사·미믹). 체감 난이도 확인 후 조정.
 3. **어려움 5** — 봇 3.3%. 사람 기준으로 너무 어려운지 확인.
 4. **윈도우 빌드** — Unity Hub에서 이 에디터에 Windows Build Support (Mono) 모듈 추가(사용자가 직접) → `BuildScript`에 `BuildWindows` 추가.

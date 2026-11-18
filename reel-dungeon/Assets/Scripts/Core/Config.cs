@@ -93,6 +93,7 @@ namespace ReelDungeon.Core
     [Serializable]
     public class ChapterDef
     {
+        public bool recruitSignatureBonus;
         public string name;
         public string floorTint;
         public EnemyDef[] enemies;
@@ -140,6 +141,7 @@ namespace ReelDungeon.Core
     public class EventDef
     {
         public string id;
+        public int chapter; // 0 means any chapter, otherwise 1-based
         public string title;
         public string text;
         public EventOption[] options;
@@ -150,6 +152,7 @@ namespace ReelDungeon.Core
     {
         public string label;
         public EventEffect[] effects;
+        public int victoryUpgradeChoices; // replaces normal loot when this option starts a fight
     }
 
     /// <summary>Kinds: hp, gold, relic, equip, curse, removeCurse, recruit, gamble, fight, slot, upgrade, charge, dupe.</summary>

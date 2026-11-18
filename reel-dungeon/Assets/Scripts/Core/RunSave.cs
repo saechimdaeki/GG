@@ -35,6 +35,7 @@ namespace ReelDungeon.Core
         public string offerTitle;
         public Reward[] shop;
         public string eventId;
+        public int victoryUpgradeChoices;
         public string log;
     }
 
@@ -80,6 +81,7 @@ namespace ReelDungeon.Core
                 offerTitle = OfferTitle,
                 shop = ShopItems.ToArray(),
                 eventId = CurrentEvent?.id ?? "",
+                victoryUpgradeChoices = victoryUpgradeChoices,
                 log = Log,
             };
         }
@@ -130,6 +132,7 @@ namespace ReelDungeon.Core
             run.OfferTitle = s.offerTitle;
             run.ShopItems.AddRange(s.shop.Select(Clean));
             run.CurrentEvent = s.eventId == "" ? null : cfg.events.First(e => e.id == s.eventId);
+            run.victoryUpgradeChoices = s.victoryUpgradeChoices;
             run.Log = s.log;
             run.Phase = (Phase)Enum.Parse(typeof(Phase), s.phase);
             return run;

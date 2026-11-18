@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Build;
@@ -5,12 +6,35 @@ using UnityEditor.Build.Reporting;
 using UnityEngine;
 using UnityEditor.SceneManagement;
 
-/// <summary>Batch build: Unity -batchmode -quit -projectPath . -executeMethod BuildScript.BuildMac</summary>
+/// <summary>
+/// Batch builds.
+/// Local:  Unity -batchmode -quit -projectPath . -executeMethod BuildScript.BuildMac   (or BuildWindows)
+/// CI:     GameCI unity-builder with buildMethod: BuildScript.BuildCI (reads -customBuildTarget / -customBuildPath)
+/// </summary>
 public static class BuildScript
 {
     const string ScenePath = "Assets/Scenes/Main.unity";
 
-    public static void BuildMac()
+    public static void BuildMac() => Build(BuildTarget.StandaloneOSX, "Builds/Mac/ReelDungeon.app");
+
+    /// <summary>Needs the "Windows Build Support (Mono)" module in Unity Hub.</summary>
+    public static void BuildWindows() => Build(BuildTarget.StandaloneWindows64, "Builds/Windows/ReelDungeon.exe");
+
+    /// <summary>Entry point for GameCI, which passes the target and output path on the command line.</summary>
+    public static void BuildCI()
+    {
+        var args = Environment.GetCommandLineArgs();
+        string Arg(string name)
+        {
+            int i = Array.IndexOf(args, name);
+            return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        }
+        var target = (BuildTarget)Enum.Parse(typeof(BuildTarget), Arg("-customBuildTarget") ?? "StandaloneOSX");
+        var path = Arg("-customBuildPath") ?? (target == BuildTarget.StandaloneOSX ? "Builds/Mac/ReelDungeon.app" : "Builds/Windows/ReelDungeon.exe");
+        Build(target, path);
+    }
+
+    static void Build(BuildTarget target, string path)
     {
         if (!File.Exists(ScenePath))
         {
@@ -29,7 +53,8 @@ public static class BuildScript
         var icon = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Icon/icon.png");
         if (icon != null) PlayerSettings.SetIcons(NamedBuildTarget.Unknown, new[] { icon }, IconKind.Any);
 
-        var report = BuildPipeline.BuildPlayer(new[] { ScenePath }, "Builds/Mac/ReelDungeon.app", BuildTarget.StandaloneOSX, BuildOptions.None);
+        var report = BuildPipeline.BuildPlayer(new[] { ScenePath }, path, target, BuildOptions.None);
+        Debug.Log($"Build {target} → {path}: {report.summary.result}, {report.summary.totalSize / (1024 * 1024)} MB");
         if (report.summary.result != BuildResult.Succeeded) EditorApplication.Exit(1);
     }
 }
