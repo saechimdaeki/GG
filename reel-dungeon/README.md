@@ -5,8 +5,14 @@
 ![파티 전투 화면](production/qa/evidence/party-full-2026-11-18.png)
 ![지도](production/qa/evidence/stage-map-2026-11-18.png)
 
-- 엔진: Unity 6000.6.9f1 (Unity 6), C#
-- 상태: 프로토타입. IMGUI로 그림. 캐릭터·타일은 0x72 DungeonTileset II (CC0), 방패 아이콘은 자체 제작.
+![타이틀](production/qa/evidence/polish-title-2026-11-18.png)
+
+- 엔진: Unity 6000.6.9f1 (Unity 6), C#, 버전 0.1.0 (`com.gg.reeldungeon`)
+- 화면: IMGUI + 코드로 만든 픽셀 9-slice 패널·버튼, 1280×720 기준 균일 확대(다른 화면비는 양옆 여백)
+- 아트: 0x72 DungeonTileset II (CC0), 방패 아이콘·앱 아이콘(`tools/make_icon.py`)은 자체 제작
+- 글꼴: 갈무리 Galmuri11 / 11-Bold / 14 (SIL OFL 1.1, `Assets/Resources/Fonts/Galmuri-OFL.txt`)
+- 편의: Esc 일시정지, 설정(음악·효과음 볼륨, 전체화면, 화면 흔들림·번쩍임 끄기, 안내 다시 보기 — PlayerPrefs 저장), 첫 판 안내 말풍선, 화면 전환 페이드
+- 장별 분위기: 늪(점액·분수·반딧불), 감옥(벽 구멍·기둥·먼지), 용암 동굴(용암 분수·불씨), 비네트
 
 ## 이야기
 
@@ -55,5 +61,7 @@ U="/Applications/Unity/Hub/Editor/6000.6.9f1/Unity.app/Contents/MacOS/Unity"
 "$U" -batchmode -quit -projectPath "$PWD" -executeMethod BuildScript.BuildMac
 open Builds/Mac/ReelDungeon.app
 ```
+
+스크린샷용 실행 옵션: `--screenshot <절대경로> --at <초>` 와 함께 `--title`, `--chapter N`, `--node <Combat|Shop|Event|Boss…>`, `--recruit a,b`, `--equip`, `--relic`, `--charge`, `--autocommit`, `--autoturns N`, `--nostory`, `--notips`, `--pause`, `--settings`.
 
 에디터에서 열 때는 Unity Hub → Add → 이 폴더.

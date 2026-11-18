@@ -21,8 +21,8 @@ public class GameView : MonoBehaviour
 
     TuningConfig cfg;
     Run run;
-    GUIStyle big, mid, small, tiny, button, smallButton, shopButton, pop, story_;
-    Texture2D glow;
+    GUIStyle big, mid, small, tiny, button, smallButton, shopButton, pop, story_, panel;
+    Texture2D glow, vignette;
     readonly Dictionary<string, Texture2D> tex = new Dictionary<string, Texture2D>();
     readonly Dictionary<string, int> frameCounts = new Dictionary<string, int>();
 
@@ -48,6 +48,17 @@ public class GameView : MonoBehaviour
     bool toldEnd;
 
     bool onTitle = true;
+
+    // pause menu, settings (saved in PlayerPrefs) and screen fades
+    bool paused, showSettings;
+    float musicVol, sfxVol, fadeAt = -9;
+    bool shakeOn;
+    Phase shownPhase;
+
+    // first-run guide: one bubble at a time, each shown once (PlayerPrefs "tips")
+    readonly HashSet<string> seenTips = new HashSet<string>();
+    string tipKey, tipText;
+    Rect tipTarget;
 
     struct Say { public string name, sprite, text; }
 
@@ -77,7 +88,12 @@ public class GameView : MonoBehaviour
         sfx = gameObject.AddComponent<AudioSource>();
         music = gameObject.AddComponent<AudioSource>();
         music.loop = true;
-        music.volume = 0.3f;
+        musicVol = PlayerPrefs.GetFloat("musicVol", 0.8f);
+        sfxVol = PlayerPrefs.GetFloat("sfxVol", 1f);
+        shakeOn = PlayerPrefs.GetInt("shake", 1) == 1;
+        foreach (var k in PlayerPrefs.GetString("tips", "").Split(',')) if (k != "") seenTips.Add(k);
+        if (HasArg("--notips")) seenTips.UnionWith(new[] { "map", "reels", "reroll", "intent", "confirm", "skill", "reward", "shop", "event" });
+        music.volume = 0.3f * musicVol;
         if (Camera.main == null || Camera.main.GetComponent<AudioListener>() == null) gameObject.AddComponent<AudioListener>();
         NewRun();
         if (Camera.main)
@@ -89,6 +105,7 @@ public class GameView : MonoBehaviour
         // --charge fills every gauge, --autoturns N plays N turns instantly.
         foreach (var id in StrArg("--recruit")?.Split(',') ?? new string[0])
             if (cfg.companions.Any(c => c.id == id) && !run.Party.Contains(id)) run.Recruit(id);
+        if (IntArg("--chapter") > 0) run.JumpToChapter(IntArg("--chapter") - 1);
         if (StrArg("--node") is string nodeType && System.Enum.TryParse(nodeType, out NodeType t))
         {
             var node = run.Map.Rows[0][1];
@@ -108,6 +125,8 @@ public class GameView : MonoBehaviour
         if (HasArg("--nostory")) talk.Clear();
         if (System.Environment.GetCommandLineArgs().Any(a => a.StartsWith("--") && a != "--screenshot" && a != "--at" && a != "--after")) onTitle = false;
         if (HasArg("--title")) onTitle = true;
+        if (HasArg("--pause")) { paused = true; Time.timeScale = 0; }
+        if (HasArg("--settings")) { paused = true; showSettings = true; Time.timeScale = 0; }
         for (int k = IntArg("--skiplines"); k > 0 && talk.Count > 0; k--) talk.Dequeue(); // screenshots of later lines
     }
 
@@ -190,6 +209,11 @@ public class GameView : MonoBehaviour
 
     void Sync()
     {
+        if (run.Phase != shownPhase && !(shownPhase == Phase.Turn && busy))
+        {
+            shownPhase = run.Phase;
+            fadeAt = Time.unscaledTime; // a short fade in when the screen changes (map, fight, shop…)
+        }
         shownFaces = run.Faces.ToArray();
         shownHp = run.Hp;
         shownGold = run.Gold;
@@ -216,6 +240,7 @@ public class GameView : MonoBehaviour
 
     void Update()
     {
+        if (!paused) SpawnAmbient();
         if (stopped.Length != spinUntil.Length) stopped = new bool[spinUntil.Length];
         bool any = false;
         for (int i = 0; i < spinUntil.Length; i++)
@@ -238,7 +263,7 @@ public class GameView : MonoBehaviour
         var clip = Resources.Load<AudioClip>("Audio/" + name); // Resources caches loaded assets
         if (clip == null) return;
         sfx.pitch = pitch;
-        sfx.PlayOneShot(clip, volume);
+        sfx.PlayOneShot(clip, volume * sfxVol);
     }
 
     bool Spinning(int i) => Time.time < spinUntil[i];
@@ -518,11 +543,11 @@ public class GameView : MonoBehaviour
         if (glowing) AddFx("ring", to, 0.3f, 140, c);
     }
 
-    static IEnumerator Hitstop(float seconds)
+    IEnumerator Hitstop(float seconds)
     {
-        Time.timeScale = 0.05f;
+        if (!paused) Time.timeScale = 0.05f;
         yield return new WaitForSecondsRealtime(seconds);
-        Time.timeScale = 1;
+        Time.timeScale = paused ? 0 : 1; // don't unpause the game from under the menu
     }
 
     static IEnumerator Tween(System.Action<float> set, float from, float to, float dur)
@@ -573,16 +598,22 @@ public class GameView : MonoBehaviour
     void OnGUI()
     {
         InitStyles();
-        GUI.matrix = Matrix4x4.Scale(new Vector3(Screen.width / W, Screen.height / H, 1)) *
-                     Matrix4x4.Translate(new Vector3(Wobble(shakeAt, shakeAmount), Wobble(shakeAt + 0.05f, shakeAmount * 0.7f), 0));
+        // uniform scale, centred: other aspect ratios get dark bars instead of a stretched picture
+        float scale = Mathf.Min(Screen.width / W, Screen.height / H);
+        var origin = new Vector3((Screen.width - W * scale) / 2, (Screen.height - H * scale) / 2, 0);
+        GUI.matrix = Matrix4x4.Translate(origin) * Matrix4x4.Scale(new Vector3(scale, scale, 1)) *
+                     Matrix4x4.Translate(shakeOn ? new Vector3(Wobble(shakeAt, shakeAmount), Wobble(shakeAt + 0.05f, shakeAmount * 0.7f), 0) : Vector3.zero);
+        var e = Event.current;
+        if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape && !onTitle) { SetPaused(!paused); e.Use(); }
 
         DrawArena();
         DrawFx(false);
         DrawShots();
         DrawParticles();
-        DrawHeader();
+        if (!onTitle) DrawHeader();
 
-        if (onTitle) DrawTitle();
+        if (paused) { } // the pause menu is drawn on top below; nothing underneath takes clicks
+        else if (onTitle) DrawTitle();
         else if (talk.Count > 0 && !busy) DrawStory();   // dialogue blocks every other panel until it is read
         else if (busy || run.Phase == Phase.Turn) DrawReels();
         else if (run.Phase == Phase.Map) DrawMap();
@@ -592,8 +623,13 @@ public class GameView : MonoBehaviour
         else DrawEnd();
 
         DrawFx(true);
+        DrawTip();
+        tipKey = null;
         DrawPopups();
-        float flash = 1 - Mathf.Clamp01((Time.time - flashAt) / 0.25f);
+        if (paused) DrawPause();
+        float fade = 1 - Mathf.Clamp01((Time.unscaledTime - fadeAt) / 0.35f);
+        if (fade > 0) Fill(new Rect(-20, -20, W + 40, H + 40), new Color(0, 0, 0, fade * 0.9f));
+        float flash = shakeOn ? 1 - Mathf.Clamp01((Time.time - flashAt) / 0.25f) : 0;
         if (flash > 0) Fill(new Rect(-20, -20, W + 40, H + 40), new Color(flashColor.r, flashColor.g, flashColor.b, flashColor.a * flash));
 
         // bottom line: hovered button's tooltip, else the last turn's log
@@ -608,8 +644,7 @@ public class GameView : MonoBehaviour
         Shadowed(new Rect(0, 8, W, 36), $"{run.Chapter + 1}장 · {run.ChapterDef.name} · {where}", small, Color.white);
         DrawTex(T("0x72/coin_anim_f" + (int)(Time.time * 8) % 4), new Rect(W - 150, 14, 18, 21));
         Shadowed(new Rect(W - 126, 10, 120, 30), shownGold.ToString(), mid, Gold, TextAnchor.MiddleLeft);
-        if (GUI.Button(new Rect(W - 190, 10, 30, 30), new GUIContent(AudioListener.volume > 0 ? "♪" : "×", "소리 켜기/끄기"), smallButton))
-            AudioListener.volume = AudioListener.volume > 0 ? 0 : 1;
+        if (!onTitle && GUI.Button(new Rect(W - 190, 10, 30, 30), new GUIContent("Ⅱ", "일시정지 · 설정 (Esc)"), smallButton)) SetPaused(true);
 
         // relics, top left; hover for what they do
         for (int k = 0; k < run.Relics.Count; k++)
@@ -626,8 +661,7 @@ public class GameView : MonoBehaviour
     {
         var say = talk.Peek();
         var box = new Rect(60, 452, W - 120, 220);
-        Fill(new Rect(box.x - 4, box.y - 4, box.width + 8, box.height + 8), new Color(0.55f, 0.45f, 0.3f));
-        Fill(box, new Color(0.08f, 0.07f, 0.1f, 0.96f));
+        DrawPanel(box);
         float textX = box.x + 30;
         if (say.sprite != null)
         {
@@ -652,7 +686,7 @@ public class GameView : MonoBehaviour
     void DrawEvent()
     {
         var e = run.CurrentEvent;
-        Fill(new Rect(W / 2 - 400, 345, 800, 335), new Color(0, 0, 0, 0.6f));
+        DrawPanel(new Rect(W / 2 - 400, 345, 800, 335));
         Shadowed(new Rect(0, 350, W, 44), e.title, big, Gold);
         story_.normal.textColor = new Color(0.9f, 0.9f, 0.95f);
         GUI.Label(new Rect(W / 2 - 360, 398, 720, 70), e.text, story_);
@@ -685,9 +719,15 @@ public class GameView : MonoBehaviour
                 GUI.DrawTexture(new Rect(x, y, Tile, Tile), T($"0x72/floor_{1 + (int)(x * 7 + y * 13) % 8}"));
         }
         GUI.color = old;
+        DrawDecor();
+        // vignette: darker toward the arena's edges
+        GUI.color = new Color(0, 0, 0, 0.75f);
+        GUI.DrawTexture(new Rect(0, 44, W, FloorY + 20 - 44), vignette, ScaleMode.StretchToFill);
+        GUI.color = old;
         Fill(new Rect(0, FloorY + 20, W, H), Panel);
 
         for (int i = run.Party.Count - 1; i >= 0; i--) DrawMember(i);
+        if (onTitle) return;
         Bar(FrontX - MemberGap * 0.5f, 132, shownHp, run.MaxHp, HealGreen, 220);
         Shadowed(new Rect(FrontX - MemberGap * 0.5f - 110, 88, 220, 24), "파티 HP", small, Color.white);
 
@@ -734,6 +774,66 @@ public class GameView : MonoBehaviour
             GUI.Label(plate, new GUIContent("", "적의 다음 행동: " + intent.tip));
             if (run.EnemyRage > 0) Shadowed(new Rect(EnemyX + 90, top - 4, 120, 24), $"분노 +{run.EnemyRage}", tiny, HitRed, TextAnchor.MiddleLeft);
         }
+    }
+
+    /// <summary>Per-chapter wall dressing: slime and fountains in the swamp, holes and columns in the prison, lava in the cave.</summary>
+    void DrawDecor()
+    {
+        Texture2D Anim3(string b) => T($"0x72/{b}_f{(int)(Time.time * 6) % 3}");
+        void Wall(int col, string name) => DrawTex(T("0x72/" + name), new Rect(col * Tile, 44 + Tile, Tile, Tile));
+        void Fountain(int col, string color, Color light)
+        {
+            DrawTex(T("0x72/wall_fountain_top_1"), new Rect(col * Tile, 44, Tile, Tile));
+            DrawTex(Anim3($"wall_fountain_mid_{color}_anim"), new Rect(col * Tile, 44 + Tile, Tile, Tile));
+            DrawTex(Anim3($"wall_fountain_basin_{color}_anim"), new Rect(col * Tile, 44 + 2 * Tile, Tile, Tile));
+            light.a *= 0.8f + 0.2f * Mathf.Sin(Time.time * 7 + col);
+            Glow(new Vector2(col * Tile + Tile / 2f, 44 + 2 * Tile), 260, light);
+        }
+        void Prop(int col, string name, float h) => DrawTex(T("0x72/" + name), new Rect(col * Tile, FloorY - h, Tile, h));
+
+        switch (run.Chapter)
+        {
+            case 0:
+                Wall(3, "wall_goo"); DrawTex(T("0x72/wall_goo_base"), new Rect(3 * Tile, 44 + 2 * Tile, Tile, Tile));
+                Wall(12, "wall_goo");
+                Wall(7, "wall_banner_green"); Wall(23, "wall_banner_green");
+                Fountain(16, "blue", new Color(0.4f, 0.7f, 1f, 0.35f));
+                break;
+            case 1:
+                Wall(4, "wall_hole_1"); Wall(15, "wall_hole_2"); Wall(19, "wall_hole_1");
+                Wall(9, "wall_banner_blue"); Wall(23, "wall_banner_blue");
+                Prop(0, "column", Tile * 3); Prop(26, "column", Tile * 3);
+                Prop(1, "crate", Tile); Prop(25, "crate", Tile);
+                break;
+            default:
+                Fountain(5, "red", new Color(1f, 0.45f, 0.15f, 0.45f));
+                Fountain(21, "red", new Color(1f, 0.45f, 0.15f, 0.45f));
+                Wall(12, "wall_banner_red"); Wall(2, "wall_banner_yellow"); Wall(25, "wall_banner_red");
+                break;
+        }
+    }
+
+    /// <summary>Drifting chapter particles: swamp fireflies, prison dust, cave embers.</summary>
+    void SpawnAmbient()
+    {
+        if (Random.value > Time.deltaTime * 8) return;
+        var p = new Particle { born = Time.time, size = Random.Range(3f, 6f) };
+        switch (run.Chapter)
+        {
+            case 0:
+                p.pos = new Vector2(Random.Range(0, W), Random.Range(150, FloorY));
+                p.vel = Random.insideUnitCircle * 15; p.life = 3; p.color = new Color(0.8f, 1f, 0.4f);
+                break;
+            case 1:
+                p.pos = new Vector2(Random.Range(0, W), 140);
+                p.vel = new Vector2(Random.Range(-5, 5), 25); p.life = 6; p.size = 3; p.color = new Color(0.75f, 0.75f, 0.8f, 0.6f);
+                break;
+            default:
+                p.pos = new Vector2(Random.Range(0, W), FloorY);
+                p.vel = new Vector2(Random.Range(-10, 10), -50); p.gravity = -12; p.life = 3.5f; p.color = new Color(1f, 0.55f, 0.15f);
+                break;
+        }
+        particles.Add(p);
     }
 
     void DrawMember(int i)
@@ -844,6 +944,18 @@ public class GameView : MonoBehaviour
         Shadowed(new Rect(0, 622, W / 2 - 140, 40), $"다시 돌리기 {run.RerollsLeft}회", small, new Color(0.75f, 0.75f, 0.8f), TextAnchor.MiddleRight);
         GUI.enabled = settled;
         if (GUI.Button(new Rect(W / 2 - 120, 616, 240, 58), "확정!", button)) { Sfx("ui_click"); StartCoroutine(PlayTurn()); }
+        if (settled)
+        {
+            int n = shownFaces.Length;
+            var reels = new Rect(startX - 6, ReelY - 36, n * ReelSize + (n - 1) * ReelGap + 12, ReelSize + 44);
+            Tip("reels", reels, "동료 한 명이 릴 하나예요. 서로 다른 릴에서 같은 심볼이 2개 이상 뜨면 콤보로 효과가 커져요!");
+            Tip("intent", new Rect(EnemyX - 330, FloorY - 215, 200, 52), "적이 다음에 할 행동이에요. 공격이 크면 방패로 막고, 방어 중이면 회복이나 게이지를 모아요.");
+            Tip("reroll", new Rect(startX, ReelY + ReelSize + 34, 42, 32), "↻ 버튼으로 턴마다 릴 하나를 다시 돌릴 수 있어요. 해골이 떴을 때 써 보세요.");
+            int ready = Enumerable.Range(0, n).FirstOrDefault(i => run.SkillReady(i) && !run.Armed.Contains(i));
+            if (run.SkillReady(ready) && !run.Armed.Contains(ready))
+                Tip("skill", new Rect(startX + ready * (ReelSize + ReelGap) + 46, ReelY + ReelSize + 34, ReelSize - 46, 32), "게이지(●●●)가 다 찼어요! 스킬 버튼을 누르면 확정할 때 함께 발동해요.");
+            Tip("confirm", new Rect(W / 2 - 120, 616, 240, 58), "준비가 되면 확정! 동료들이 공격하고, 그다음 적이 행동해요.");
+        }
         GUI.enabled = true;
     }
 
@@ -855,6 +967,7 @@ public class GameView : MonoBehaviour
         Shadowed(new Rect(0, 348, W, 40), $"{run.ChapterDef.name} — 다음 갈 곳을 고르세요", mid, Gold);
 
         var available = run.Available.ToList();
+        Tip("map", new Rect(120, 380, 160, 270), "금색으로 반짝이는 칸을 눌러 다음 장소로 가요. 칸에 마우스를 올리면 무엇이 있는지 보여요.");
         foreach (var row in map.Rows)
             foreach (var n in row)
                 foreach (var next in n.Next)
@@ -880,7 +993,7 @@ public class GameView : MonoBehaviour
                 if (icon == null) Shadowed(r, "?", big, n.Visited && !here ? new Color(1, 1, 1, 0.35f) : Gold);
                 else
                 {
-                    float s = Mathf.Floor(Mathf.Min(r.width * 0.8f / icon.width, r.height * 0.8f / icon.height));
+                    float s = Mathf.Min(r.width * 0.8f / icon.width, r.height * 0.8f / icon.height); // fill the box; small sprites stay readable
                     var oldC = GUI.color;
                     GUI.color = n.Visited && !here ? new Color(1, 1, 1, 0.35f) : n.Type == NodeType.Elite ? new Color(1f, 0.6f, 0.6f) : Color.white;
                     GUI.DrawTexture(new Rect(p.x - icon.width * s / 2, p.y - icon.height * s / 2, icon.width * s, icon.height * s), icon);
@@ -900,7 +1013,8 @@ public class GameView : MonoBehaviour
 
     void DrawOffers()
     {
-        Fill(new Rect(W / 2 - 340, 345, 680, 335), new Color(0, 0, 0, 0.55f));
+        Tip("reward", new Rect(W / 2 - 280, 404, 560, run.Offers.Count * 72), "보상을 하나 골라요. 마우스를 올리면 자세한 효과가 보여요. 마음에 안 들면 건너뛰어도 돼요.");
+        DrawPanel(new Rect(W / 2 - 340, 345, 680, 335));
         Shadowed(new Rect(0, 350, W, 48), run.OfferTitle, big, Gold);
         for (int i = 0; i < run.Offers.Count; i++)
         {
@@ -924,7 +1038,8 @@ public class GameView : MonoBehaviour
 
     void DrawShop()
     {
-        Fill(new Rect(W / 2 - 380, 345, 760, 337), new Color(0, 0, 0, 0.6f));
+        Tip("shop", new Rect(W / 2 - 370, 396, 740, 50), "골드로 강화·장비·유물·동료를 살 수 있어요. 강화는 모든 릴의 그 심볼에 적용돼요.");
+        DrawPanel(new Rect(W / 2 - 380, 345, 760, 337));
         Shadowed(new Rect(0, 348, W, 40), "떠돌이 상인", big, Gold);
         int cost = run.ShopRerollCost;
         GUI.enabled = run.Gold >= cost;
@@ -958,6 +1073,96 @@ public class GameView : MonoBehaviour
         }
     }
 
+    /// <summary>Ask for a guide bubble this frame; the first unseen request wins and is drawn on top.</summary>
+    void Tip(string key, Rect target, string text)
+    {
+        if (tipKey != null || seenTips.Contains(key) || busy || talk.Count > 0 || paused || onTitle) return;
+        tipKey = key;
+        tipText = text;
+        tipTarget = target;
+    }
+
+    void DrawTip()
+    {
+        if (tipKey == null) return;
+        // pulsing outline around what the tip is about
+        var c = new Color(Gold.r, Gold.g, Gold.b, 0.6f + 0.4f * Mathf.Sin(Time.unscaledTime * 6));
+        var t = tipTarget;
+        Fill(new Rect(t.x - 4, t.y - 4, t.width + 8, 3), c);
+        Fill(new Rect(t.x - 4, t.yMax + 1, t.width + 8, 3), c);
+        Fill(new Rect(t.x - 4, t.y - 4, 3, t.height + 8), c);
+        Fill(new Rect(t.xMax + 1, t.y - 4, 3, t.height + 8), c);
+        // bubble above the target if there is room, else below
+        var size = new Vector2(420, 118);
+        float x = Mathf.Clamp(t.center.x - size.x / 2, 10, W - size.x - 10);
+        float y = t.y - size.y - 14 > 40 ? t.y - size.y - 14 : Mathf.Min(t.yMax + 14, H - size.y - 10);
+        var box = new Rect(x, y, size.x, size.y);
+        DrawPanel(box);
+        story_.fontSize = 17;
+        story_.normal.textColor = Color.white;
+        GUI.Label(new Rect(box.x + 16, box.y + 12, box.width - 32, 64), tipText, story_);
+        story_.fontSize = 22;
+        if (GUI.Button(new Rect(box.xMax - 120, box.yMax - 42, 106, 32), "알겠어요", smallButton))
+        {
+            seenTips.Add(tipKey);
+            PlayerPrefs.SetString("tips", string.Join(",", seenTips));
+            PlayerPrefs.Save();
+            Sfx("ui_click");
+        }
+    }
+
+    void SetPaused(bool on)
+    {
+        paused = on;
+        showSettings = false;
+        Time.timeScale = on ? 0 : 1;
+        Sfx("ui_click");
+    }
+
+    void DrawPause()
+    {
+        Fill(new Rect(-20, -20, W + 40, H + 40), new Color(0, 0, 0, 0.6f));
+        var box = new Rect(W / 2 - 220, 150, 440, 400);
+        DrawPanel(box);
+        if (showSettings) { DrawSettings(box); return; }
+        Shadowed(new Rect(box.x, box.y + 20, box.width, 50), "일시정지", big, Gold);
+        float y = box.y + 100;
+        if (GUI.Button(new Rect(box.x + 70, y, 300, 52), "계속하기", button)) SetPaused(false);
+        if (GUI.Button(new Rect(box.x + 70, y + 66, 300, 52), "설정", button)) showSettings = true;
+        if (GUI.Button(new Rect(box.x + 70, y + 132, 300, 52), "타이틀로 (이번 판 포기)", button)) { SetPaused(false); NewRun(); onTitle = true; }
+        if (GUI.Button(new Rect(box.x + 70, y + 198, 300, 52), "게임 종료", button)) Application.Quit();
+    }
+
+    void DrawSettings(Rect box)
+    {
+        Shadowed(new Rect(box.x, box.y + 20, box.width, 50), "설정", big, Gold);
+        float x = box.x + 40, y = box.y + 96;
+        Shadowed(new Rect(x, y, 160, 30), "음악", mid, Color.white, TextAnchor.MiddleLeft);
+        musicVol = GUI.HorizontalSlider(new Rect(x + 150, y + 10, 200, 20), musicVol, 0, 1);
+        Shadowed(new Rect(x, y + 50, 160, 30), "효과음", mid, Color.white, TextAnchor.MiddleLeft);
+        float before = sfxVol;
+        sfxVol = GUI.HorizontalSlider(new Rect(x + 150, y + 60, 200, 20), sfxVol, 0, 1);
+        if (Mathf.Abs(before - sfxVol) > 0.05f) Sfx("coin", 0.6f); // preview while dragging
+        music.volume = 0.3f * musicVol;
+        if (GUI.Button(new Rect(x, y + 104, 360, 44), Screen.fullScreen ? "전체화면: 켬" : "전체화면: 끔", smallButton))
+            Screen.fullScreen = !Screen.fullScreen;
+        if (GUI.Button(new Rect(x, y + 156, 360, 44), shakeOn ? "화면 흔들림·번쩍임: 켬" : "화면 흔들림·번쩍임: 끔", smallButton))
+            shakeOn = !shakeOn;
+        if (GUI.Button(new Rect(x, y + 208, 170, 40), "안내 다시 보기", smallButton))
+        {
+            seenTips.Clear();
+            PlayerPrefs.SetString("tips", "");
+        }
+        if (GUI.Button(new Rect(x + 190, y + 208, 170, 40), "돌아가기", smallButton))
+        {
+            PlayerPrefs.SetFloat("musicVol", musicVol);
+            PlayerPrefs.SetFloat("sfxVol", sfxVol);
+            PlayerPrefs.SetInt("shake", shakeOn ? 1 : 0);
+            PlayerPrefs.Save();
+            if (onTitle) { paused = false; showSettings = false; } else showSettings = false;
+        }
+    }
+
     void DrawTitle()
     {
         Fill(new Rect(0, 0, W, H), new Color(0, 0, 0, 0.35f));
@@ -983,14 +1188,15 @@ public class GameView : MonoBehaviour
             lineStart = Time.time;
             Sfx("combo");
         }
-        if (GUI.Button(new Rect(W / 2 - 130, 556, 260, 48), "종료", smallButton)) Application.Quit();
-        Shadowed(new Rect(0, 640, W, 30), "아트: 0x72 DungeonTileset II (CC0) · 소리: 직접 합성", tiny, new Color(1, 1, 1, 0.5f));
+        if (GUI.Button(new Rect(W / 2 - 130, 556, 125, 48), "설정", smallButton)) { showSettings = true; paused = true; }
+        if (GUI.Button(new Rect(W / 2 + 5, 556, 125, 48), "종료", smallButton)) Application.Quit();
+        Shadowed(new Rect(0, 640, W, 30), $"v{Application.version} · 아트: 0x72 DungeonTileset II (CC0) · 글꼴: 갈무리 (OFL) · 소리: 직접 합성", tiny, new Color(1, 1, 1, 0.5f));
     }
 
     void DrawEnd()
     {
         bool won = run.Phase == Phase.Won;
-        Fill(new Rect(W / 2 - 360, 345, 720, 335), new Color(0, 0, 0, 0.6f));
+        DrawPanel(new Rect(W / 2 - 360, 345, 720, 335));
         Shadowed(new Rect(0, 352, W, 60), won ? "던전 정복!" : "쓰러졌다...", big, won ? Gold : HitRed);
         string reached = won ? "운명의 릴을 되찾았다" : $"{run.Chapter + 1}장 {run.ChapterDef.name}에서 쓰러짐";
         Shadowed(new Rect(0, 410, W, 30), reached, mid, Color.white);
@@ -1120,7 +1326,7 @@ public class GameView : MonoBehaviour
         {
             case NodeType.Elite: return T("0x72/skull");
             case NodeType.Recruit: return Anim("elf_m_idle_anim");
-            case NodeType.Shop: return T("0x72/coin_anim_f" + (int)(Time.time * 6) % 4);
+            case NodeType.Shop: return T("0x72/coin_anim_f0");
             case NodeType.Rest: return T("0x72/flask_big_green");
             case NodeType.Treasure: return T("0x72/chest_full_open_anim_f0");
             case NodeType.Boss: return Anim(run.ChapterDef.boss.sprite);
@@ -1269,6 +1475,8 @@ public class GameView : MonoBehaviour
         if (t != null) GUI.DrawTexture(r, t);
     }
 
+    void DrawPanel(Rect r) => GUI.Box(r, GUIContent.none, panel);
+
     static void Fill(Rect r, Color c)
     {
         var old = GUI.color;
@@ -1291,17 +1499,23 @@ public class GameView : MonoBehaviour
     void InitStyles()
     {
         if (big != null) return;
-        var font = Font.CreateDynamicFontFromOSFont(new[] { "Apple SD Gothic Neo", "AppleGothic", "Malgun Gothic" }, 32);
-        GUIStyle Make(int size) => new GUIStyle(GUI.skin.label) { font = font, fontSize = size, alignment = TextAnchor.MiddleCenter };
-        big = Make(40);
-        mid = Make(26);
+        // Galmuri pixel fonts ship with the game (OFL, Resources/Fonts); the OS font is only a fallback.
+        var font = Resources.Load<Font>("Fonts/Galmuri11") ?? Font.CreateDynamicFontFromOSFont(new[] { "Apple SD Gothic Neo", "Malgun Gothic" }, 32);
+        var bold = Resources.Load<Font>("Fonts/Galmuri11-Bold") ?? font;
+        var display = Resources.Load<Font>("Fonts/Galmuri14") ?? bold;
+        GUIStyle Make(int size, Font f = null) => new GUIStyle(GUI.skin.label) { font = f ?? font, fontSize = size, alignment = TextAnchor.MiddleCenter };
+        big = Make(40, bold);
+        mid = Make(24);
         small = Make(18);
         tiny = Make(15);
-        pop = Make(52);
-        big.fontStyle = pop.fontStyle = FontStyle.Bold;
-        button = new GUIStyle(GUI.skin.button) { font = font, fontSize = 22 };
-        smallButton = new GUIStyle(GUI.skin.button) { font = font, fontSize = 17 };
-        shopButton = new GUIStyle(GUI.skin.button) { font = font, fontSize = 15, alignment = TextAnchor.MiddleLeft, wordWrap = true };
+        pop = Make(52, display);
+        button = UiSkin.Button(bold, 22);
+        smallButton = UiSkin.Button(font, 16);
+        smallButton.padding = new RectOffset(2, 2, 3, 5); // skill names must fit narrow reel buttons
+        shopButton = UiSkin.Button(font, 15);
+        shopButton.alignment = TextAnchor.MiddleLeft;
+        shopButton.wordWrap = true;
+        panel = UiSkin.Panel();
         shopButton.padding.left = 54; // room for the item icon
         story_ = new GUIStyle(GUI.skin.label) { font = font, fontSize = 22, wordWrap = true, alignment = TextAnchor.UpperLeft };
 
@@ -1314,6 +1528,16 @@ public class GameView : MonoBehaviour
                 glow.SetPixel(x, y, new Color(1, 1, 1, Mathf.Pow(Mathf.Clamp01(1 - d), 2)));
             }
         glow.Apply();
+
+        vignette = new Texture2D(64, 36, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+        for (int y = 0; y < 36; y++)
+            for (int x = 0; x < 64; x++)
+            {
+                float dx = (x - 31.5f) / 32f, dy = (y - 17.5f) / 18f;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                vignette.SetPixel(x, y, new Color(1, 1, 1, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0.55f, 1.25f, d))));
+            }
+        vignette.Apply();
     }
 
     static Color Hex(string hex) => ColorUtility.TryParseHtmlString(hex, out var c) ? c : Color.gray;

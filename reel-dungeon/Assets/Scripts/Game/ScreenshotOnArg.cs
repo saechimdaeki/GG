@@ -28,7 +28,8 @@ public class ScreenshotOnArg : MonoBehaviour
         var scene = Arg("--scene");
         if (!string.IsNullOrEmpty(scene)) yield return SceneManager.LoadSceneAsync(scene);
         // --at <seconds> beats --after <frames> when the moment is time-based (animations; 60 vs 120 Hz displays).
-        if (float.TryParse(Arg("--at"), out var sec)) yield return new WaitForSeconds(sec);
+        // real time, so a paused game (timeScale 0) can still be captured
+        if (float.TryParse(Arg("--at"), out var sec)) yield return new WaitForSecondsRealtime(sec);
         else
         {
             int after = int.TryParse(Arg("--after"), out var n) ? n : 60;

@@ -135,6 +135,15 @@ namespace ReelDungeon.Core
 
         // ---------- map ----------
 
+        /// <summary>Start a later chapter on a fresh map (screenshots, a future chapter select).</summary>
+        public void JumpToChapter(int chapter)
+        {
+            Chapter = Math.Max(0, Math.Min(cfg.chapters.Length - 1, chapter));
+            Map = StageMap.Generate(cfg, rng);
+            Current = null;
+            Phase = Phase.Map;
+        }
+
         /// <summary>Walk to an available node and enter it. Returns false if it isn't reachable.</summary>
         public bool Choose(MapNode node)
         {
@@ -584,7 +593,7 @@ namespace ReelDungeon.Core
         {
             var s = byId[id];
             string stat = MainStat(s) == "damage" ? "공격" : MainStat(s) == "block" ? "방어" : MainStat(s) == "heal" ? "회복" : MainStat(s) == "gold" ? "골드" : "약화";
-            return new Reward { Kind = RewardKind.Upgrade, SymbolId = id, Text = $"{s.name} 강화 Lv{Level(id) + 1}: 모든 {s.name} {stat} +1" };
+            return new Reward { Kind = RewardKind.Upgrade, SymbolId = id, Text = $"{s.name} 강화 Lv{Level(id) + 1}: {stat} +1" };
         }
 
         /// <summary>Remove the weakest ordinary symbol from a reel that has more than three faces.</summary>
