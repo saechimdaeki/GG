@@ -5,7 +5,7 @@ using System.Linq;
 namespace ReelDungeon.Core
 {
     public enum Phase { Map, Turn, Reward, Shop, Event, Won, Lost }
-    public enum RewardKind { AddSymbol, RemoveSymbol, Heal, Recruit, Gold, Equip, Relic }
+    public enum RewardKind { AddSymbol, RemoveSymbol, Heal, Recruit, Gold, Equip, Relic, Upgrade }
 
     /// <summary>One enemy action, parsed from "kind:value".</summary>
     public struct EnemyMove
@@ -49,6 +49,9 @@ namespace ReelDungeon.Core
         /// <summary>Equipment item id per member, null when the slot is empty.</summary>
         public List<string> Equipment { get; } = new List<string>();
         public List<string> Relics { get; } = new List<string>();
+        /// <summary>Upgrade level per symbol id; each level adds +1 to that symbol's main stat on every reel.</summary>
+        public Dictionary<string, int> SymbolLevel { get; } = new Dictionary<string, int>();
+        public int ShopRerolls { get; private set; }
         public HashSet<int> Armed { get; } = new HashSet<int>();
         public SymbolDef[] Faces { get; private set; } = new SymbolDef[0];
         public List<Reward> Offers { get; } = new List<Reward>();
@@ -117,6 +120,17 @@ namespace ReelDungeon.Core
         public CompanionDef Companion(string id) => companions[id];
         public ItemDef Item(string id) => items[id];
 
+        public int Level(string symbolId) => SymbolLevel.TryGetValue(symbolId, out var l) ? l : 0;
+
+        /// <summary>The stat an upgrade raises: the symbol's biggest one (damage, block, heal, gold, weaken).</summary>
+        public static string MainStat(SymbolDef s)
+        {
+            var stats = new[] { ("damage", s.damage), ("block", s.block), ("heal", s.heal), ("gold", s.gold), ("weaken", s.weaken) };
+            return stats.OrderByDescending(x => x.Item2).First().Item1;
+        }
+
+        public int ShopRerollCost => cfg.prices.reroll + ShopRerolls * cfg.prices.rerollStep;
+
         int RelicTotal(string stat) => Relics.Select(Item).Where(i => i.stat == stat).Sum(i => i.value);
 
         // ---------- map ----------
@@ -152,6 +166,8 @@ namespace ReelDungeon.Core
             for (int i = 0; i < Faces.Length; i++)
                 foreach (var item in ItemsOn(i))
                     if (item.symbol == Faces[i].id) AddStat(o, item.stat, item.value);
+            foreach (var f in Faces)
+                if (!f.curse && Level(f.id) > 0) AddStat(o, MainStat(f), Level(f.id));
             if (RelicTotal("noSelfDamage") > 0) o.selfDamage = 0;
 
             var skills = Armed.Select(Member).ToList();
@@ -443,10 +459,26 @@ namespace ReelDungeon.Core
 
         // ---------- shop ----------
 
+        /// <summary>Spend gold to replace every shop item. Each restock this run costs more.</summary>
+        public bool RerollShop()
+        {
+            if (Phase != Phase.Shop || Gold < ShopRerollCost) return false;
+            Gold -= ShopRerollCost;
+            ShopRerolls++;
+            OpenShop();
+            Log = "상점 물건이 바뀌었다";
+            return true;
+        }
+
         void OpenShop()
         {
             var p = cfg.prices;
             ShopItems.Clear();
+            // upgrades for two symbols the party actually has, and one trim
+            var owned = Reels.SelectMany(r => r).Distinct().Where(id => !byId[id].curse).OrderBy(_ => rng.Next()).Take(2);
+            foreach (var id in owned) ShopItems.Add(Priced(UpgradeOffer(id), p.upgrade + Level(id) * p.upgradeStep));
+            var trim = TrimOffer();
+            if (trim != null) ShopItems.Add(Priced(trim, p.trim));
             for (int k = 0; k < 2; k++) ShopItems.Add(Priced(AddOffer(), p.addSymbol));
             var curse = CurseOffer();
             if (curse != null) ShopItems.Add(Priced(curse, p.removeCurse));
@@ -497,6 +529,7 @@ namespace ReelDungeon.Core
                 case RewardKind.Recruit: Recruit(r.CompanionId); break;
                 case RewardKind.Gold: Gold += r.Amount; break;
                 case RewardKind.Equip: Equipment[r.Reel] = r.ItemId; break;
+                case RewardKind.Upgrade: SymbolLevel[r.SymbolId] = Level(r.SymbolId) + 1; break;
                 case RewardKind.Relic:
                     Relics.Add(r.ItemId);
                     if (Item(r.ItemId).stat == "maxHp") Hp += Item(r.ItemId).value;
@@ -545,6 +578,25 @@ namespace ReelDungeon.Core
             if (cursed < 0) return null;
             var id = Reels[cursed].First(x => byId[x].curse);
             return new Reward { Kind = RewardKind.RemoveSymbol, Reel = cursed, SymbolId = id, Text = $"{Member(cursed).name} 릴에서 {byId[id].name} 제거" };
+        }
+
+        Reward UpgradeOffer(string id)
+        {
+            var s = byId[id];
+            string stat = MainStat(s) == "damage" ? "공격" : MainStat(s) == "block" ? "방어" : MainStat(s) == "heal" ? "회복" : MainStat(s) == "gold" ? "골드" : "약화";
+            return new Reward { Kind = RewardKind.Upgrade, SymbolId = id, Text = $"{s.name} 강화 Lv{Level(id) + 1}: 모든 {s.name} {stat} +1" };
+        }
+
+        /// <summary>Remove the weakest ordinary symbol from a reel that has more than three faces.</summary>
+        Reward TrimOffer()
+        {
+            var candidates = Enumerable.Range(0, Reels.Count).Where(i => Reels[i].Count > 3).ToList();
+            if (candidates.Count == 0) return null;
+            int reel = candidates[rng.Next(candidates.Count)];
+            var id = Reels[reel].Where(x => !byId[x].curse && x != Member(reel).signature) // keep the skill's fuel
+                .OrderBy(x => byId[x].damage + byId[x].block + byId[x].heal + byId[x].gold).FirstOrDefault();
+            if (id == null) return null;
+            return new Reward { Kind = RewardKind.RemoveSymbol, Reel = reel, SymbolId = id, Text = $"{Member(reel).name} 릴 다듬기: {byId[id].name} 빼기" };
         }
 
         Reward RecruitOffer(CompanionDef c) =>

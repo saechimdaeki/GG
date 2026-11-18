@@ -21,13 +21,14 @@ public class RunTests
         playerMaxHp = 40, rerollsPerTurn = 1, pairMultiplier = 1.5f, tripleMultiplier = 2f, restHeal = 10, chapterHeal = 15,
         skillCharge = 3, maxParty = 4, startingGold = 100, treasureGold = 30, mimicChance = 0, mapRows = 4,
         nodePool = new[] { "Combat" },
-        prices = new Prices { addSymbol = 25, removeCurse = 40, heal = 15, healAmount = 12, recruit = 60 },
+        prices = new Prices { addSymbol = 25, removeCurse = 40, heal = 15, healAmount = 12, recruit = 60, equip = 50, relic = 80, upgrade = 35, upgradeStep = 20, trim = 30, reroll = 15, rerollStep = 10 },
         startingParty = party,
         symbols = new[] { Sword, Shield, Coin, Skull },
         companions = new[]
         {
             Mate("a", "shieldBash", 0, face), Mate("b", "volley", 6, face), Mate("c", "rage", 0, face),
             Mate("d", "freeze", 0, face), Mate("e", "prayer", 8, face, "skull"),
+            Mate("g", "volley", 6, face, "shield", "shield", "sword"),
         },
         chapters = Enumerable.Range(0, chapters)
             .Select(_ => new ChapterDef { name = "장", enemies = new[] { enemy }, elites = new[] { enemy }, boss = boss ?? enemy }).ToArray(),
@@ -223,11 +224,12 @@ public class RunTests
     {
         var run = Enter(Config("sword", Trio, Enemy(10, 5)), NodeType.Shop);
         Assert.AreEqual(Phase.Shop, run.Phase);
-        int reel = run.ShopItems[0].Reel, before = run.Reels[reel].Count;
-        Assert.IsTrue(run.Buy(0));
+        int k = run.ShopItems.FindIndex(r => r.Kind == RewardKind.AddSymbol);
+        int reel = run.ShopItems[k].Reel, before = run.Reels[reel].Count;
+        Assert.IsTrue(run.Buy(k));
         Assert.AreEqual(75, run.Gold);
         Assert.AreEqual(before + 1, run.Reels[reel].Count);
-        Assert.IsFalse(run.Buy(0));
+        Assert.IsFalse(run.Buy(k));
         run.LeaveShop();
         Assert.AreEqual(Phase.Map, run.Phase);
     }
@@ -277,7 +279,7 @@ public class RunTests
     public void Recruit_AddsMemberReelAndFace()
     {
         var run = Enter(Config("sword", Trio, Enemy(10, 5)), NodeType.Recruit);
-        Assert.AreEqual(2, run.Offers.Count); // c and d are free
+        Assert.AreEqual(3, run.Offers.Count); // c, d and g are free
         run.ChooseReward(0);
         Assert.AreEqual(4, run.Party.Count);
         Assert.AreEqual(4, run.Reels.Count);
@@ -540,5 +542,52 @@ public class RunTests
         run.Commit();
         Assert.AreEqual(before, Skulls(run));
         Assert.AreEqual(40, run.Hp);
+    }
+
+    // ---------- gold sinks ----------
+
+    [Test]
+    public void Upgrade_AddsMainStatOnEveryFace()
+    {
+        var run = Enter(Config("sword", Trio, Enemy(999, 1)));
+        run.SymbolLevel["sword"] = 2;
+        Assert.AreEqual(18 + 3 * 2, run.Preview().damage);
+    }
+
+    [Test]
+    public void Shop_UpgradePriceRisesWithLevel()
+    {
+        var run = Enter(Config("sword", Trio, Enemy(10, 5)), NodeType.Shop);
+        int k = run.ShopItems.FindIndex(r => r.Kind == RewardKind.Upgrade && r.SymbolId == "sword");
+        Assert.AreEqual(35, run.ShopItems[k].Price);
+        Assert.IsTrue(run.Buy(k));
+        Assert.AreEqual(1, run.Level("sword"));
+        run.LeaveShop();
+        var next = run.Map.Rows[1][0];
+        next.Type = NodeType.Shop;
+        run.Choose(next);
+        Assert.AreEqual(55, run.ShopItems.First(r => r.Kind == RewardKind.Upgrade && r.SymbolId == "sword").Price);
+    }
+
+    [Test]
+    public void Shop_RerollCostsMoreEachTime()
+    {
+        var run = Enter(Config("sword", Trio, Enemy(10, 5)), NodeType.Shop);
+        Assert.IsTrue(run.RerollShop());
+        Assert.AreEqual(85, run.Gold);
+        Assert.IsTrue(run.RerollShop());
+        Assert.AreEqual(60, run.Gold);
+        Assert.AreEqual(35, run.ShopRerollCost);
+        Assert.AreEqual(Phase.Shop, run.Phase);
+    }
+
+    [Test]
+    public void Shop_TrimRemovesWeakestSymbol()
+    {
+        var run = Enter(Config("sword", new[] { "a", "b", "g" }, Enemy(10, 5)), NodeType.Shop);
+        int k = run.ShopItems.FindIndex(r => r.Kind == RewardKind.RemoveSymbol && r.Reel == 2);
+        Assert.AreEqual(30, run.ShopItems[k].Price);
+        run.Buy(k);
+        Assert.AreEqual(3, run.Reels[2].Count);
     }
 }

@@ -40,6 +40,14 @@ namespace ReelDungeon.Core
         public int recruit;
         public int equip;
         public int relic;
+        /// <summary>Symbol upgrade: upgrade + level * upgradeStep.</summary>
+        public int upgrade;
+        public int upgradeStep;
+        /// <summary>Remove one ordinary symbol from a reel.</summary>
+        public int trim;
+        /// <summary>Restock the shop: reroll + timesRerolled * rerollStep (per run).</summary>
+        public int reroll;
+        public int rerollStep;
     }
 
     /// <summary>One reel face. Values are per symbol before combo multipliers.</summary>

@@ -18,6 +18,7 @@
     "Combat",
     "Elite",
     "Shop",
+    "Shop",
     "Treasure",
     "Recruit",
     "Event",
@@ -30,7 +31,12 @@
     "healAmount": 12,
     "recruit": 60,
     "equip": 50,
-    "relic": 80
+    "relic": 80,
+    "upgrade": 35,
+    "upgradeStep": 20,
+    "trim": 30,
+    "reroll": 15,
+    "rerollStep": 10
   },
   "startingParty": [
     "knight",
@@ -344,7 +350,7 @@
       "boss": {
         "name": "거대 좀비",
         "sprite": "big_zombie_idle_anim",
-        "hp": 100,
+        "hp": 110,
         "gold": 60,
         "moves": [
           "attack:10",
@@ -420,7 +426,7 @@
       "boss": {
         "name": "대악마",
         "sprite": "big_demon_idle_anim",
-        "hp": 155,
+        "hp": 175,
         "gold": 0,
         "moves": [
           "attack:11",

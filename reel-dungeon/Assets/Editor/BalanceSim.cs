@@ -22,7 +22,7 @@ public static class BalanceSim
         var endings = new Dictionary<string, int>();
         int wins = 0;
         var chapterReached = new int[cfg.chapters.Length + 1];
-        double turns = 0, party = 0, gold = 0;
+        double turns = 0, party = 0, gold = 0, earned = 0, upgrades = 0;
         var bossHp = new List<float>[cfg.chapters.Length];
         for (int c = 0; c < bossHp.Length; c++) bossHp[c] = new List<float>();
         for (int seed = 0; seed < runs; seed++)
@@ -31,6 +31,8 @@ public static class BalanceSim
             turns += t;
             party += run.Party.Count;
             gold += run.Gold;
+            earned += run.GoldEarned + cfg.startingGold;
+            upgrades += run.SymbolLevel.Values.Sum();
             if (run.Phase == Phase.Won) { wins++; chapterReached[cfg.chapters.Length]++; continue; }
             chapterReached[run.Chapter]++;
             string where = $"{run.Chapter + 1}장 {run.Current?.Type} {run.Enemy?.name}";
@@ -40,6 +42,7 @@ public static class BalanceSim
         var report = new List<string>
         {
             $"runs {runs}  win {100.0 * wins / runs:F1}%  avg turns {turns / runs:F1}  avg party {party / runs:F2}  avg gold left {gold / runs:F0}",
+            $"gold: earned {earned / runs:F0}, spent {(earned - gold) / runs:F0} ({100 * (earned - gold) / earned:F0}%), upgrades bought {upgrades / runs:F1}",
             "ended in chapter: " + string.Join("  ", chapterReached.Select((v, k) => k < cfg.chapters.Length ? $"{k + 1}장 {v}" : $"클리어 {v}")),
             "HP at boss start: " + string.Join("  ", bossHp.Select((l, k) => l.Count == 0 ? $"{k + 1}장 -" : $"{k + 1}장 {100 * l.Average():F0}%")),
             "top deaths:",
@@ -121,6 +124,7 @@ public static class BalanceSim
             case RewardKind.Recruit: return 100;
             case RewardKind.Relic: return 90;
             case RewardKind.Equip: return 70;
+            case RewardKind.Upgrade: return 75;
             case RewardKind.RemoveSymbol: return 60;
             case RewardKind.Heal: return HpFrac(run) < 0.5f ? 85 : 10;
             case RewardKind.Gold: return 40;
@@ -137,6 +141,7 @@ public static class BalanceSim
     static void Shop(Run run)
     {
         bool bought = true;
+        int restocks = 0;
         while (bought)
         {
             bought = false;
@@ -148,6 +153,8 @@ public static class BalanceSim
                 if (item.Kind == RewardKind.AddSymbol && run.Gold < 70) continue; // save for better things
                 if (run.Buy(k)) { bought = true; break; }
             }
+            // rich and nothing left worth buying: restock, at most twice per visit
+            if (!bought && restocks < 2 && run.Gold >= run.ShopRerollCost + 60 && run.RerollShop()) { restocks++; bought = true; }
         }
         run.LeaveShop();
     }

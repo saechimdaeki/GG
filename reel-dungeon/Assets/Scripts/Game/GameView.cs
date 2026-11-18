@@ -21,7 +21,7 @@ public class GameView : MonoBehaviour
 
     TuningConfig cfg;
     Run run;
-    GUIStyle big, mid, small, tiny, button, smallButton, pop, story_;
+    GUIStyle big, mid, small, tiny, button, smallButton, shopButton, pop, story_;
     Texture2D glow;
     readonly Dictionary<string, Texture2D> tex = new Dictionary<string, Texture2D>();
     readonly Dictionary<string, int> frameCounts = new Dictionary<string, int>();
@@ -798,6 +798,7 @@ public class GameView : MonoBehaviour
                 Fill(local, Hex(face.color) * new Color(1, 1, 1, 0.35f));
                 Icon(face, local, 1 + 0.25f * (1 - land), 1);
                 if (face.id == m.signature && settled) Shadowed(new Rect(0, 2, r.width - 6, 20), "+1", tiny, Gold, TextAnchor.UpperRight);
+                if (run.Level(face.id) > 0) Shadowed(new Rect(6, r.height - 24, 60, 20), $"Lv{run.Level(face.id) + 1}", tiny, BlockBlue, TextAnchor.LowerLeft);
             }
             GUI.EndGroup();
 
@@ -923,28 +924,37 @@ public class GameView : MonoBehaviour
 
     void DrawShop()
     {
-        Fill(new Rect(W / 2 - 360, 345, 720, 335), new Color(0, 0, 0, 0.55f));
-        Shadowed(new Rect(0, 348, W, 44), "떠돌이 상인", big, Gold);
-        for (int i = 0; i < run.ShopItems.Count; i++)
+        Fill(new Rect(W / 2 - 380, 345, 760, 337), new Color(0, 0, 0, 0.6f));
+        Shadowed(new Rect(0, 348, W, 40), "떠돌이 상인", big, Gold);
+        int cost = run.ShopRerollCost;
+        GUI.enabled = run.Gold >= cost;
+        if (GUI.Button(new Rect(W / 2 - 370, 352, 160, 34), new GUIContent($"↻ 갱신 {cost}", "상점 물건을 모두 바꾼다 (할 때마다 비싸짐)"), smallButton))
         {
-            var item = run.ShopItems[i];
-            var r = new Rect(W / 2 - 300, 396 + i * 48, 460, 44);
-            GUI.enabled = !item.Sold && run.Gold >= item.Price;
-            if (GUI.Button(r, new GUIContent(item.Sold ? "판매 완료" : item.Text, OfferTip(item)), smallButton))
-            {
-                if (run.Buy(i)) Sfx("coin");
-                Sync();
-                Burst(new Vector2(r.xMax + 60, r.center.y), Gold, 12, 120, 200, 0.5f, 5);
-            }
-            GUI.enabled = true;
-            if (!item.Sold) OfferIcon(item, new Rect(r.x, r.y - 6, r.width, r.height + 12));
-            DrawTex(T("0x72/coin_anim_f0"), new Rect(r.xMax + 16, r.y + 14, 15, 18));
-            Shadowed(new Rect(r.xMax + 38, r.y, 100, r.height), item.Price.ToString(), mid, run.Gold >= item.Price || item.Sold ? Gold : HitRed, TextAnchor.MiddleLeft);
+            if (run.RerollShop()) { Sfx("reel_stop"); Sync(); Burst(new Vector2(W / 2, 520), Gold, 20, 200, 100, 0.5f, 5); }
         }
-        if (GUI.Button(new Rect(W / 2 - 90, 642, 180, 36), "떠나기", smallButton))
+        GUI.enabled = true;
+        if (GUI.Button(new Rect(W / 2 + 210, 352, 160, 34), "떠나기", smallButton))
         {
             run.LeaveShop();
             Sync();
+        }
+
+        // two columns of items: button with icon on the left, price on the right
+        for (int i = 0; i < run.ShopItems.Count; i++)
+        {
+            var item = run.ShopItems[i];
+            var cell = new Rect(W / 2 - 370 + (i % 2) * 375, 396 + (i / 2) * 56, 365, 50);
+            var r = new Rect(cell.x, cell.y, cell.width - 66, cell.height);
+            GUI.enabled = !item.Sold && run.Gold >= item.Price;
+            if (GUI.Button(r, new GUIContent(item.Sold ? "판매 완료" : item.Text, OfferTip(item)), shopButton))
+            {
+                if (run.Buy(i)) { Sfx(item.Kind == RewardKind.Upgrade ? "skill" : "coin"); Burst(new Vector2(r.xMax + 30, r.center.y), Gold, 12, 120, 200, 0.5f, 5); }
+                Sync();
+            }
+            GUI.enabled = true;
+            if (!item.Sold) OfferIcon(item, new Rect(r.x - 2, r.y, 50, r.height));
+            DrawTex(T("0x72/coin_anim_f0"), new Rect(r.xMax + 8, r.y + 16, 15, 18));
+            Shadowed(new Rect(r.xMax + 28, r.y, 40, r.height), item.Price.ToString(), small, run.Gold >= item.Price || item.Sold ? Gold : HitRed, TextAnchor.MiddleLeft);
         }
     }
 
@@ -1291,6 +1301,8 @@ public class GameView : MonoBehaviour
         big.fontStyle = pop.fontStyle = FontStyle.Bold;
         button = new GUIStyle(GUI.skin.button) { font = font, fontSize = 22 };
         smallButton = new GUIStyle(GUI.skin.button) { font = font, fontSize = 17 };
+        shopButton = new GUIStyle(GUI.skin.button) { font = font, fontSize = 15, alignment = TextAnchor.MiddleLeft, wordWrap = true };
+        shopButton.padding.left = 54; // room for the item icon
         story_ = new GUIStyle(GUI.skin.label) { font = font, fontSize = 22, wordWrap = true, alignment = TextAnchor.UpperLeft };
 
         // soft round glow, used for auras, magic bolts, rings and light beams
