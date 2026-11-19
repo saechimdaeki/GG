@@ -6,6 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
+| <img src="last-train/docs/media/gameplay.gif" width="260"> | **[막차까지](last-train/)** | 봉쇄된 도시 생존 — 낮엔 수색, 밤엔 쉼터 방어, 세 갈래 탈출 (3D 사선 시점, Unity) | 플레이 가능, 플레이테스트 중 |
 | <img src="reel-dungeon/docs/media/combat.gif" width="260"> | **[슬롯 던전](reel-dungeon/)** | 슬롯머신 턴제 던전 로그라이크 — 동료 한 명이 슬롯 한 줄, 11명 중 골라 3장 돌파 (2D 픽셀, Unity) | 플레이 가능 (이어하기·어려움 0~5·도감), 사람 플레이테스트 전 |
 | <img src="haunted-movers/docs/media/run.gif" width="260"> | **[유령집 이삿짐센터](haunted-movers/)** | 2~4인 온라인 협동 호러 — 귀신 들린 저택에서 고물 건지기 (1인칭 3D) | 플레이 가능, 플레이테스트 중 |
 | <img src="demon-lord-is-busy/docs/media/raid.gif" width="260"> | **[마왕님은 바쁘다](demon-lord-is-busy/)** | 던전 디펜스 + 액션 로그라이크 (2D) | 플레이 가능, 플레이테스트 중 |
@@ -39,7 +40,7 @@ open Builds/Mac/ReelDungeon.app
 
 ## 개발
 
-- 슬롯 던전만 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
+- 슬롯 던전·막차까지는 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
 - 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 슬롯 던전은 Mac 러너에서 EditMode 테스트를 돌립니다
 - 버전 태그를 푸시하면 게임 패키지가 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
 

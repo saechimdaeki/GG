@@ -1,0 +1,24 @@
+Library/
+Temp/
+Logs/
+UserSettings/
+Builds/
+obj/
+*.csproj
+*.sln
+
+# Unity Asset Store licensed source assets are imported into each licensed workspace.
+/Assets/Resources/Art/Hollows/
+/Assets/Resources/Art/Hollows.meta
+/Assets/Resources/Art/Pxltiger/
+/Assets/Resources/Art/Pxltiger.meta
+/Assets/Resources/Art/Scavenger/
+/Assets/Resources/Art/Scavenger.meta
+/Assets/Resources/Art/Zenrin/
+/Assets/Resources/Art/Zenrin.meta
+
+# Local scratch assets, unlicensed-to-redistribute Mixamo FBXs, and raw QA captures.
+/Assets/_Unused/
+/Assets/_Unused.meta
+/Assets/Resources/Art/Locomotion/*.fbx
+/production/qa/evidence/

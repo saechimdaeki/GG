@@ -1,0 +1,6 @@
+{
+  "name": "LastTrain",
+  "rootNamespace": "LastTrain",
+  "references": ["Unity.InputSystem", "Unity.RenderPipelines.Universal.Runtime", "Unity.RenderPipelines.Core.Runtime", "UnityEngine.UI"],
+  "autoReferenced": true
+}
