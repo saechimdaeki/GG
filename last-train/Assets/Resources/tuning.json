@@ -1,0 +1,564 @@
+{
+  "player": {
+    "speed": 4.6,
+    "sprintMult": 1.55,
+    "crouchMult": 0.5,
+    "hp": 100,
+    "reviveRadius": 1.6,
+    "reviveSeconds": 3.0,
+    "downedSeconds": 15.0,
+    "reviveHp": 0.5,
+    "teamDamagePerMate": 0.1,
+    "hungerMax": 100,
+    "hungerPerSec": 0.22,
+    "starveDps": 1.0,
+    "foodValue": 40,
+    "bandageHeal": 35,
+    "sleepHealPerSec": 1.5
+  },
+  "clock": {
+    "daySeconds": 150,
+    "nightSeconds": 120,
+    "evacRadius": 5.0,
+    "sleepSpeed": 5.0
+  },
+  "spawn": {
+    "dayStart": 45,
+    "dayPerSec": 0.25,
+    "nightPerSec": 1.6,
+    "evacPerSec": 6.0,
+    "growthPerDay": 0.3,
+    "maxAlive": 260,
+    "ringMin": 16.0,
+    "ringMax": 26.0,
+    "hpGrowthPerDay": 0.2,
+    "runnerDay": 0.05,
+    "runnerNight": 0.25,
+    "bruteFromDay": 2,
+    "brute": 0.05
+  },
+  "senses": {
+    "sightDay": 9.0,
+    "sightNight": 5.5,
+    "flashlightBonus": 4.0,
+    "sightAngle": 120,
+    "crouchSight": 0.5,
+    "touch": 1.4,
+    "noiseWalk": 3.0,
+    "noiseSprint": 10.0,
+    "noiseCrouch": 0.0,
+    "noiseSearch": 4.0,
+    "forgetSeconds": 7.0,
+    "stealthRange": 1.7
+  },
+  "zombies": [
+    {
+      "id": "walker",
+      "hp": 30,
+      "speed": 1.5,
+      "chaseSpeed": 2.6,
+      "dps": 12,
+      "radius": 0.38,
+      "scale": 1.0
+    },
+    {
+      "id": "runner",
+      "hp": 22,
+      "speed": 1.7,
+      "chaseSpeed": 4.3,
+      "dps": 9,
+      "radius": 0.34,
+      "scale": 0.95
+    },
+    {
+      "id": "brute",
+      "hp": 140,
+      "speed": 1.1,
+      "chaseSpeed": 1.9,
+      "dps": 28,
+      "radius": 0.75,
+      "scale": 1.6
+    },
+    {
+      "id": "screamer",
+      "hp": 24,
+      "speed": 1.3,
+      "chaseSpeed": 2.1,
+      "dps": 7,
+      "radius": 0.34,
+      "scale": 0.92
+    },
+    {
+      "id": "armored",
+      "hp": 72,
+      "speed": 1.2,
+      "chaseSpeed": 2.0,
+      "dps": 17,
+      "radius": 0.48,
+      "scale": 1.18
+    }
+  ],
+  "shelter": {
+    "barricadeHp": 300,
+    "repairPerScrap": 60,
+    "searchSeconds": 1.6
+  },
+  "weapons": [
+    {
+      "id": "fists",
+      "name": "맨손",
+      "kind": "melee",
+      "damage": 7,
+      "cooldown": 0.55,
+      "range": 1.3,
+      "arc": 80,
+      "noise": 2.0,
+      "durability": 0,
+      "knockback": 0.2
+    },
+    {
+      "id": "pipe",
+      "name": "쇠파이프",
+      "kind": "melee",
+      "damage": 18,
+      "cooldown": 0.7,
+      "range": 2.1,
+      "arc": 110,
+      "noise": 5.0,
+      "durability": 40,
+      "knockback": 0.6
+    },
+    {
+      "id": "bat",
+      "name": "야구방망이",
+      "kind": "melee",
+      "damage": 24,
+      "cooldown": 0.85,
+      "range": 2.2,
+      "arc": 120,
+      "noise": 5.0,
+      "durability": 30,
+      "knockback": 1.2
+    },
+    {
+      "id": "knife",
+      "name": "식칼",
+      "kind": "melee",
+      "damage": 13,
+      "cooldown": 0.35,
+      "range": 1.5,
+      "arc": 60,
+      "noise": 1.5,
+      "durability": 35,
+      "knockback": 0.1
+    },
+    {
+      "id": "axe",
+      "name": "소방도끼",
+      "kind": "melee",
+      "damage": 42,
+      "cooldown": 1.15,
+      "range": 2.3,
+      "arc": 100,
+      "noise": 6.0,
+      "durability": 25,
+      "knockback": 1.0
+    },
+    {
+      "id": "nailgun",
+      "name": "네일건",
+      "kind": "gun",
+      "damage": 22,
+      "cooldown": 0.3,
+      "range": 16,
+      "arc": 0,
+      "noise": 12.0,
+      "durability": 0,
+      "knockback": 0.3,
+      "speed": 28,
+      "pierce": 1
+    },
+    {
+      "id": "fireworks",
+      "name": "폭죽",
+      "kind": "throw",
+      "damage": 60,
+      "cooldown": 0.8,
+      "range": 12,
+      "arc": 0,
+      "noise": 26.0,
+      "durability": 0,
+      "knockback": 1.5,
+      "radius": 3.0,
+      "flight": 0.6
+    }
+  ],
+  "containers": 70,
+  "slots": 4,
+  "lootTables": [
+    {
+      "name": "street",
+      "items": [
+        {
+          "item": "food",
+          "weight": 30,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "scrap",
+          "weight": 26,
+          "min": 1,
+          "max": 3
+        },
+        {
+          "item": "bandage",
+          "weight": 12,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nails",
+          "weight": 10,
+          "min": 8,
+          "max": 20
+        },
+        {
+          "item": "fireworks",
+          "weight": 7,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "pipe",
+          "weight": 6,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "bat",
+          "weight": 4,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "knife",
+          "weight": 5,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "axe",
+          "weight": 2,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nailgun",
+          "weight": 2,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "fuse",
+          "weight": 2,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nothing",
+          "weight": 14,
+          "min": 0,
+          "max": 0
+        }
+      ]
+    },
+    {
+      "name": "store",
+      "items": [
+        {
+          "item": "food",
+          "weight": 50,
+          "min": 1,
+          "max": 3
+        },
+        {
+          "item": "bandage",
+          "weight": 10,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "fireworks",
+          "weight": 12,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "knife",
+          "weight": 6,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nothing",
+          "weight": 10,
+          "min": 0,
+          "max": 0
+        }
+      ]
+    },
+    {
+      "name": "hardware",
+      "items": [
+        {
+          "item": "scrap",
+          "weight": 30,
+          "min": 2,
+          "max": 4
+        },
+        {
+          "item": "nails",
+          "weight": 22,
+          "min": 10,
+          "max": 25
+        },
+        {
+          "item": "fuse",
+          "weight": 14,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "pipe",
+          "weight": 10,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "axe",
+          "weight": 6,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nailgun",
+          "weight": 5,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nothing",
+          "weight": 8,
+          "min": 0,
+          "max": 0
+        }
+      ]
+    },
+    {
+      "name": "pharmacy",
+      "items": [
+        {
+          "item": "bandage",
+          "weight": 55,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "item": "food",
+          "weight": 15,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nothing",
+          "weight": 10,
+          "min": 0,
+          "max": 0
+        }
+      ]
+    },
+    {
+      "name": "drop",
+      "items": [
+        {
+          "item": "food",
+          "weight": 20,
+          "min": 2,
+          "max": 3
+        },
+        {
+          "item": "bandage",
+          "weight": 20,
+          "min": 2,
+          "max": 3
+        },
+        {
+          "item": "nails",
+          "weight": 15,
+          "min": 20,
+          "max": 30
+        },
+        {
+          "item": "fireworks",
+          "weight": 12,
+          "min": 2,
+          "max": 3
+        },
+        {
+          "item": "fuse",
+          "weight": 14,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "axe",
+          "weight": 8,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "nailgun",
+          "weight": 8,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "item": "scrap",
+          "weight": 10,
+          "min": 3,
+          "max": 5
+        }
+      ]
+    }
+  ],
+  "shops": [
+    {
+      "type": "store",
+      "name": "편의점",
+      "count": 2,
+      "shelves": 3,
+      "color": "#46d6ff"
+    },
+    {
+      "type": "hardware",
+      "name": "철물점",
+      "count": 2,
+      "shelves": 3,
+      "color": "#ff9a3c"
+    },
+    {
+      "type": "pharmacy",
+      "name": "약국",
+      "count": 1,
+      "shelves": 2,
+      "color": "#5dff8a"
+    }
+  ],
+  "station": {
+    "fusesNeeded": 3,
+    "poweredSpawnMult": 0.5,
+    "poweredEvacSeconds": 30
+  },
+  "trades": [
+    {
+      "give": "scrap",
+      "giveN": 2,
+      "get": "nails",
+      "getN": 12
+    },
+    {
+      "give": "food",
+      "giveN": 1,
+      "get": "bandage",
+      "getN": 1
+    },
+    {
+      "give": "scrap",
+      "giveN": 3,
+      "get": "pipe",
+      "getN": 1
+    },
+    {
+      "give": "scrap",
+      "giveN": 5,
+      "get": "axe",
+      "getN": 1
+    },
+    {
+      "give": "food",
+      "giveN": 2,
+      "get": "fireworks",
+      "getN": 2
+    },
+    {
+      "give": "scrap",
+      "giveN": 6,
+      "get": "nailgun",
+      "getN": 1
+    },
+    {
+      "give": "bandage",
+      "giveN": 1,
+      "get": "fuse",
+      "getN": 1
+    },
+    {
+      "give": "nails",
+      "giveN": 15,
+      "get": "food",
+      "getN": 2
+    }
+  ],
+  "escape": {
+    "roadScrap": 3,
+    "roadSeconds": 23,
+    "drainSeconds": 14,
+    "drainRadius": 2.8,
+    "roadSpawn": 0.95,
+    "drainSpawn": 0.40,
+    "retreatDistance": 15
+  },
+  "story": {
+    "marketGuards": 3,
+    "stationGuards": 4,
+    "guardTriggerDistance": 8.5
+  },
+  "bag": {
+    "capacity": 80,
+    "food": 7,
+    "scrap": 9,
+    "bandage": 3,
+    "nails": 1,
+    "fireworks": 5,
+    "fuse": 3
+  },
+  "encounters": {
+    "requestDay": 2,
+    "rescueDay": 4,
+    "requestChance": 0.85,
+    "rescueChance": 0.38,
+    "requestAt": 34,
+    "rescueAt": 46,
+    "rescueWindow": 34,
+    "minDistance": 11,
+    "maxDistance": 21,
+    "attackers": 2
+  },
+  "streetEvents": {
+    "beaconSeconds": 30,
+    "beaconRadius": 32,
+    "blackoutDay": 3,
+    "blackoutAfter": 18,
+    "blackoutScrap": 2
+  },
+  "airdrop": {
+    "earliest": 25,
+    "latest": 80,
+    "minDistance": 16,
+    "maxDistance": 34,
+    "rolls": 3,
+    "flareNoise": 24,
+    "flareEvery": 4
+  }
+}

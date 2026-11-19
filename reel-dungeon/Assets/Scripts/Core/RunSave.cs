@@ -27,7 +27,7 @@ namespace ReelDungeon.Core
         public bool[] mapVisited;
         public int currentRow = -1, currentLane = -1;
         public string enemyName;
-        public int enemyHp, enemyTurn, enemyRage, rerollsLeft, enemyPoison, enemyMaxHp, ascension;
+        public int enemyHp, enemyTurn, enemyRage, rerollsLeft, enemyPoison, enemyMaxHp, ascension, enemyStolen;
         public int[] tempCurses;
         public string[] faces;
         public int[] armed;
@@ -36,6 +36,10 @@ namespace ReelDungeon.Core
         public Reward[] shop;
         public string eventId;
         public int victoryUpgradeChoices;
+        public bool victoryRelic, enemyPhase2;
+        public int jammedReel = -1;
+        /// <summary>The enemy itself, for event enemies that are made up on the spot (mirror, shadow).</summary>
+        public EnemyDef enemyDef;
         public string log;
     }
 
@@ -73,7 +77,7 @@ namespace ReelDungeon.Core
                 currentLane = Current == null ? -1 : Array.IndexOf(Map.Rows[Current.Row], Current),
                 enemyName = Enemy?.name ?? "",
                 enemyHp = EnemyHp, enemyTurn = enemyTurn, enemyRage = EnemyRage, rerollsLeft = RerollsLeft,
-                enemyPoison = EnemyPoison, enemyMaxHp = EnemyMaxHp, ascension = Ascension,
+                enemyPoison = EnemyPoison, enemyMaxHp = EnemyMaxHp, ascension = Ascension, enemyStolen = EnemyStolen,
                 tempCurses = tempCurses.ToArray(),
                 faces = Faces.Select(f => f?.id ?? "").ToArray(),
                 armed = Armed.ToArray(),
@@ -82,6 +86,7 @@ namespace ReelDungeon.Core
                 shop = ShopItems.ToArray(),
                 eventId = CurrentEvent?.id ?? "",
                 victoryUpgradeChoices = victoryUpgradeChoices,
+                victoryRelic = victoryRelic, enemyPhase2 = EnemyPhase2, jammedReel = JammedReel, enemyDef = Enemy,
                 log = Log,
             };
         }
@@ -117,11 +122,12 @@ namespace ReelDungeon.Core
             for (int i = 0; i < nodes.Length; i++) nodes[i].Visited = s.mapVisited[i];
             run.Current = s.currentRow >= 0 ? run.Map.Rows[s.currentRow][s.currentLane] : null;
 
-            run.Enemy = s.enemyName == "" ? null : AllEnemies(cfg).First(e => e.name == s.enemyName);
+            run.Enemy = s.enemyName == "" ? null : AllEnemies(cfg).FirstOrDefault(e => e.name == s.enemyName) ?? s.enemyDef;
             run.EnemyHp = s.enemyHp;
             run.enemyTurn = s.enemyTurn;
             run.EnemyRage = s.enemyRage;
             run.EnemyPoison = s.enemyPoison;
+            run.EnemyStolen = s.enemyStolen;
             run.EnemyMaxHp = s.enemyMaxHp > 0 ? s.enemyMaxHp : run.Enemy?.hp ?? 0; // saves from before difficulty levels
             run.Ascension = s.ascension;
             run.RerollsLeft = s.rerollsLeft;
@@ -133,6 +139,9 @@ namespace ReelDungeon.Core
             run.ShopItems.AddRange(s.shop.Select(Clean));
             run.CurrentEvent = s.eventId == "" ? null : cfg.events.First(e => e.id == s.eventId);
             run.victoryUpgradeChoices = s.victoryUpgradeChoices;
+            run.victoryRelic = s.victoryRelic;
+            run.EnemyPhase2 = s.enemyPhase2;
+            run.JammedReel = s.jammedReel;
             run.Log = s.log;
             run.Phase = (Phase)Enum.Parse(typeof(Phase), s.phase);
             return run;
