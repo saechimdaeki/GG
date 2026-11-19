@@ -28,6 +28,8 @@ namespace ReelDungeon.Core
         public EnemyDef mimic;
         public ItemDef[] items;
         public EventDef[] events;
+        /// <summary>Companion and relic ids that start locked; finished runs open them in this order (see Run.UnlocksEarned).</summary>
+        public string[] unlocks;
     }
 
     [Serializable]
@@ -67,11 +69,16 @@ namespace ReelDungeon.Core
         /// <summary>Poison stacks put on the enemy; it loses that much HP each turn, then the stack shrinks by 1.</summary>
         public int poison;
         public bool curse;
+        /// <summary>Adds this much to the main stat of the faces in the neighbouring slots (left and right in party order).</summary>
+        public int neighborBuff;
+        /// <summary>Extra damage when a neighbouring slot shows this same symbol.</summary>
+        public int twinBonus;
     }
 
     /// <summary>
     /// A party member. Each member brings one reel; landing its <see cref="signature"/> symbol
-    /// charges its skill gauge. Skill ids: shieldBash, volley, freeze, rage, prayer.
+    /// charges its skill gauge. Skill ids: shieldBash, volley, freeze, rage, prayer, backstab, transmute, bless, thorns,
+    /// allIn (spend skillValue% of gold as extra damage), boneBurst (skulls stop hurting and deal skillValue each).
     /// </summary>
     [Serializable]
     public class CompanionDef
@@ -104,16 +111,25 @@ namespace ReelDungeon.Core
     /// <summary>
     /// An enemy; <see cref="moves"/> repeats as its turn pattern, each "kind:value":
     /// attack:N, guard:N (party damage -N this turn), curse:N (N damage + a skull on a reel for this fight),
-    /// enrage:N (later attacks +N), drain:N (N damage, heals by what got through).
+    /// enrage:N (later attacks +N), drain:N (N damage, heals by what got through),
+    /// steal:N (N damage, takes gold equal to what got through; returned on a kill), seal:N (N damage, no reroll that turn),
+    /// heal:N (no attack, heals N), jam:N (N damage, one reel's face counts for nothing that turn),
+    /// sap:N (N damage, empties the fullest skill gauge), reflect:P (no attack, P% of the damage it takes hits the party).
+    /// <see cref="phase2"/>, when set, replaces moves once the enemy drops to half HP.
     /// </summary>
     [Serializable]
     public class EnemyDef
     {
         public string name;
         public string sprite;
+        /// <summary>Optional "#rrggbb" multiplied over the sprite, so one sprite can be several enemies.</summary>
+        public string tint;
         public int hp;
         public int gold;
         public string[] moves;
+        public string[] phase2;
+        /// <summary>Shown when phase 2 starts, e.g. "광폭화".</summary>
+        public string phase2Name;
     }
 
     /// <summary>
@@ -121,7 +137,8 @@ namespace ReelDungeon.Core
     /// When a reel it covers shows <see cref="symbol"/>, <see cref="stat"/> gains <see cref="value"/>.
     /// Stats: damage, block, heal, gold, weaken, poison, charge (extra gauge on the signature face),
     /// and relic-only noSelfDamage, reroll, maxHp, battleCharge, regen (heal each turn), firstStrike
-    /// (damage on a fight's first turn), spikes (damage to an enemy that attacks), maxParty, which ignore the symbol.
+    /// (damage on a fight's first turn), spikes (damage to an enemy that attacks), maxParty, lifesteal (heal value% of damage),
+    /// curseDamage (each skull showing hits the enemy), comboBonus (damage per combo), rerollGold (gold per reroll), which ignore the symbol.
     /// </summary>
     [Serializable]
     public class ItemDef
@@ -153,13 +170,17 @@ namespace ReelDungeon.Core
         public string label;
         public EventEffect[] effects;
         public int victoryUpgradeChoices; // replaces normal loot when this option starts a fight
+        public bool victoryRelic; // a won fight offers relic / equipment / signature upgrade instead
     }
 
-    /// <summary>Kinds: hp, gold, relic, equip, curse, removeCurse, recruit, gamble, fight, slot, upgrade, charge, dupe.</summary>
+    /// <summary>Kinds: hp, gold, relic, equip, curse, removeCurse, recruit, gamble, fight, slot, upgrade, charge, dupe, trim (remove the weakest ordinary symbol, value times),
+    /// mirror (fight the party's reflection), shadow (fight this chapter's boss at value% HP), coinflip (relic or skull),
+    /// hpFull, goldAll (lose all gold), transform (target "from>to"), fuse (melt a doubled face, +2 levels, value times), relicId (target).</summary>
     [Serializable]
     public class EventEffect
     {
         public string kind;
         public int value;
+        public string target;
     }
 }

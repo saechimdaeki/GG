@@ -166,6 +166,22 @@
       "icon": "0x72/skull",
       "selfDamage": 2,
       "curse": true
+    },
+    {
+      "id": "banner",
+      "name": "깃발",
+      "color": "#d8b040",
+      "icon": "0x72/wall_banner_yellow",
+      "block": 1,
+      "neighborBuff": 2
+    },
+    {
+      "id": "twin",
+      "name": "쌍검",
+      "color": "#b06060",
+      "icon": "twin_swords",
+      "damage": 2,
+      "twinBonus": 4
     }
   ],
   "companions": [
@@ -342,6 +358,45 @@
         "heart",
         "ice"
       ]
+    },
+    {
+      "id": "gambler",
+      "attack": "melee",
+      "name": "고블린 도박사",
+      "sprite": "goblin",
+      "signature": "coin",
+      "skill": "allIn",
+      "skillName": "올인",
+      "skillDesc": "가진 골드 절반을 걸고 그만큼 추가 피해",
+      "skillValue": 50,
+      "reel": [
+        "coin",
+        "coin",
+        "coin",
+        "dagger",
+        "heart",
+        "bounty",
+        "twin"
+      ]
+    },
+    {
+      "id": "skeleton",
+      "attack": "melee",
+      "name": "해골 전사",
+      "sprite": "skelet",
+      "signature": "skull",
+      "skill": "boneBurst",
+      "skillName": "해골 폭발",
+      "skillDesc": "이번 턴 해골이 아프지 않고 해골 하나당 5 피해",
+      "skillValue": 5,
+      "reel": [
+        "skull",
+        "skull",
+        "sword",
+        "shield",
+        "heart",
+        "banner"
+      ]
     }
   ],
   "chapters": [
@@ -357,7 +412,7 @@
           "gold": 8,
           "moves": [
             "attack:5",
-            "guard:5",
+            "heal:6",
             "attack:7"
           ]
         },
@@ -394,6 +449,30 @@
             "curse:2",
             "attack:5"
           ]
+        },
+        {
+          "name": "도둑 고블린",
+          "sprite": "goblin_idle_anim",
+          "tint": "#e0c070",
+          "hp": 15,
+          "gold": 9,
+          "moves": [
+            "steal:4",
+            "attack:5",
+            "steal:5"
+          ]
+        },
+        {
+          "name": "이끼 늪 괴물",
+          "sprite": "swampy_anim",
+          "tint": "#9ad070",
+          "hp": 15,
+          "gold": 8,
+          "moves": [
+            "seal:4",
+            "attack:6",
+            "guard:4"
+          ]
         }
       ],
       "elites": [
@@ -404,8 +483,22 @@
           "gold": 25,
           "moves": [
             "attack:7",
+            "sap:6",
             "guard:8",
             "attack:11"
+          ]
+        },
+        {
+          "name": "늪 주술사",
+          "sprite": "orc_shaman_idle_anim",
+          "tint": "#a0e0a0",
+          "hp": 32,
+          "gold": 25,
+          "moves": [
+            "seal:6",
+            "jam:4",
+            "curse:4",
+            "attack:10"
           ]
         }
       ],
@@ -420,7 +513,15 @@
           "attack:10",
           "guard:7",
           "attack:8"
-        ]
+        ],
+        "phase2": [
+          "enrage:2",
+          "attack:9",
+          "heal:8",
+          "attack:9",
+          "attack:12"
+        ],
+        "phase2Name": "광폭화"
       }
     },
     {
@@ -456,6 +557,7 @@
           "gold": 12,
           "moves": [
             "curse:6",
+            "jam:8",
             "attack:12",
             "guard:6"
           ]
@@ -468,7 +570,32 @@
           "moves": [
             "guard:6",
             "drain:9",
+            "reflect:50",
             "attack:11"
+          ]
+        },
+        {
+          "name": "간수 해골",
+          "sprite": "skelet_idle_anim",
+          "tint": "#a0b4ff",
+          "hp": 28,
+          "gold": 12,
+          "moves": [
+            "seal:8",
+            "attack:10",
+            "guard:6"
+          ]
+        },
+        {
+          "name": "소매치기 좀비",
+          "sprite": "tiny_zombie_idle_anim",
+          "tint": "#d8c080",
+          "hp": 26,
+          "gold": 13,
+          "moves": [
+            "steal:8",
+            "drain:7",
+            "steal:9"
           ]
         }
       ],
@@ -480,7 +607,9 @@
           "gold": 30,
           "moves": [
             "curse:5",
+            "sap:7",
             "drain:9",
+            "heal:10",
             "attack:12"
           ]
         },
@@ -492,6 +621,7 @@
           "moves": [
             "attack:10",
             "enrage:3",
+            "reflect:50",
             "attack:9"
           ]
         }
@@ -507,7 +637,14 @@
           "guard:10",
           "drain:14",
           "attack:13"
-        ]
+        ],
+        "phase2": [
+          "drain:11",
+          "jam:10",
+          "attack:13",
+          "guard:8"
+        ],
+        "phase2Name": "썩은 피의 굶주림"
       }
     },
     {
@@ -531,7 +668,7 @@
           "hp": 40,
           "gold": 15,
           "moves": [
-            "guard:9",
+            "reflect:50",
             "attack:15",
             "drain:10"
           ]
@@ -543,6 +680,7 @@
           "gold": 15,
           "moves": [
             "attack:13",
+            "jam:10",
             "curse:8",
             "attack:11"
           ]
@@ -557,6 +695,30 @@
             "attack:16",
             "guard:7"
           ]
+        },
+        {
+          "name": "금 사냥 임프",
+          "sprite": "imp_idle_anim",
+          "tint": "#ffd060",
+          "hp": 34,
+          "gold": 16,
+          "moves": [
+            "steal:11",
+            "attack:12",
+            "steal:12"
+          ]
+        },
+        {
+          "name": "봉인 주술사",
+          "sprite": "orc_shaman_idle_anim",
+          "tint": "#ff9070",
+          "hp": 40,
+          "gold": 15,
+          "moves": [
+            "seal:12",
+            "guard:8",
+            "attack:15"
+          ]
         }
       ],
       "elites": [
@@ -567,8 +729,23 @@
           "gold": 35,
           "moves": [
             "attack:12",
+            "jam:10",
             "guard:10",
             "attack:15"
+          ]
+        },
+        {
+          "name": "불꽃 강령술사",
+          "sprite": "necromancer_anim",
+          "tint": "#ff8060",
+          "hp": 62,
+          "gold": 35,
+          "moves": [
+            "seal:11",
+            "sap:10",
+            "curse:7",
+            "drain:12",
+            "attack:16"
           ]
         }
       ],
@@ -585,7 +762,16 @@
           "attack:17",
           "drain:14",
           "attack:18"
-        ]
+        ],
+        "phase2": [
+          "sap:12",
+          "attack:16",
+          "reflect:50",
+          "curse:10",
+          "attack:20",
+          "heal:15"
+        ],
+        "phase2Name": "지옥불 각성"
       }
     }
   ],
@@ -683,7 +869,7 @@
     {
       "id": "lucky_coin",
       "name": "행운의 동전",
-      "desc": "모든 릴: 코인이 뜨면 골드 +2",
+      "desc": "모든 슬롯: 코인이 뜨면 골드 +2",
       "icon": "0x72/coin_anim_f0",
       "slot": "relic",
       "symbol": "coin",
@@ -733,7 +919,7 @@
     {
       "id": "whetstone",
       "name": "숫돌",
-      "desc": "모든 릴: 칼이 뜨면 공격 +1",
+      "desc": "모든 슬롯: 칼이 뜨면 공격 +1",
       "icon": "0x72/weapon_rusty_sword",
       "slot": "relic",
       "symbol": "sword",
@@ -743,7 +929,7 @@
     {
       "id": "holy_water",
       "name": "성수",
-      "desc": "모든 릴: 물약이 뜨면 회복 +2",
+      "desc": "모든 슬롯: 물약이 뜨면 회복 +2",
       "icon": "0x72/flask_green",
       "slot": "relic",
       "symbol": "heart",
@@ -813,7 +999,7 @@
     {
       "id": "snake_fang",
       "name": "독사의 송곳니",
-      "desc": "모든 릴: 단검이 뜨면 독 +1",
+      "desc": "모든 슬롯: 단검이 뜨면 독 +1",
       "icon": "0x72/weapon_knife",
       "slot": "relic",
       "symbol": "dagger",
@@ -859,6 +1045,46 @@
       "symbol": "",
       "stat": "maxParty",
       "value": 1
+    },
+    {
+      "id": "blood_grail",
+      "name": "피의 성배",
+      "desc": "준 피해의 20%만큼 회복",
+      "icon": "goblet",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "lifesteal",
+      "value": 20
+    },
+    {
+      "id": "bone_crown",
+      "name": "해골 왕관",
+      "desc": "뜬 해골 하나당 적에게 3 피해",
+      "icon": "crown",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "curseDamage",
+      "value": 3
+    },
+    {
+      "id": "combo_medal",
+      "name": "콤보 메달",
+      "desc": "콤보(같은 심볼 2개 이상) 하나당 공격 +3",
+      "icon": "medal",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "comboBonus",
+      "value": 3
+    },
+    {
+      "id": "gambler_dice",
+      "name": "도박꾼의 주사위",
+      "desc": "슬롯을 다시 돌릴 때마다 +3 골드",
+      "icon": "dice",
+      "slot": "relic",
+      "symbol": "",
+      "stat": "rerollGold",
+      "value": 3
     }
   ],
   "events": [
@@ -866,15 +1092,29 @@
       "id": "prison_key",
       "chapter": 2,
       "title": "해골이 새겨진 열쇠",
-      "text": "간수가 열쇠를 밀어 준다. 창고를 열면 유물 하나를 챙길 수 있다. 대신 감옥의 해골 하나가 릴에 따라붙는다.",
+      "text": "늙은 간수가 슬쩍 열쇠를 건넨다. \"창고 열쇠야. 쓸 만한 게 있을 거다. 대신 감옥의 해골 하나가 너희를 따라갈 텐데… 괜찮겠어?\"",
       "options": [
         {
           "label": "열쇠를 돌린다 (유물 1개, 영구 해골 1칸)",
-          "effects": [{ "kind": "relic", "value": 0 }, { "kind": "curse", "value": 0 }]
+          "effects": [
+            {
+              "kind": "relic",
+              "value": 0
+            },
+            {
+              "kind": "curse",
+              "value": 0
+            }
+          ]
         },
         {
-          "label": "열쇠를 돌려주고 잠시 쉰다 (HP +8)",
-          "effects": [{ "kind": "hp", "value": 8 }]
+          "label": "열쇠를 돌려주고 잠깐 쉬어 간다 (HP +8)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 8
+            }
+          ]
         }
       ]
     },
@@ -882,11 +1122,16 @@
       "id": "royal_ledger",
       "chapter": 1,
       "title": "왕실 장부",
-      "text": "뒤집힌 수레 밑 왕실 장부에 심볼을 고치는 법이 적혀 있다. 정예가 수레로 돌아오고 있다.",
+      "text": "뒤집힌 수레 밑에 왕실 장부가 깔려 있다. 심볼을 강하게 고치는 방법이 적혀 있는 것 같다. 그런데 수레 주인인 정예가 이쪽으로 돌아오고 있다.",
       "options": [
         {
           "label": "장부를 빼앗는다 (정예 승리 시 심볼 강화)",
-          "effects": [{ "kind": "fight", "value": 0 }],
+          "effects": [
+            {
+              "kind": "fight",
+              "value": 0
+            }
+          ],
           "victoryUpgradeChoices": 3
         },
         {
@@ -922,7 +1167,7 @@
     {
       "id": "merchant",
       "title": "짐을 잃은 상인",
-      "text": "상인이 젖은 영수증을 내민다. \"왕실은 빈 수레만 돌려줘도 돈을 줘요. 오크가 끌고 갔는데 도와줄래요?\"",
+      "text": "상인이 젖은 영수증을 흔든다. \"오크가 내 수레를 끌고 갔어요! 되찾아 주면 사례할게요. 아니면… 남은 장비라도 사 가실래요?\"",
       "options": [
         {
           "label": "오크를 쫓아간다 (정예 전투)",
@@ -958,7 +1203,7 @@
       "text": "샘물은 따뜻하고 달콤한 냄새가 난다. 바닥에 해골 무늬가 어른거린다.",
       "options": [
         {
-          "label": "마신다 (HP +15, 릴에 해골)",
+          "label": "마신다 (HP +15, 슬롯에 해골)",
           "effects": [
             {
               "kind": "hp",
@@ -984,7 +1229,7 @@
     {
       "id": "chapel",
       "title": "무너진 예배당",
-      "text": "촛불 아래 이름들이 빼곡하다. 해골을 뽑은 날 이웃에게 받은 빵값을 갚겠다고 적은 쪽지도 있다.",
+      "text": "무너진 예배당에 촛불이 아직 켜져 있다. 벽에는 '해골이 뜬 날 이웃이 빵을 나눠 줬다. 꼭 갚겠다' 같은 쪽지가 빼곡하다.",
       "options": [
         {
           "label": "기도한다 (해골 하나 정화)",
@@ -1038,7 +1283,7 @@
     {
       "id": "gambler",
       "title": "도박꾼 고블린",
-      "text": "고블린이 낡은 슬롯머신을 두드린다. \"한 판 해? 20골드면 세 배!\"",
+      "text": "고블린이 낡은 슬롯머신을 탕탕 두드린다. \"한 판 할래? 20골드 걸고 이기면 세 배야!\"",
       "options": [
         {
           "label": "20골드를 건다 (반반 확률로 60골드)",
@@ -1058,7 +1303,7 @@
     {
       "id": "old_slot",
       "title": "낡은 슬롯머신",
-      "text": "레버에 '운명의 릴 시제품'이 새겨져 있다. 그 아래 누군가 긁어 썼다. '네가 버린 칸은 다른 데서 뜬다.'",
+      "text": "레버에 '운명의 슬롯 시제품'이라고 새겨져 있다. 그 아래 누가 긁어 써 놓았다. '여기서 버린 칸은 어딘가에서 다시 뜬다.'",
       "options": [
         {
           "label": "15골드를 넣고 당긴다 (유물·장비·회복·꽝)",
@@ -1078,7 +1323,7 @@
     {
       "id": "smith",
       "title": "떠돌이 대장장이",
-      "text": "수염이 그을린 드워프가 모루를 두드린다. \"그 심볼, 좀 손봐줄까?\"",
+      "text": "수염이 그을린 드워프가 모루를 두드린다. \"그 심볼, 내가 좀 손봐 줄까? 30골드면 돼.\"",
       "options": [
         {
           "label": "30골드에 맡긴다 (무작위 심볼 강화)",
@@ -1102,7 +1347,7 @@
     {
       "id": "training",
       "title": "버려진 훈련장",
-      "text": "녹슨 허수아비가 줄지어 서 있다. 땀 좀 흘리면 감이 올 것 같다.",
+      "text": "녹슨 허수아비들이 줄지어 서 있다. 땀 좀 흘리면 손이 풀릴 것 같다.",
       "options": [
         {
           "label": "훈련한다 (HP -6, 모든 스킬 게이지 가득)",
@@ -1130,11 +1375,11 @@
     },
     {
       "id": "mirror",
-      "title": "거울에 비친 릴",
-      "text": "거울 속 릴이 현실의 릴과 다르게 돈다. 손을 넣으면 무언가 빠져나올 것 같다.",
+      "title": "거울에 비친 슬롯",
+      "text": "거울 속 슬롯이 이쪽 슬롯과 다르게 돌고 있다. 손을 넣으면 뭔가 꺼내 올 수 있을 것 같다.",
       "options": [
         {
-          "label": "손을 넣는다 (릴 하나의 심볼 2개 복제)",
+          "label": "손을 넣는다 (슬롯 하나의 심볼 2개 복제)",
           "effects": [
             {
               "kind": "dupe",
@@ -1156,6 +1401,337 @@
           ]
         }
       ]
+    },
+    {
+      "id": "stonecutter",
+      "chapter": 0,
+      "title": "슬롯 깎는 석공",
+      "text": "석공이 정을 들고 슬롯을 들여다본다. \"쓸데없는 칸은 깎아 내야 좋은 칸이 자주 뜨지.\"",
+      "options": [
+        {
+          "label": "20골드를 낸다 (약한 심볼 1칸 빼기)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": -20
+            },
+            {
+              "kind": "trim",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "label": "직접 깎는다 (HP -6, 약한 심볼 2칸 빼기)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -6
+            },
+            {
+              "kind": "trim",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "label": "지나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "skull_vault",
+      "chapter": 2,
+      "title": "해골 금고",
+      "text": "감옥 금고에 압수품 골드가 쌓여 있다. 자물쇠마다 해골이 새겨져 있고, 손을 대면 슬롯이 덜컥거린다.",
+      "options": [
+        {
+          "label": "쓸어 담는다 (+60 골드, 영구 해골 1칸)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 60
+            },
+            {
+              "kind": "curse",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "한 줌만 챙긴다 (+15 골드)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wounded_merc",
+      "chapter": 3,
+      "title": "쓰러진 용병",
+      "text": "용암 틈에 다리가 끼인 용병이 소리친다. \"이 바위 좀 들어 줘! 꺼내 주면 끝까지 같이 싸울게!\"",
+      "options": [
+        {
+          "label": "바위를 든다 (HP -10, 동료 합류)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -10
+            },
+            {
+              "kind": "recruit",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "물약을 두고 간다 (HP +6)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mirror_party",
+      "chapter": 0,
+      "title": "비뚤어진 거울",
+      "text": "거울 속 파티가 먼저 칼을 뽑는다. 저쪽 기사도 이쪽을 보고 똑같이 투덜댄다. 이기면 내 슬롯을 고칠 방법이 보일 것 같다.",
+      "options": [
+        {
+          "label": "거울 속 나와 싸운다 (지금 HP만큼 단단함, 이기면 심볼 강화 3택)",
+          "effects": [
+            {
+              "kind": "mirror",
+              "value": 0
+            }
+          ],
+          "victoryUpgradeChoices": 3
+        },
+        {
+          "label": "거울을 깬다 (+25 골드, 7년 재수 = 영구 해골 1칸)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": 25
+            },
+            {
+              "kind": "curse",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "boss_shadow",
+      "chapter": 0,
+      "title": "보스의 그림자",
+      "text": "횃불이 흔들리자 벽에 이 장 보스의 그림자가 비친다. 아직 반쪽짜리 힘이다. 지금 베어 두면 진짜와 싸울 때 도움이 될지도 모른다.",
+      "options": [
+        {
+          "label": "그림자를 벤다 (보스 체력 50%, 이기면 유물·장비·강화 중 하나)",
+          "effects": [
+            {
+              "kind": "shadow",
+              "value": 50
+            }
+          ],
+          "victoryRelic": true
+        },
+        {
+          "label": "숨죽이고 지나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "coin_ghost",
+      "chapter": 0,
+      "title": "동전 던지는 유령",
+      "text": "유령이 투명한 동전을 튕긴다. \"앞면이면 보물, 뒷면이면 저주야. 날 믿어. 죽고 나선 거짓말을 못 하거든.\"",
+      "options": [
+        {
+          "label": "던져 달라고 한다 (반반: 유물 / 영구 해골)",
+          "effects": [
+            {
+              "kind": "coinflip",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "유령에게 동전을 쥐여 준다 (-10 골드, HP +10)",
+          "effects": [
+            {
+              "kind": "gold",
+              "value": -10
+            },
+            {
+              "kind": "hp",
+              "value": 10
+            }
+          ]
+        },
+        {
+          "label": "유령을 무시한다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "midnight_feast",
+      "chapter": 1,
+      "title": "한밤의 연회",
+      "text": "오크들이 늪가에서 잔치를 벌였다. \"끼워 줄게. 대신 주머니는 두고 와.\" 고기 냄새가 참을 수 없다.",
+      "options": [
+        {
+          "label": "끼어든다 (HP 전부 회복, 골드 전부 잃음)",
+          "effects": [
+            {
+              "kind": "hpFull",
+              "value": 0
+            },
+            {
+              "kind": "goldAll",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "고기만 훔쳐 달아난다 (HP +10, 들켜서 정예 전투)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 10
+            },
+            {
+              "kind": "fight",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "label": "배를 움켜쥐고 지나간다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "golden_fountain",
+      "chapter": 2,
+      "title": "황금 분수",
+      "text": "감옥 마당 분수에 동전을 던지면 칼이 되어 튀어나온다. 간수들이 월급을 여기서 바꿨다는 소문이 있다.",
+      "options": [
+        {
+          "label": "주머니를 턴다 (모든 슬롯의 코인이 현상금 검으로)",
+          "effects": [
+            {
+              "kind": "transform",
+              "value": 0,
+              "target": "coin>bounty"
+            }
+          ]
+        },
+        {
+          "label": "분수에 손을 씻는다 (해골 하나 정화)",
+          "effects": [
+            {
+              "kind": "removeCurse",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reel_forge",
+      "chapter": 3,
+      "title": "슬롯 융합로",
+      "text": "용암이 흐르는 화로다. 같은 심볼 두 칸을 넣으면 하나로 녹아 붙고, 남은 한 칸은 훨씬 단단해진다.",
+      "options": [
+        {
+          "label": "겹친 심볼을 녹인다 (1칸 빼고 그 심볼 +2 강화)",
+          "effects": [
+            {
+              "kind": "fuse",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "label": "화로에 두 번 넣는다 (HP -8, 두 번 융합)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -8
+            },
+            {
+              "kind": "fuse",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "label": "뜨거워서 물러난다",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "id": "hourglass_room",
+      "chapter": 0,
+      "title": "시간이 멈춘 방",
+      "text": "먼지가 공중에 멈춰 있다. 가운데 모래시계를 챙기면 시간이 다시 흐르고, 흐른 만큼 몸이 지친다.",
+      "options": [
+        {
+          "label": "모래시계를 챙긴다 (HP -12, 유물 모래시계: 다시 돌리기 +1)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": -12
+            },
+            {
+              "kind": "relicId",
+              "value": 0,
+              "target": "hourglass"
+            }
+          ]
+        },
+        {
+          "label": "멈춘 시간 속에서 잠시 쉰다 (HP +6)",
+          "effects": [
+            {
+              "kind": "hp",
+              "value": 6
+            }
+          ]
+        }
+      ]
     }
+  ],
+  "unlocks": [
+    "rogue",
+    "gambler",
+    "snake_fang",
+    "alchemist",
+    "combo_medal",
+    "skeleton",
+    "regen_ring",
+    "paladin",
+    "bone_crown",
+    "druid",
+    "gambler_dice",
+    "spiked_armor",
+    "blood_grail",
+    "sixth_seat"
   ]
 }

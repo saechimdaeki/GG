@@ -78,6 +78,14 @@ namespace ReelDungeon.Core
         public ChapterDef ChapterDef => cfg.chapters[Chapter];
         public int EnemyRage { get; private set; }
         public int EnemyPoison { get; private set; }
+        /// <summary>Gold the current enemy has stolen with "steal"; it drops back when the enemy dies.</summary>
+        public int EnemyStolen { get; private set; }
+        /// <summary>True once an enemy with a <c>phase2</c> list dropped to half HP; its turns then come from phase2.</summary>
+        public bool EnemyPhase2 { get; private set; }
+        /// <summary>The reel a "jam" move broke this turn (its face counts for nothing), or -1.</summary>
+        public int JammedReel { get; private set; } = -1;
+        /// <summary>Companion and relic ids not unlocked yet; they are never offered. Set by the caller, not saved with the run.</summary>
+        public HashSet<string> Locked { get; } = new HashSet<string>();
         /// <summary>The current enemy's full HP after the difficulty bonus.</summary>
         public int EnemyMaxHp { get; private set; }
         /// <summary>Difficulty level 0-5; each level adds the ones below it (see <see cref="Ascension"/> effects in StartFight etc.).</summary>
@@ -89,23 +97,39 @@ namespace ReelDungeon.Core
         {
             get
             {
-                var parts = Enemy.moves[enemyTurn % Enemy.moves.Length].Split(':');
+                var moves = EnemyPhase2 ? Enemy.phase2 : Enemy.moves;
+                var parts = moves[enemyTurn % moves.Length].Split(':');
                 return new EnemyMove { Kind = parts[0], Value = parts.Length > 1 ? int.Parse(parts[1]) : 0 };
             }
         }
 
         /// <summary>Damage the next action deals before block (0 for guard and enrage); includes rage.</summary>
-        public int EnemyIntent => Intent.Kind == "guard" || Intent.Kind == "enrage" ? 0 : Intent.Value + EnemyRage + (Ascension >= 4 ? 1 : 0);
+        public int EnemyIntent => NoAttack(Intent.Kind) ? 0 : Intent.Value + EnemyRage + (Ascension >= 4 ? 1 : 0);
 
         /// <summary>How much of the party's damage the enemy shrugs off this turn.</summary>
         public int EnemyGuard => Intent.Kind == "guard" ? Intent.Value : 0;
 
         public int DamageDealt(SpinOutcome o) => Math.Max(0, o.damage - EnemyGuard);
+
+        static bool NoAttack(string kind) => kind == "guard" || kind == "enrage" || kind == "heal" || kind == "reflect";
+
+        /// <summary>Damage a "reflect:P" move bounces back to the party: P% of what hits the enemy. Block doesn't stop it.</summary>
+        public int Reflected(SpinOutcome o) => Intent.Kind == "reflect" && !o.frozen ? DamageDealt(o) * Intent.Value / 100 : 0;
+
+        static readonly SymbolDef Broken = new SymbolDef { id = "_jam", name = "고장", color = "#555555" };
         public int SkillCharge => cfg.skillCharge;
         public int MaxHp => cfg.playerMaxHp + RelicTotal("maxHp");
         public int RerollsPerTurn => cfg.rerollsPerTurn + RelicTotal("reroll");
 
         /// <summary>Nodes the party can walk to next.</summary>
+        /// <summary>Ids still locked after <paramref name="unlocked"/> unlocks, in <c>cfg.unlocks</c> order.</summary>
+        public static IEnumerable<string> LockedAfter(TuningConfig cfg, int unlocked) => (cfg.unlocks ?? new string[0]).Skip(unlocked);
+
+        /// <summary>Unlocks this finished run earns: 2 for a win, 1 for a loss, 0 while it's still going.</summary>
+        public int UnlocksEarned => Phase == Phase.Won ? 2 : Phase == Phase.Lost ? 1 : 0;
+
+        IEnumerable<CompanionDef> FreeCompanions => cfg.companions.Where(c => !Party.Contains(c.id) && !Locked.Contains(c.id));
+
         public IEnumerable<MapNode> Available => Current == null ? Map.Rows[0] : Current.Next;
 
         public Run(TuningConfig cfg, Random rng, int ascension = 0) : this(cfg, rng, restoring: true)
@@ -187,12 +211,24 @@ namespace ReelDungeon.Core
             var skillsArmed = Armed.Select(Member).ToList();
             var faces = skillsArmed.Any(m => m.skill == "transmute") && byId.ContainsKey("coin")
                 ? Faces.Select(f => f.curse ? byId["coin"] : f).ToArray() : Faces;
+            if (JammedReel >= 0 && JammedReel < faces.Length) { faces = faces.ToArray(); faces[JammedReel] = Broken; }
             var o = SpinResolver.Resolve(faces, cfg);
-            for (int i = 0; i < Faces.Length; i++)
+            for (int i = 0; i < faces.Length; i++)
                 foreach (var item in ItemsOn(i))
-                    if (item.symbol == Faces[i].id) AddStat(o, item.stat, item.value);
-            foreach (var f in Faces)
+                    if (item.symbol == faces[i].id) AddStat(o, item.stat, item.value);
+            foreach (var f in faces)
                 if (!f.curse && Level(f.id) > 0) AddStat(o, MainStat(f), Level(f.id));
+            // neighbours are the slots left and right in party order
+            for (int i = 0; i < faces.Length; i++)
+                foreach (int j in new[] { i - 1, i + 1 })
+                {
+                    if (j < 0 || j >= faces.Length || faces[j].curse || faces[j] == Broken || faces[i] == Broken) continue;
+                    if (faces[i].neighborBuff > 0) AddStat(o, MainStat(faces[j]), faces[i].neighborBuff);
+                    if (faces[i].twinBonus > 0 && faces[j].id == faces[i].id) o.damage += faces[i].twinBonus;
+                }
+            int skulls = faces.Count(f => f.curse);
+            o.damage += skulls * RelicTotal("curseDamage");
+            o.damage += faces.Where(f => f != Broken).GroupBy(f => f.id).Count(g => g.Count() >= 2) * RelicTotal("comboBonus");
             if (RelicTotal("noSelfDamage") > 0) o.selfDamage = 0;
             if (enemyTurn == 0) o.damage += RelicTotal("firstStrike");
 
@@ -203,12 +239,18 @@ namespace ReelDungeon.Core
                 if (m.skill == "volley") o.damage += m.skillValue;
                 if (m.skill == "prayer") o.heal += m.skillValue;
                 if (m.skill == "backstab") o.damage += (EnemyPoison + o.poison) * m.skillValue;
+                if (m.skill == "allIn") o.damage += AllInStake(m);
+                if (m.skill == "boneBurst") { o.damage += skulls * m.skillValue; o.selfDamage = 0; }
             }
             foreach (var m in skills)
                 if (m.skill == "rage") o.damage *= 2;
             o.frozen = skills.Any(m => m.skill == "freeze");
+            o.heal += o.damage * RelicTotal("lifesteal") / 100;
             return o;
         }
+
+        /// <summary>Gold an armed "allIn" skill spends this turn; it is also the extra damage.</summary>
+        int AllInStake(CompanionDef m) => Gold * m.skillValue / 100;
 
         /// <summary>Member i's equipment plus every relic.</summary>
         IEnumerable<ItemDef> ItemsOn(int member)
@@ -250,6 +292,7 @@ namespace ReelDungeon.Core
         {
             if (Phase != Phase.Turn || RerollsLeft <= 0) return false;
             RerollsLeft--;
+            Gold += RelicTotal("rerollGold");
             SpinReel(reel);
             return true;
         }
@@ -266,7 +309,7 @@ namespace ReelDungeon.Core
             for (int i = 0; i < Party.Count; i++)
             {
                 if (Armed.Contains(i)) Gauge[i] = 0;
-                else if (Faces[i].id == Member(i).signature)
+                else if (i != JammedReel && Faces[i].id == Member(i).signature)
                 {
                     int extra = Equipment[i] != null && Item(Equipment[i]).stat == "charge" ? Item(Equipment[i]).value : 0;
                     Gauge[i] = Math.Min(cfg.skillCharge, Gauge[i] + 1 + extra);
@@ -277,8 +320,10 @@ namespace ReelDungeon.Core
                 for (int i = 0; i < Party.Count; i++)
                     if (i != b) Gauge[i] = Math.Min(cfg.skillCharge, Gauge[i] + Member(b).skillValue);
             int thornsPct = Armed.Where(i => Member(i).skill == "thorns").Sum(i => Member(i).skillValue);
+            int stake = Armed.Select(Member).Where(m => m.skill == "allIn").Sum(AllInStake);
             Armed.Clear();
 
+            Gold -= Math.Min(Gold, stake);
             Hp = Math.Min(MaxHp, Hp + o.heal);
             Gold += o.gold;
             GoldEarned += o.gold;
@@ -296,10 +341,12 @@ namespace ReelDungeon.Core
                 if (EnemyHp <= 0) { Win(dealt); return; }
             }
 
+            bool newPhase = !EnemyPhase2 && Enemy.phase2 != null && Enemy.phase2.Length > 0 && EnemyHp * 2 <= EnemyMaxHp;
             int through = Math.Max(0, attack - o.block);
-            int hit = through + o.selfDamage;
+            int reflected = Reflected(o);
+            int hit = through + o.selfDamage + reflected;
             Hp -= hit;
-            string note = "";
+            string note = reflected > 0 ? $", 가시 갑피로 {reflected} 되돌아옴" : "";
             if (!o.frozen)
             {
                 switch (move.Kind)
@@ -312,11 +359,30 @@ namespace ReelDungeon.Core
                         int reel = rng.Next(Reels.Count);
                         Reels[reel].Add(cfg.symbols.First(s => s.curse).id);
                         tempCurses.Add(reel);
-                        note = $", {Member(reel).name} 릴에 저주";
+                        note = $", {Member(reel).name} 슬롯에 저주";
                         break;
                     case "enrage":
                         EnemyRage += move.Value;
                         note = $", 적 공격력 +{move.Value}";
+                        break;
+                    case "heal":
+                        int healed = Math.Min(EnemyMaxHp - EnemyHp, move.Value);
+                        EnemyHp += healed;
+                        if (healed > 0) note += $", 적이 {healed} 회복";
+                        break;
+                    case "sap":
+                        int fullest = Enumerable.Range(0, Gauge.Count).OrderByDescending(i => Gauge[i]).First();
+                        if (Gauge[fullest] > 0)
+                        {
+                            Gauge[fullest] = 0;
+                            note += $", {Member(fullest).name}의 스킬 게이지를 빨아들였다";
+                        }
+                        break;
+                    case "steal":
+                        int taken = Math.Min(Gold, through);
+                        Gold -= taken;
+                        EnemyStolen += taken;
+                        if (taken > 0) note = $", {taken} 골드를 빼앗겼다";
                         break;
                 }
             }
@@ -331,7 +397,13 @@ namespace ReelDungeon.Core
                     if (EnemyHp <= 0 && Hp > 0) { Win(dealt + back); return; }
                 }
             }
-            enemyTurn++;
+            if (newPhase)
+            {
+                EnemyPhase2 = true;
+                enemyTurn = 0;
+                note += $" · {Enemy.name} {(string.IsNullOrEmpty(Enemy.phase2Name) ? "2단계" : Enemy.phase2Name)}!";
+            }
+            else enemyTurn++;
             Log = $"{dealt} 피해를 주고 {hit} 피해를 받았다{note}";
             if (Hp <= 0) { Hp = 0; Phase = Phase.Lost; return; }
             StartTurn();
@@ -341,10 +413,11 @@ namespace ReelDungeon.Core
         {
             EnemyHp = 0;
             ClearTempCurses();
-            Gold += Enemy.gold;
+            Gold += Enemy.gold + EnemyStolen;
             GoldEarned += Enemy.gold;
             Kills++;
-            Log = $"{Enemy.name} 처치! ({damage} 피해, +{Enemy.gold} 골드)";
+            Log = $"{Enemy.name} 처치! ({damage} 피해, +{Enemy.gold} 골드)" + (EnemyStolen > 0 ? $" · 빼앗긴 {EnemyStolen} 골드 되찾음" : "");
+            EnemyStolen = 0;
             var type = Current.Type;
             Offers.Clear();
             if (type == NodeType.Boss)
@@ -359,6 +432,15 @@ namespace ReelDungeon.Core
                 Offers.Add(EquipOffer());
                 Offers.Add(AddOffer());
                 OpenOffers("보스의 보물을 하나 고르세요");
+                return;
+            }
+            if (victoryRelic)
+            {
+                victoryRelic = false;
+                Offers.Add(RelicOffer());
+                Offers.Add(EquipOffer());
+                Offers.Add(UpgradeOffer(Party.Select(id => companions[id].signature).First()));
+                OpenOffers("그림자가 남긴 보물을 하나 고르세요");
                 return;
             }
             if (victoryUpgradeChoices > 0)
@@ -389,6 +471,8 @@ namespace ReelDungeon.Core
             EnemyMaxHp = (int)Math.Round(enemy.hp * hpScale);
             EnemyHp = EnemyMaxHp;
             EnemyPoison = 0;
+            EnemyStolen = 0;
+            EnemyPhase2 = false;
             enemyTurn = 0;
             EnemyRage = 0;
             ClearTempCurses();
@@ -400,7 +484,8 @@ namespace ReelDungeon.Core
 
         void StartTurn()
         {
-            RerollsLeft = RerollsPerTurn;
+            RerollsLeft = Intent.Kind == "seal" ? 0 : RerollsPerTurn; // seal: no reroll this turn
+            JammedReel = Intent.Kind == "jam" ? rng.Next(Reels.Count) : -1;
             if (enemyTurn > 0) Hp = Math.Min(MaxHp, Hp + RelicTotal("regen"));
             for (int i = 0; i < Reels.Count; i++) SpinReel(i);
         }
@@ -440,7 +525,7 @@ namespace ReelDungeon.Core
         void OpenRecruit()
         {
             Offers.Clear();
-            var free = cfg.companions.Where(c => !Party.Contains(c.id)).OrderBy(_ => rng.Next()).Take(3);
+            var free = FreeCompanions.OrderBy(_ => rng.Next()).Take(3);
             if (Party.Count < MaxParty)
                 foreach (var c in free) Offers.Add(RecruitOffer(c, ChapterDef.recruitSignatureBonus));
             if (Offers.Count == 0) Offers.Add(GoldOffer(cfg.treasureGold, "파티가 가득 찼다"));
@@ -467,6 +552,7 @@ namespace ReelDungeon.Core
         // ---------- events ----------
 
         int victoryUpgradeChoices;
+        bool victoryRelic;
 
         void OpenEvent(EventDef e)
         {
@@ -503,7 +589,7 @@ namespace ReelDungeon.Core
                     case "relic": { var r = RelicOffer(); Apply(r); log.Add(r.Text); break; }
                     case "equip": { var r = EquipOffer(); Apply(r); log.Add(r.Text); break; }
                     case "recruit":
-                        var free = cfg.companions.Where(c => !Party.Contains(c.id)).ToArray();
+                        var free = FreeCompanions.ToArray();
                         if (Party.Count < MaxParty && free.Length > 0) { var c = Pick(free); Recruit(c.id); log.Add($"{c.name} 합류"); }
                         else { Gold += cfg.treasureGold; log.Add($"+{cfg.treasureGold} 골드"); }
                         break;
@@ -511,7 +597,7 @@ namespace ReelDungeon.Core
                         int reel = rng.Next(Reels.Count);
                         var curse = cfg.symbols.First(s => s.curse);
                         Reels[reel].Add(curse.id);
-                        log.Add($"{Member(reel).name} 릴에 {curse.name}");
+                        log.Add($"{Member(reel).name} 슬롯에 {curse.name}");
                         break;
                     case "removeCurse": { var r = CurseOffer(); if (r != null) { Apply(r); log.Add(r.Text); } break; }
                     case "gamble":
@@ -523,7 +609,80 @@ namespace ReelDungeon.Core
                     case "fight":
                         StartFight(Pick(ChapterDef.elites));
                         victoryUpgradeChoices = option.victoryUpgradeChoices;
+                        victoryRelic = option.victoryRelic;
                         log.Add("싸움이 벌어졌다!");
+                        break;
+                    case "mirror": // the party's own reflection: as tough as the party is right now
+                        int hitBase = 4 + 3 * Chapter + Party.Count;
+                        StartFight(new EnemyDef
+                        {
+                            name = "거울 속 파티", sprite = Member(0).sprite + "_idle_anim", tint = "#b4a0ff",
+                            hp = Math.Max(10, Hp), gold = 20 + 10 * Chapter,
+                            moves = new[] { $"attack:{hitBase}", $"guard:{hitBase}", $"attack:{hitBase + 3}", $"heal:{hitBase}" },
+                        });
+                        victoryUpgradeChoices = option.victoryUpgradeChoices;
+                        victoryRelic = option.victoryRelic;
+                        log.Add("거울 속 파티가 칼을 뽑았다!");
+                        break;
+                    case "shadow": // this chapter's boss at reduced HP, without its second phase
+                        var b = ChapterDef.boss;
+                        StartFight(new EnemyDef
+                        {
+                            name = b.name + "의 그림자", sprite = b.sprite, tint = "#7060a0",
+                            hp = b.hp * Math.Max(10, e.value) / 100, gold = 20, moves = b.moves,
+                        });
+                        victoryUpgradeChoices = option.victoryUpgradeChoices;
+                        victoryRelic = option.victoryRelic;
+                        log.Add($"{b.name}의 그림자가 일어섰다!");
+                        break;
+                    case "coinflip":
+                        if (rng.Next(2) == 0) { var r = RelicOffer(); Apply(r); log.Add("앞면! " + r.Text); }
+                        else
+                        {
+                            int fr = rng.Next(Reels.Count);
+                            Reels[fr].Add(cfg.symbols.First(x => x.curse).id);
+                            log.Add($"뒷면… {Member(fr).name} 슬롯에 해골");
+                        }
+                        break;
+                    case "hpFull":
+                        log.Add(Hp == MaxHp ? "HP는 이미 가득" : $"HP +{MaxHp - Hp} (가득)");
+                        Hp = MaxHp;
+                        break;
+                    case "goldAll":
+                        log.Add($"-{Gold} 골드");
+                        Gold = 0;
+                        break;
+                    case "transform": // target "from>to": every reel's from faces become to
+                        var pair = (e.target ?? "").Split('>');
+                        if (pair.Length == 2 && byId.ContainsKey(pair[0]) && byId.ContainsKey(pair[1]))
+                        {
+                            int changed = 0;
+                            foreach (var reelFaces in Reels)
+                                for (int k = 0; k < reelFaces.Count; k++)
+                                    if (reelFaces[k] == pair[0]) { reelFaces[k] = pair[1]; changed++; }
+                            log.Add($"{byId[pair[0]].name} {changed}칸이 {byId[pair[1]].name}(으)로");
+                        }
+                        break;
+                    case "fuse": // melt one copy of a doubled face; that symbol gains two levels
+                        for (int t = 0; t < Math.Max(1, e.value); t++)
+                        {
+                            var spot = Enumerable.Range(0, Reels.Count)
+                                .SelectMany(i => Reels[i].Where(id => !byId[id].curse).Distinct()
+                                    .Where(id => Reels[i].Count(x => x == id) >= 2).Select(id => (reel: i, id)))
+                                .OrderByDescending(p => p.id == Member(p.reel).signature).FirstOrDefault();
+                            if (spot.id == null) { log.Add("녹일 겹친 심볼이 없다"); break; }
+                            Reels[spot.reel].Remove(spot.id);
+                            SymbolLevel[spot.id] = Level(spot.id) + 2;
+                            log.Add($"{Member(spot.reel).name} 슬롯 {byId[spot.id].name} 융합: Lv{Level(spot.id) + 1}");
+                        }
+                        break;
+                    case "relicId":
+                        if (items.TryGetValue(e.target ?? "", out var named) && !Relics.Contains(named.id))
+                        {
+                            Apply(new Reward { Kind = RewardKind.Relic, ItemId = named.id });
+                            log.Add($"유물: {named.name}");
+                        }
+                        else { Gold += cfg.treasureGold; log.Add($"+{cfg.treasureGold} 골드"); }
                         break;
                     case "slot": // pay, pull, one of four outcomes
                         Gold -= e.value;
@@ -535,7 +694,7 @@ namespace ReelDungeon.Core
                             default:
                                 int cr = rng.Next(Reels.Count);
                                 Reels[cr].Add(cfg.symbols.First(x => x.curse).id);
-                                log.Add($"꽝! {Member(cr).name} 릴에 해골");
+                                log.Add($"꽝! {Member(cr).name} 슬롯에 해골");
                                 break;
                         }
                         break;
@@ -546,6 +705,15 @@ namespace ReelDungeon.Core
                             var up = Pick(owned);
                             SymbolLevel[up] = Level(up) + 1;
                             log.Add($"{byId[up].name} 강화 Lv{Level(up) + 1}");
+                        }
+                        break;
+                    case "trim":
+                        for (int t = 0; t < Math.Max(1, e.value); t++)
+                        {
+                            var cut = TrimOffer();
+                            if (cut == null) break;
+                            Apply(cut);
+                            log.Add(cut.Text);
                         }
                         break;
                     case "charge":
@@ -559,7 +727,7 @@ namespace ReelDungeon.Core
                         {
                             var copy = Pick(good);
                             for (int c = 0; c < Math.Max(1, e.value); c++) Reels[dr].Add(copy);
-                            log.Add($"{Member(dr).name} 릴에 {byId[copy].name} x{Math.Max(1, e.value)}");
+                            log.Add($"{Member(dr).name} 슬롯에 {byId[copy].name} x{Math.Max(1, e.value)}");
                         }
                         break;
                 }
@@ -598,7 +766,7 @@ namespace ReelDungeon.Core
             if (equip.Kind == RewardKind.Equip) ShopItems.Add(Priced(equip, p.equip));
             var relic = RelicOffer();
             if (relic.Kind == RewardKind.Relic) ShopItems.Add(Priced(relic, p.relic));
-            var free = cfg.companions.Where(c => !Party.Contains(c.id)).ToArray();
+            var free = FreeCompanions.ToArray();
             if (Party.Count < MaxParty && free.Length > 0) ShopItems.Add(Priced(RecruitOffer(Pick(free)), p.recruit));
             Phase = Phase.Shop;
         }
@@ -688,7 +856,7 @@ namespace ReelDungeon.Core
             var good = cfg.symbols.Where(s => !s.curse).ToArray();
             var s = Pick(good);
             int reel = rng.Next(Reels.Count);
-            return new Reward { Kind = RewardKind.AddSymbol, Reel = reel, SymbolId = s.id, Text = $"{Member(reel).name} 릴에 {s.name} 추가" };
+            return new Reward { Kind = RewardKind.AddSymbol, Reel = reel, SymbolId = s.id, Text = $"{Member(reel).name} 슬롯에 {s.name} 추가" };
         }
 
         // ponytail: removes only curses; offer removing any face once reels get crowded.
@@ -697,7 +865,7 @@ namespace ReelDungeon.Core
             int cursed = Reels.FindIndex(r => r.Count > 1 && r.Any(id => byId[id].curse));
             if (cursed < 0) return null;
             var id = Reels[cursed].First(x => byId[x].curse);
-            return new Reward { Kind = RewardKind.RemoveSymbol, Reel = cursed, SymbolId = id, Text = $"{Member(cursed).name} 릴에서 {byId[id].name} 제거" };
+            return new Reward { Kind = RewardKind.RemoveSymbol, Reel = cursed, SymbolId = id, Text = $"{Member(cursed).name} 슬롯에서 {byId[id].name} 제거" };
         }
 
         Reward UpgradeOffer(string id)
@@ -716,7 +884,7 @@ namespace ReelDungeon.Core
             var id = Reels[reel].Where(x => !byId[x].curse && x != Member(reel).signature) // keep the skill's fuel
                 .OrderBy(x => byId[x].damage + byId[x].block + byId[x].heal + byId[x].gold).FirstOrDefault();
             if (id == null) return null;
-            return new Reward { Kind = RewardKind.RemoveSymbol, Reel = reel, SymbolId = id, Text = $"{Member(reel).name} 릴 다듬기: {byId[id].name} 빼기" };
+            return new Reward { Kind = RewardKind.RemoveSymbol, Reel = reel, SymbolId = id, Text = $"{Member(reel).name} 슬롯 다듬기: {byId[id].name} 빼기" };
         }
 
         Reward RecruitOffer(CompanionDef c, bool bonus = false)
@@ -748,7 +916,7 @@ namespace ReelDungeon.Core
 
         Reward RelicOffer()
         {
-            var pool = items.Values.Where(i => i.slot == "relic" && !Relics.Contains(i.id)).ToArray();
+            var pool = items.Values.Where(i => i.slot == "relic" && !Relics.Contains(i.id) && !Locked.Contains(i.id)).ToArray();
             if (pool.Length == 0) return GoldOffer(cfg.treasureGold * 2, "유물 대신");
             var item = Pick(pool);
             return new Reward { Kind = RewardKind.Relic, ItemId = item.id, Text = $"유물: {item.name}" };
