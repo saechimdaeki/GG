@@ -1,4 +1,4 @@
-# 릴 던전 인계 문서 (Claude Code → Codex)
+# 슬롯 던전 인계 문서 (Claude Code → Codex)
 
 작성 2026-11-18. 이 파일 하나만 읽으면 이어서 작업할 수 있게 쓴다. 게임 소개·규칙은 `README.md`.
 
@@ -29,7 +29,7 @@ rsync -a --delete --exclude Library --exclude Temp --exclude Logs --exclude User
 cd ~/Desktop/GG-reel-dungeon && git add -A reel-dungeon && git commit && git push
 ```
 
-커밋 메시지: 한국어 Conventional Commits (`feat: 릴 던전 — …`), 본문 첫 줄에 `설계 기록: reel-dungeon/README.md`.
+커밋 메시지: 한국어 Conventional Commits (`feat: 슬롯 던전 — …`), 본문 첫 줄에 `설계 기록: reel-dungeon/README.md`.
 
 ## 3. 자주 쓰는 명령 (reel-dungeon 폴더에서)
 
@@ -82,6 +82,18 @@ python3 tools/gen_audio.py; python3 tools/make_icon.py
 - 실시간 연출 중(`busy`)에는 `run` 상태가 이미 다음 턴이다. 화면은 `shown*` 값으로 그린다.
 
 ## 6. 남은 일 (우선순위 순)
+
+2026-11-19 대사 전면 수정(story.json, 이벤트 글 15개 — 사용자가 "어색하다"고 함: 설명 없는 암시 대신 상황을 먼저 말하고, 동료마다 말투를 나눔). README 새로 정리, GIF 7개는 `bash tools/make_gifs.sh`(빌드 후)로 다시 찍는다.
+
+2026-11-19 콘텐츠 5차: 심볼 `neighborBuff`·`twinBonus`(파티 순서 = 슬롯 순서, 이웃은 좌우), 스킬 allIn·boneBurst, 유물 stat lifesteal·curseDamage·comboBonus·rerollGold, 동료 gambler(sprite goblin)·skeleton(sprite skelet, 대표 심볼이 해골 — 기본 슬롯 해골 테스트에서 제외), 도감(PlayerPrefs "seenEnemies"). 달리기 애니메이션이 없는 스프라이트는 idle로 대체. EditMode 82/82, 봇 보통 43.5%.
+
+2026-11-19 이름 변경: 화면·대사·tuning의 "릴" → "슬롯"(`돌릴` 같은 동사는 그대로). 코드 식별자(Reels, ReelDungeon)·폴더·productName "Reel Dungeon"은 저장 경로 때문에 유지. 이벤트 결과 화면(`ShowEventResult`, 스크린샷 `--pick N`).
+
+2026-11-19 UI/UX: `HandleKey`(단축키), `Ghost`(체력바 미리보기), `DrawRewardInfo`(보상·상점 자세히 보기, `focusReward`), 스킬 버튼 진행 줄. 화면만 바뀌고 규칙은 그대로.
+
+2026-11-19 적 스킬(heal·jam·sap·reflect), 보스 `phase2`/`phase2Name`(절반 HP에서 행동 목록 교체), 특별 이벤트 7종(새 효과 mirror·shadow·coinflip·hpFull·goldAll·transform·fuse·relicId, 옵션 `victoryRelic`). 이벤트가 즉석에서 만든 적(거울·그림자)은 저장에 `enemyDef`로 통째로 들어간다. EditMode 78/78.
+
+2026-11-19 콘텐츠·디자인 추가: 적 행동 강탈(steal)·봉인(seal), 장마다 적 2종, 정예 2종(`tint`로 같은 그림 다른 색), 이벤트 3종(새 효과 `trim`), 해금(`unlocks`, PlayerPrefs "unlocks", 스크린샷 실행은 저장 안 함), 지도 장별 바닥·칸 색·그림자·보스 빛, 정예 1.25배. EditMode 72/72, macOS 빌드 성공. 증거 `production/qa/evidence/*-2026-11-19.png`. 리서치와 다음 후보는 [콘텐츠 방향](production/design/content-direction.md) 끝.
 
 1장 콘텐츠 추가 완료. [영입 대표 심볼 보너스](production/qa/evidence/recruit-signature-bonus-2026-11-18.png)와 [왕실 장부 사건](production/qa/evidence/event-royal-ledger-2026-11-18.png)을 macOS 빌드에서 확인했다. 장부 정예전을 이어한 뒤 보유 심볼 중 하나를 강화하는 흐름을 포함해 EditMode 65개 통과. 난이도별 2,000판 재측정 결과는 README의 밸런스 항목에 갱신했다.
 

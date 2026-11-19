@@ -13,7 +13,7 @@ public class RunTests
     {
         var cfg = ProductionConfig();
         var run = new Run(cfg, new Random(1));
-        Assert.IsTrue(cfg.companions.SelectMany(member => member.reel)
+        Assert.IsTrue(cfg.companions.Where(member => !run.Symbol(member.signature).curse).SelectMany(member => member.reel)
             .Select(run.Symbol).All(face => !face.curse && face.selfDamage == 0));
         CollectionAssert.Contains(run.Reels[0], "parry");
         CollectionAssert.Contains(run.Reels[1], "bounty");
@@ -51,6 +51,238 @@ public class RunTests
         Assert.IsTrue(declined.ChooseEvent(1));
         Assert.AreEqual(0, Skulls(declined));
         Assert.IsEmpty(declined.Relics);
+    }
+
+    [Test]
+    public void ProductionContent_UsesKnownMovesAndUnlockIds()
+    {
+        var cfg = ProductionConfig();
+        var kinds = new[] { "attack", "guard", "curse", "enrage", "drain", "steal", "seal", "heal", "jam", "sap", "reflect" };
+        var enemies = cfg.chapters.SelectMany(c => c.enemies.Concat(c.elites).Append(c.boss)).Append(cfg.mimic);
+        foreach (var e in enemies)
+        {
+            CollectionAssert.IsSubsetOf(e.moves.Concat(e.phase2 ?? new string[0]).Select(m => m.Split(':')[0]).Distinct(), kinds, e.name);
+            if (!string.IsNullOrEmpty(e.tint)) Assert.IsTrue(UnityEngine.ColorUtility.TryParseHtmlString(e.tint, out _), e.name);
+        }
+        Assert.AreEqual(enemies.Count(), enemies.Select(e => e.name).Distinct().Count(), "enemy names are save keys");
+        var ids = cfg.companions.Select(c => c.id).Concat(cfg.items.Select(i => i.id)).ToHashSet();
+        CollectionAssert.IsSubsetOf(cfg.unlocks, ids);
+        CollectionAssert.IsEmpty(cfg.unlocks.Intersect(cfg.startingParty));
+    }
+
+    [Test]
+    public void Steal_TakesUnblockedGoldAndReturnsItOnKill()
+    {
+        var run = Enter(Config("sword", Trio, Moves(30, "steal:6")));
+        run.Commit(); // 18 damage, 6 gets through
+        Assert.AreEqual(94, run.Gold);
+        Assert.AreEqual(6, run.EnemyStolen);
+        Assert.AreEqual(6, Run.FromSave(Config("sword", Trio, Moves(30, "steal:6")), run.ToSave()).EnemyStolen);
+        run.Faces[0] = run.Faces[1] = run.Faces[2] = run.Symbol("sword");
+        run.Commit(); // kill
+        Assert.AreEqual(94 + 10 + 6, run.Gold);
+        Assert.AreEqual(0, run.EnemyStolen);
+    }
+
+    [Test]
+    public void Seal_BlocksRerollOnlyOnItsTurn()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "seal:2", "attack:1")));
+        Assert.AreEqual(0, run.RerollsLeft);
+        Assert.IsFalse(run.Reroll(0));
+        run.Commit();
+        Assert.AreEqual(38, run.Hp);
+        Assert.AreEqual(1, run.RerollsLeft);
+    }
+
+    [Test]
+    public void Locked_CompanionsAreNeverOfferedAndUnlockInOrder()
+    {
+        var cfg = Config("sword", Trio, Enemy(999, 100));
+        cfg.unlocks = new[] { "g", "h", "t_ring" };
+        CollectionAssert.AreEqual(new[] { "h", "t_ring" }, Run.LockedAfter(cfg, 1));
+        CollectionAssert.IsEmpty(Run.LockedAfter(cfg, 5));
+        for (int seed = 0; seed < 20; seed++)
+        {
+            var run = new Run(cfg, new Random(seed));
+            run.Locked.UnionWith(Run.LockedAfter(cfg, 0));
+            var node = run.Map.Rows[0][0];
+            node.Type = NodeType.Recruit;
+            Assert.IsTrue(run.Choose(node));
+            Assert.IsFalse(run.Offers.Any(o => o.CompanionId == "g" || o.CompanionId == "h"));
+        }
+        var lost = Enter(cfg);
+        Assert.AreEqual(0, lost.UnlocksEarned);
+        lost.Commit();
+        Assert.AreEqual(Phase.Lost, lost.Phase);
+        Assert.AreEqual(1, lost.UnlocksEarned);
+    }
+
+    [Test]
+    public void TrimEvent_RemovesWeakFacesButKeepsSignatureAndThree()
+    {
+        var cfg = Config("sword", new[] { "g" }, Enemy(10, 1));
+        cfg.events = new[] { new EventDef { id = "cut", title = "석공", options = new[] { Option("깎기", ("trim", 2)) } } };
+        var run = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(run.ChooseEvent(0));
+        CollectionAssert.AreEquivalent(new[] { "sword", "shield", "sword" }, run.Reels[0]);
+    }
+
+    [Test]
+    public void EnemyHeal_RestoresHpWithoutAttacking()
+    {
+        var run = Enter(Config("sword", Trio, Moves(30, "heal:10")));
+        Assert.AreEqual(0, run.EnemyIntent);
+        run.Commit(); // 18 damage, heals 10
+        Assert.AreEqual(22, run.EnemyHp);
+        Assert.AreEqual(40, run.Hp);
+    }
+
+    [Test]
+    public void Jam_OneReelCountsForNothing()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "jam:0")));
+        Assert.That(run.JammedReel, Is.InRange(0, 2));
+        Assert.AreEqual(9, run.Preview().damage); // two swords left: 6 x 1.5
+        var restored = Run.FromSave(Config("sword", Trio, Moves(999, "jam:0")), run.ToSave());
+        Assert.AreEqual(run.JammedReel, restored.JammedReel);
+    }
+
+    [Test]
+    public void Sap_EmptiesTheFullestGauge()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "sap:1")));
+        run.Gauge[1] = 2;
+        run.Faces[0] = run.Faces[1] = run.Faces[2] = run.Symbol("shield"); // nothing charges
+        run.Commit();
+        Assert.AreEqual(0, run.Gauge[1]);
+    }
+
+    [Test]
+    public void Reflect_BouncesDamageThroughBlock()
+    {
+        var run = Enter(Config("sword", Trio, Moves(999, "reflect:50")));
+        var o = run.Preview();
+        Assert.AreEqual(9, run.Reflected(o));
+        run.Commit();
+        Assert.AreEqual(31, run.Hp);
+    }
+
+    [Test]
+    public void Phase2_StartsAtHalfHpAndSwitchesMoves()
+    {
+        var boss = Moves(30, "guard:0");
+        boss.phase2 = new[] { "attack:7" };
+        boss.phase2Name = "광폭화";
+        var run = Enter(Config("sword", Trio, boss));
+        run.Commit(); // 18 damage -> 12 / 30
+        Assert.IsTrue(run.EnemyPhase2);
+        Assert.AreEqual("attack", run.Intent.Kind);
+        Assert.AreEqual(7, run.EnemyIntent);
+        StringAssert.Contains("광폭화", run.Log);
+        Assert.IsTrue(Run.FromSave(Config("sword", Trio, boss), run.ToSave()).EnemyPhase2);
+    }
+
+    [Test]
+    public void SpecialEvents_MirrorShadowTransformFuse()
+    {
+        var cfg = Config("sword", new[] { "g" }, Enemy(10, 1), boss: Moves(100, "guard:0"));
+        cfg.events = new[] { new EventDef { id = "x", title = "x", options = new[] {
+            new EventOption { label = "거울", effects = new[] { new EventEffect { kind = "mirror" } }, victoryUpgradeChoices = 3 },
+            new EventOption { label = "그림자", effects = new[] { new EventEffect { kind = "shadow", value = 50 } }, victoryRelic = true },
+            new EventOption { label = "변환", effects = new[] { new EventEffect { kind = "transform", target = "shield>coin" } } },
+            new EventOption { label = "융합", effects = new[] { new EventEffect { kind = "fuse", value = 1 } } },
+        } } };
+
+        var mirror = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(mirror.ChooseEvent(0));
+        Assert.AreEqual(Phase.Turn, mirror.Phase);
+        Assert.AreEqual("거울 속 파티", mirror.Enemy.name);
+        Assert.AreEqual(mirror.Hp, mirror.EnemyMaxHp);
+        Assert.AreEqual("거울 속 파티", Run.FromSave(cfg, mirror.ToSave()).Enemy.name); // made-up enemy survives a save
+
+        var shadow = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(shadow.ChooseEvent(1));
+        Assert.AreEqual(50, shadow.EnemyMaxHp);
+        while (shadow.Phase == Phase.Turn) { shadow.Faces[0] = shadow.Symbol("sword"); shadow.Commit(); }
+        Assert.AreEqual(Phase.Reward, shadow.Phase);
+        Assert.IsTrue(shadow.Offers.Any(r => r.Kind == RewardKind.Relic));
+
+        var swap = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(swap.ChooseEvent(2));
+        CollectionAssert.AreEquivalent(new[] { "sword", "coin", "coin", "sword" }, swap.Reels[0]);
+
+        var fuse = Enter(cfg, NodeType.Event);
+        Assert.IsTrue(fuse.ChooseEvent(3));
+        Assert.AreEqual(3, fuse.Reels[0].Count);
+        Assert.AreEqual(2, fuse.Level("sword")); // signature first
+    }
+
+    [Test]
+    public void Banner_LiftsNeighboursAndTwinPaysWhenSideBySide()
+    {
+        var cfg = Config("sword", Trio, Moves(999, "guard:0"));
+        cfg.symbols = cfg.symbols.Concat(new[]
+        {
+            new SymbolDef { id = "banner", name = "깃발", block = 1, neighborBuff = 2 },
+            new SymbolDef { id = "twin", name = "쌍검", damage = 2, twinBonus = 4 },
+        }).ToArray();
+        var run = Enter(cfg);
+        run.Faces[0] = run.Symbol("sword"); run.Faces[1] = run.Symbol("banner"); run.Faces[2] = run.Symbol("shield");
+        var o = run.Preview();
+        Assert.AreEqual(3 + 2, o.damage);   // sword + banner on its right
+        Assert.AreEqual(3 + 1 + 2, o.block); // shield + banner's own block + banner on its left
+        run.Faces[0] = run.Symbol("twin"); run.Faces[1] = run.Symbol("twin"); run.Faces[2] = run.Symbol("shield");
+        Assert.AreEqual((int)(2 * 2 * 1.5f) + 4 + 4, run.Preview().damage); // a pair, then each twin sees the other
+    }
+
+    [Test]
+    public void AllIn_SpendsHalfTheGoldAsDamage()
+    {
+        var run = Enter(Config("sword", new[] { "a" }, Moves(999, "guard:0")));
+        var cfg = Config("sword", new[] { "a" }, Moves(999, "guard:0"));
+        cfg.companions[0].skill = "allIn"; cfg.companions[0].skillValue = 50;
+        run = Enter(cfg);
+        run.Gauge[0] = 3;
+        Assert.IsTrue(run.ToggleSkill(0));
+        Assert.AreEqual(3 + 50, run.Preview().damage);
+        run.Commit();
+        Assert.AreEqual(50, run.Gold);
+        Assert.AreEqual(999 - 53, run.EnemyHp);
+    }
+
+    [Test]
+    public void BoneBurst_TurnsSkullsIntoDamage()
+    {
+        var cfg = Config("skull", new[] { "a", "b" }, Moves(999, "guard:0"));
+        cfg.companions[0].skill = "boneBurst"; cfg.companions[0].skillValue = 5;
+        var run = Enter(cfg);
+        Assert.AreEqual(4 * 1.5f * 1, run.Preview().selfDamage, 0.01); // two skulls hurt before the skill
+        run.Gauge[0] = 3;
+        Assert.IsTrue(run.ToggleSkill(0));
+        var o = run.Preview();
+        Assert.AreEqual(0, o.selfDamage);
+        Assert.AreEqual(10, o.damage);
+    }
+
+    [Test]
+    public void NewRelics_LifestealCurseDamageComboAndRerollGold()
+    {
+        var cfg = Config("sword", Trio, Moves(999, "guard:0"));
+        cfg.items = cfg.items.Concat(new[]
+        {
+            Item("grail", "relic", "", "lifesteal", 20), Item("crown", "relic", "", "curseDamage", 3),
+            Item("medal", "relic", "", "comboBonus", 3), Item("dice", "relic", "", "rerollGold", 3),
+        }).ToArray();
+        var run = Enter(cfg);
+        run.Relics.AddRange(new[] { "grail", "crown", "medal", "dice" });
+        run.Faces[0] = run.Faces[1] = run.Symbol("sword"); run.Faces[2] = run.Symbol("skull");
+        var o = run.Preview();
+        Assert.AreEqual(9 + 3 + 3, o.damage);   // pair of swords, one skull x3, one combo +3
+        Assert.AreEqual(15 * 20 / 100, o.heal);
+        int gold = run.Gold;
+        Assert.IsTrue(run.Reroll(0));
+        Assert.AreEqual(gold + 3, run.Gold);
     }
 
     static SymbolDef Sword => new SymbolDef { id = "sword", name = "칼", damage = 3 };
