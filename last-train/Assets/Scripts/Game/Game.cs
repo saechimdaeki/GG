@@ -1121,6 +1121,7 @@ namespace LastTrain
                     break;
                 case "motion-preview":
                     _motionPreview = true;
+                    ScavengerBody.Trace = _args.ContainsKey("trace");
                     Me.Pos = City.MarketSquare + Vector2.down * 2.5f;
                     Horde.Spawn(Me.Pos + Vector2.up * 7f + Vector2.left * 1.4f, 0);
                     Horde.Spawn(Me.Pos + Vector2.up * 8f + Vector2.right * 1.4f, 1);

@@ -160,6 +160,12 @@ namespace LastTrain
             // Preserve the vertical motion and keep horizontal travel on the gameplay body.
             var rootPosition = _body.position;
             _hips.position = new Vector3(rootPosition.x, _hips.position.y, rootPosition.z);
+            if (Trace && _motion != null)
+            {
+                var raw = _head.position - _hips.position;
+                var toe = _leftLeg.foot.GetChild(0).position - _leftLeg.foot.position;
+                Debug.Log($"[raw] lean {Mathf.Atan2(Vector3.Dot(raw, _body.forward), raw.y) * Mathf.Rad2Deg:F0} toeFwd {Vector3.Dot(toe.normalized, _body.forward):F2} modelFwd {Vector3.Dot(_model.forward, _body.forward):F2} hipsFwd {Vector3.Dot(_hips.forward, _body.forward):F2}");
+            }
             if (_motion != null)
             {
                 var torso = _head.position - _spine.position;
@@ -183,6 +189,7 @@ namespace LastTrain
                 GroundLeg(_leftLeg, 1f - _lowerAction);
                 GroundLeg(_rightLeg, 1f - _lowerAction);
             }
+            if (Trace && _motion != null) TracePose();
         }
 
         void GroundLeg(Leg leg, float weight)
@@ -218,6 +225,17 @@ namespace LastTrain
             shoulder.rotation = Quaternion.FromToRotation(elbow.position - shoulder.position, upper) * shoulder.rotation;
             var lower = _body.TransformDirection(new Vector3(side * 0.08f, -1f, swing + bend));
             elbow.rotation = Quaternion.FromToRotation(hand.position - elbow.position, lower) * elbow.rotation;
+        }
+
+        public static bool Trace;
+        void TracePose()
+        {
+            var up = _head.position - _hips.position;
+            float lean = Mathf.Atan2(Vector3.Dot(up, _body.forward), Vector3.Dot(up, Vector3.up)) * Mathf.Rad2Deg;
+            var l = _body.InverseTransformPoint(_leftLeg.foot.position);
+            var r = _body.InverseTransformPoint(_rightLeg.foot.position);
+            var h = _body.InverseTransformPoint(_hips.position);
+            Debug.Log($"[pose] gait {_gait} lean {lean:F0} hips {h.y:F2}/{h.z:F2} footL {l.y:F2}/{l.z:F2} footR {r.y:F2}/{r.z:F2} up {_upperAction:F1} low {_lowerAction:F1}");
         }
 
         public Vector3 HipsPosition => _hips.position;

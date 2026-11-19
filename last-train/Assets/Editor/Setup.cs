@@ -95,6 +95,28 @@ public static class Setup
         }
     }
 
+    /// <summary>
+    /// The Mixamo clips copied their avatar from a deleted "survivor" model, so its reference pose
+    /// pitched the pelvis backward. Each clip builds an avatar from its own mixamorig skeleton instead.
+    /// </summary>
+    public static void LocomotionAvatars()
+    {
+        foreach (var file in Directory.GetFiles("Assets/Resources/Art/Locomotion", "*.fbx"))
+        {
+            var mi = (ModelImporter)AssetImporter.GetAtPath(file);
+            var clips = mi.clipAnimations;
+            mi.animationType = ModelImporterAnimationType.Human;
+            mi.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            mi.sourceAvatar = null;
+            mi.humanDescription = new HumanDescription();
+            mi.autoGenerateAvatarMappingIfUnspecified = true;
+            if (clips.Length > 0) mi.clipAnimations = clips;
+            mi.SaveAndReimport();
+            var avatar = AssetDatabase.LoadAllAssetsAtPath(file).OfType<Avatar>().FirstOrDefault();
+            Debug.Log($"[setup] {file} own avatar valid={avatar && avatar.isValid} human={avatar && avatar.isHuman}");
+        }
+    }
+
     public static void BuildMac()
     {
         var r = BuildPipeline.BuildPlayer(new BuildPlayerOptions
