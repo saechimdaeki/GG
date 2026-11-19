@@ -160,22 +160,18 @@ namespace LastTrain
             // Preserve the vertical motion and keep horizontal travel on the gameplay body.
             var rootPosition = _body.position;
             _hips.position = new Vector3(rootPosition.x, _hips.position.y, rootPosition.z);
-            if (Trace && _motion != null)
-            {
-                var raw = _head.position - _hips.position;
-                var toe = _leftLeg.foot.GetChild(0).position - _leftLeg.foot.position;
-                Debug.Log($"[raw] lean {Mathf.Atan2(Vector3.Dot(raw, _body.forward), raw.y) * Mathf.Rad2Deg:F0} toeFwd {Vector3.Dot(toe.normalized, _body.forward):F2} modelFwd {Vector3.Dot(_model.forward, _body.forward):F2} hipsFwd {Vector3.Dot(_hips.forward, _body.forward):F2}");
-            }
             if (_motion != null)
             {
+                MirrorPitch(_body, _hips, _head);
                 var torso = _head.position - _spine.position;
                 float maxLean = _gait is 3 or 4 ? 28f : _gait == 2 ? 14f : 8f;
                 var upright = Vector3.RotateTowards(Vector3.up, torso.normalized, maxLean * Mathf.Deg2Rad, 0f);
                 _spine.rotation = Quaternion.Slerp(Quaternion.identity,
                     Quaternion.FromToRotation(torso, upright), 1f - _upperAction) * _spine.rotation;
                 float swing = Mathf.Sin(_motion.Phase * Mathf.PI * 2f) * (_gait == 2 ? 0.40f : _gait is 1 or 4 ? 0.22f : 0f);
-                RelaxArm(_leftArm, _leftElbow, _leftHand, -1f, swing);
-                RelaxArm(_rightArm, _rightElbow, RightHand, 1f, -swing);
+                float bend = _gait == 2 ? 0.65f : _gait is 3 or 4 ? 0.40f : 0.22f;
+                RelaxArm(_body, _leftArm, _leftElbow, _leftHand, -1f, swing, bend);
+                RelaxArm(_body, _rightArm, _rightElbow, RightHand, 1f, -swing, bend);
             }
             foreach (var joint in _joints)
             {
@@ -216,15 +212,95 @@ namespace LastTrain
             leg.foot.rotation = Quaternion.Slerp(leg.foot.rotation, _body.rotation * leg.footRest, weight * 0.7f);
         }
 
-        void RelaxArm(Transform shoulder, Transform elbow, Transform hand, float side, float swing)
+        /// <summary>
+        /// The clips' borrowed avatar mirrors body pitch (crouch and run leaned back with the feet thrown
+        /// forward). Mirror the pelvis about the vertical; the legs follow it.
+        /// </summary>
+        static void MirrorPitch(Transform body, Transform hips, Transform head)
         {
-            // The imported unarmed clips use a high combat guard. Use relaxed arm carriage for travel.
+            var spine = head.position - hips.position;
+            float pitch = Mathf.Atan2(Vector3.Dot(spine, body.forward), Vector3.Dot(spine, Vector3.up)) * Mathf.Rad2Deg;
+            hips.rotation = Quaternion.AngleAxis(-2f * pitch, body.right) * hips.rotation;
+        }
+
+        /// <summary>The imported unarmed clips use a high combat guard; this lays the arm down beside the body.</summary>
+        static void RelaxArm(Transform body, Transform shoulder, Transform elbow, Transform hand, float side, float swing, float bend)
+        {
             if (!shoulder || !elbow || !hand) return;
-            float bend = _gait == 2 ? 0.65f : _gait is 3 or 4 ? 0.40f : 0.22f;
-            var upper = _body.TransformDirection(new Vector3(side * 0.16f, -1f, swing));
+            var upper = body.TransformDirection(new Vector3(side * 0.16f, -1f, swing));
             shoulder.rotation = Quaternion.FromToRotation(elbow.position - shoulder.position, upper) * shoulder.rotation;
-            var lower = _body.TransformDirection(new Vector3(side * 0.08f, -1f, swing + bend));
+            var lower = body.TransformDirection(new Vector3(side * 0.08f, -1f, swing + bend));
             elbow.rotation = Quaternion.FromToRotation(hand.position - elbow.position, lower) * elbow.rotation;
+        }
+
+        /// <summary>
+        /// A standing NPC on the same realistic body as the player (tinted clothes, own height),
+        /// idling with lowered arms. Null when the licensed model or idle clip is not installed.
+        /// </summary>
+        public static GameObject SpawnNpc(Transform parent, Vector3 at, float yaw, Color tint, float height, float sway)
+        {
+            var prefab = Resources.Load<GameObject>("Art/Scavenger/FBX/Scavenger");
+            var idle = System.Array.Find(Resources.LoadAll<AnimationClip>("Art/Locomotion/unarmed_idle"), c => c.name == "unarmed_idle");
+            if (!prefab || !idle || !idle.humanMotion) return null;
+            var root = new GameObject("npc");
+            root.transform.SetParent(parent, false);
+            root.transform.SetPositionAndRotation(at, Quaternion.Euler(0, yaw, 0));
+            var model = Object.Instantiate(prefab, root.transform, false);
+            var animator = model.GetComponent<Animator>();
+            var skins = model.GetComponentsInChildren<SkinnedMeshRenderer>();
+            if (!animator || !animator.isHuman || skins.Length == 0)
+            {
+                Object.Destroy(root);
+                return null;
+            }
+            var bounds = skins[0].bounds;
+            foreach (var skin in skins) bounds.Encapsulate(skin.bounds);
+            model.transform.localScale *= height / Mathf.Max(0.01f, bounds.size.y);
+            bounds = skins[0].bounds;
+            foreach (var skin in skins) bounds.Encapsulate(skin.bounds);
+            model.transform.position += Vector3.up * (at.y - bounds.min.y);
+            var block = new MaterialPropertyBlock();
+            foreach (var skin in skins)
+            {
+                if (skin.name.Contains("backpack")) skin.enabled = false; // the pack marks the player
+                if (!skin.sharedMaterial || !skin.sharedMaterial.name.Contains("Body")) continue;
+                block.SetColor("_BaseColor", tint);
+                skin.SetPropertyBlock(block);
+            }
+            root.AddComponent<NpcPose>().Init(animator, idle, sway);
+            return root;
+        }
+
+        sealed class NpcPose : MonoBehaviour
+        {
+            HumanoidMotion _motion;
+            Transform _hips, _head, _armL, _elbowL, _handL, _armR, _elbowR, _handR;
+            float _sway;
+
+            public void Init(Animator animator, AnimationClip idle, float sway)
+            {
+                _motion = new HumanoidMotion(animator, new[] { idle });
+                _motion.Blend(0, 0.85f + sway * 0.3f, 0f, 14f);
+                _sway = sway;
+                _hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+                _head = animator.GetBoneTransform(HumanBodyBones.Head);
+                _armL = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
+                _elbowL = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
+                _handL = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+                _armR = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+                _elbowR = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
+                _handR = animator.GetBoneTransform(HumanBodyBones.RightHand);
+            }
+
+            void LateUpdate()
+            {
+                MirrorPitch(transform, _hips, _head);
+                float drift = Mathf.Sin(Time.time * 0.9f + _sway * 6f) * 0.04f;
+                RelaxArm(transform, _armL, _elbowL, _handL, -1f, drift, 0.18f);
+                RelaxArm(transform, _armR, _elbowR, _handR, 1f, -drift, 0.18f);
+            }
+
+            void OnDestroy() => _motion?.Dispose();
         }
 
         public static bool Trace;

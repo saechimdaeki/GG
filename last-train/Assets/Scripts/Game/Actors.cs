@@ -500,6 +500,15 @@ namespace LastTrain
         /// <summary>A standing, idling survivor NPC (traders, contacts).</summary>
         public GameObject SpawnNpc(string model, Vector2 at, float yaw)
         {
+            // Same realistic body as the player when the licensed model is installed; low-poly fallback otherwise.
+            var look = model switch
+            {
+                "Worker_Female" => (tint: new Color(0.95f, 0.82f, 0.74f), height: 1.66f),
+                "Worker_Male" => (tint: new Color(0.78f, 0.86f, 0.80f), height: 1.80f),
+                _ => (tint: new Color(0.80f, 0.82f, 0.95f), height: 1.74f),
+            };
+            var real = ScavengerBody.SpawnNpc(transform, new Vector3(at.x, 0, at.y), yaw, look.tint, look.height, (at.x * 0.37f + at.y) % 1f);
+            if (real) return real;
             var go = Spawn(Template(Resources.Load<GameObject>("Art/Characters/" + model), "npc", -1), "npc");
             go.transform.SetPositionAndRotation(new Vector3(at.x, 0, at.y), Quaternion.Euler(0, yaw, 0));
             var a = go.GetComponentInChildren<Animation>();

@@ -117,7 +117,7 @@ namespace LastTrain
             else BeginTutorial();
             if (scene == "keyboard-qa") StartCoroutine(VerifyKeyboard());
             else if (_args.ContainsKey("shot")) StartCoroutine(Shot());
-            if (scene == "motion-preview" && _args.TryGetValue("frames", out var frames))
+            if (_args.TryGetValue("frames", out var frames))
                 StartCoroutine(CaptureMotion(frames));
         }
 
@@ -1570,7 +1570,7 @@ namespace LastTrain
                 ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(directory, $"frame-{i:000}.png"));
                 yield return null;
             }
-            Debug.Log("[motion] idle, travel, turn, crouch, sprint and stop preview captured");
+            Debug.Log("[motion] " + _args["scene"] + " frames captured");
             Application.Quit();
         }
 
