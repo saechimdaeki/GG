@@ -31,6 +31,39 @@ public class CoreTests
     }
 
     [Test]
+    public void SprintExpendsOnlyWhileMovingAndRestartsAfterRecovery()
+    {
+        var player = new Survivor { Sprinting = true };
+        player.TickSprint(false, 1f);
+        Assert.AreEqual(1f, player.SprintEnergy);
+        player.TickSprint(true, T.player.sprintSeconds);
+        Assert.IsTrue(player.SprintExhausted);
+        Assert.AreEqual(0f, player.SprintEnergy);
+        player.Sprinting = false;
+        player.TickSprint(false, T.player.sprintRecoveryDelay * 0.5f);
+        Assert.AreEqual(0f, player.SprintEnergy);
+        player.TickSprint(false, T.player.sprintRecoverSeconds);
+        Assert.IsFalse(player.SprintExhausted);
+        Assert.Greater(T.zombies[1].chaseSpeed, player.Speed);
+        Assert.Less(T.zombies[1].chaseSpeed, player.Speed * T.player.sprintMult);
+    }
+
+    [Test]
+    public void AlertZombieMovesAroundWallAndCanForgetItsGoal()
+    {
+        var horde = new Horde(T.zombies, new List<Rect> { new(-1f, -2f, 2f, 4f) });
+        Vector2 goal = new(3f, 0.45f);
+        horde.Spawn(new Vector2(-3f, 0f), 0);
+        horde.Alert(0, goal, 5f);
+        for (int frame = 0; frame < 180; frame++)
+            horde.Step(1f / 60f, System.Array.Empty<Vector2>());
+        Assert.Less(Vector2.Distance(horde.Pos[0], goal), 0.4f);
+        for (int frame = 0; frame < 150; frame++)
+            horde.Step(1f / 60f, System.Array.Empty<Vector2>());
+        Assert.IsFalse(horde.IsAware(0));
+    }
+
+    [Test]
     public void DiscardedSuppliesMergeWithoutReplacingOtherLoot()
     {
         var contents = new List<(string item, int count)>();
@@ -141,6 +174,38 @@ public class CoreTests
         Assert.AreEqual(1, w.Impacts);
         Assert.AreEqual(T.zombies[0].hp, h.Hp[1], "behind you is not hit");
         Assert.IsFalse(s.Attack(new Vector2(0, 5), w), "cooldown");
+    }
+
+    [TestCase("pipe")]
+    [TestCase("axe")]
+    [TestCase("bat")]
+    public void MeleeHitsOnlyClosestEnemyInCrowd(string weapon)
+    {
+        var horde = NewHorde(new Vector2(0, 1.05f), new Vector2(0.65f, 1.75f), new Vector2(-0.65f, 1.7f));
+        var world = new FakeWorld { Horde = horde };
+        var player = new Survivor();
+        player.Take(weapon, 1);
+
+        Assert.IsTrue(player.Attack(Vector2.up, world));
+        Assert.AreEqual(1, world.Impacts);
+        Assert.Less(horde.Hp[0], T.zombies[0].hp);
+        for (int i = 1; i < horde.Count; i++)
+        {
+            Assert.AreEqual(T.zombies[0].hp, horde.Hp[i]);
+            Assert.AreEqual(0f, horde.Slow[i]);
+            Assert.AreEqual(Vector2.zero, horde.Knock[i]);
+        }
+    }
+
+    [Test]
+    public void KnifeDealsDamageWithoutStagger()
+    {
+        var horde = NewHorde(new Vector2(0, 1.05f));
+        var player = new Survivor();
+        player.Take("knife", 1);
+        Assert.IsTrue(player.Attack(Vector2.up, new FakeWorld { Horde = horde }));
+        Assert.Less(horde.Hp[0], T.zombies[0].hp);
+        Assert.AreEqual(0f, horde.Slow[0]);
     }
 
     [Test]

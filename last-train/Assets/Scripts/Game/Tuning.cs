@@ -9,6 +9,7 @@ namespace LastTrain
     {
         [Serializable] public class PlayerCfg
         {
+            public float sprintSeconds, sprintRecoverSeconds, sprintRecoveryDelay, sprintRestartThreshold;
             public float speed, sprintMult, crouchMult, hp, reviveRadius, reviveSeconds, downedSeconds, reviveHp, teamDamagePerMate;
             public float hungerMax, hungerPerSec, starveDps, foodValue, bandageHeal, sleepHealPerSec;
         }
@@ -23,12 +24,13 @@ namespace LastTrain
             public float sightDay, sightNight, flashlightBonus, sightAngle, crouchSight, touch;
             public float noiseWalk, noiseSprint, noiseCrouch, noiseSearch, forgetSeconds, stealthRange;
         }
-        [Serializable] public class ZombieCfg { public string id; public float hp, speed, chaseSpeed, dps, radius, scale; }
+        [Serializable] public class ZombieCfg { public string id; public float hp, speed, chaseSpeed, dps, radius, scale, windup, recovery, reach, attackHalfAngle; }
         [Serializable] public class ShelterCfg { public float barricadeHp, repairPerScrap, searchSeconds; }
         [Serializable] public class WeaponCfg
         {
             public string id, name, kind;
             public float damage, cooldown, range, arc, noise, knockback, speed, radius, flight;
+            public float windup, recovery, stagger;
             public int durability, pierce;
         }
         [Serializable] public class LootCfg { public string item; public int weight, min, max; }
@@ -58,6 +60,7 @@ namespace LastTrain
         {
             public float requestChance, rescueChance, minDistance, maxDistance, requestAt, rescueAt, rescueWindow;
             public int requestDay, rescueDay, attackers;
+            public float ambushChance, ambushAt, ambushWindup, ambushReach, ambushDamage;
         }
 
         [Serializable] public class StoryCfg

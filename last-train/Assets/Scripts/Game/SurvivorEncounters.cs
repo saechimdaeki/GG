@@ -5,10 +5,13 @@ namespace LastTrain
 {
     public partial class Game
     {
-        enum EncounterKind { None, Request, Rescue }
+        enum EncounterKind { None, Request, Rescue, Lure }
         EncounterKind _scheduledEncounter, _encounterKind;
         float _encounterAt, _rescueTime, _rescueHealth;
         string _requestItem;
+        float _ambushTime;
+        bool _ambushCommitted;
+        Vector2 _ambushDirection;
         bool _storyEncounter, _helpedMechanic, _rescuedRelay;
         Vector2 _storyEncounterAt;
         Vector2 _encounterPosition;
@@ -40,11 +43,16 @@ namespace LastTrain
                 _scheduledEncounter = EncounterKind.Rescue;
                 _encounterAt = T.clock.daySeconds - cfg.rescueAt;
             }
+            else if (random.NextDouble() < cfg.ambushChance)
+            {
+                _scheduledEncounter = EncounterKind.Lure;
+                _encounterAt = T.clock.daySeconds - cfg.ambushAt;
+            }
         }
 
         void TickEncounter(float dt)
         {
-            if (Phase != "day") return;
+            if (Phase != "day" || OnMarketUpper) return;
             if (_scheduledEncounter != EncounterKind.None && PhaseT <= _encounterAt)
             {
                 var kind = _scheduledEncounter;
@@ -68,6 +76,11 @@ namespace LastTrain
                     StartEncounter(kind, point);
                     break;
                 }
+            }
+            if (_encounterKind == EncounterKind.Lure && _ambushCommitted)
+            {
+                _ambushTime -= dt;
+                if (_ambushTime <= 0) ResolveAmbush();
             }
             if (_encounterKind != EncounterKind.Rescue || _attackers.Count == 0) return;
             _rescueTime -= dt;
@@ -94,13 +107,15 @@ namespace LastTrain
 
             _encounterKind = kind;
             _encounterPosition = position;
-            _encounterNpc = _actors.SpawnNpc(kind == EncounterKind.Request ? "Worker_Female" : "Casual_Male", position, 180);
+            _encounterNpc = _actors.SpawnNpc(kind == EncounterKind.Request ? "Worker_Female" : "Casual_Male", position, 180, kind == EncounterKind.Lure ? "lure" : kind == EncounterKind.Rescue ? "station" : "");
             _requestItem = _storyEncounter ? "bandage" : (_encounterSeed & 1) == 0 ? "food" : "bandage";
             _rescueTime = T.encounters.rescueWindow;
             _rescueHealth = T.player.hp;
             if (_storyEncounter)
                 Say(kind == EncounterKind.Request ? "시장 수리공 윤서가 다쳤다. 붕대가 필요하다."
                     : "역무원 지호: 이쪽입니다! 저 비명 때문에 놈들이 몰려들고 있어요!");
+            else if (kind == EncounterKind.Lure)
+                Say("낯선 생존자: 이리 와요. 철문 뒤에 물자가 있어요.");
             else Say(kind == EncounterKind.Request ? "골목에서 누군가 손을 흔든다" : "살려 달라는 소리다! 근처에 좀비가 몰리고 있다");
         }
 
@@ -122,7 +137,15 @@ namespace LastTrain
 
         bool InteractEncounter(bool pressed)
         {
-            if (_encounterKind == EncounterKind.None || Vector2.Distance(Me.Pos, _encounterPosition) >= 1.9f) return false;
+            if (_encounterKind == EncounterKind.None || _ambushCommitted ||
+                Vector2.Distance(Me.Pos, _encounterPosition) >= 1.9f ||
+                !Clear(Me.Pos, _encounterPosition)) return false;
+            if (_encounterKind == EncounterKind.Lure)
+            {
+                _prompt = "E · 물자 제안 듣기  /  손에 쇠파이프를 숨기고 있다";
+                if (pressed) BeginAmbush();
+                return true;
+            }
             if (_encounterKind == EncounterKind.Rescue && _attackers.Count > 0)
             {
                 _prompt = $"생존자를 공격하는 좀비 {_attackers.Count}마리";
@@ -171,6 +194,50 @@ namespace LastTrain
             return true;
         }
 
+        void BeginAmbush()
+        {
+            _ambushCommitted = true;
+            _ambushTime = T.encounters.ambushWindup;
+            _ambushDirection = (Me.Pos - _encounterPosition).normalized;
+            if (_ambushDirection.sqrMagnitude < 0.001f) _ambushDirection = Vector2.down;
+            if (_encounterNpc) _encounterNpc.transform.rotation = Quaternion.LookRotation(Fx.V3(_ambushDirection));
+            _fx.Fan(_encounterPosition, _ambushDirection, T.encounters.ambushReach, 43f * Mathf.Deg2Rad,
+                new Color(1f, 0.26f, 0.19f, 0.9f), _ambushTime);
+            Noise(_encounterPosition, 15f);
+            Say("낯선 생존자가 무기를 꺼냈다! 옆으로 피하자.");
+        }
+
+        void ResolveAmbush()
+        {
+            Vector2 offset = Me.Pos - _encounterPosition;
+            if (offset.sqrMagnitude <= T.encounters.ambushReach * T.encounters.ambushReach &&
+                Vector2.Angle(_ambushDirection, offset) <= 43f && Clear(Me.Pos, _encounterPosition))
+                HurtPlayer(Me, T.encounters.ambushDamage, _encounterPosition);
+            Say("낯선 생존자가 달아났다. 소리를 듣고 좀비가 모인다.");
+            ClearEncounter();
+        }
+
+        void VerifyAmbush()
+        {
+            ClearEncounter();
+            Horde = new Horde(T.zombies, City.ZombieWalls);
+            var at = City.MarketSquare;
+            float health = Me.Hp;
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                Me.Pos = at + Vector2.down * 1.25f;
+                StartEncounter(EncounterKind.Lure, at);
+                if (!InteractEncounter(true) || !_ambushCommitted || Me.Hp != health)
+                    throw new System.InvalidOperationException("Ambush must give a warning before dealing damage");
+                if (attempt == 0) Me.Pos = at + Vector2.right * 1.4f;
+                TickEncounter(T.encounters.ambushWindup + 0.01f);
+                float expected = attempt == 0 ? health : health - T.encounters.ambushDamage;
+                if (!Mathf.Approximately(Me.Hp, expected) || _encounterKind != EncounterKind.None)
+                    throw new System.InvalidOperationException("Ambush hit or dodge failed");
+            }
+            Debug.Log("[ambush] warning, evasion, damage and event cleanup verified");
+        }
+
         void GiveEncounterReward(string item, int count, float labelOffset = 0f)
         {
             Me.Take(item, count, out int acquired);
@@ -183,7 +250,7 @@ namespace LastTrain
             if (_encounterNpc) Destroy(_encounterNpc);
             _encounterNpc = null;
             _encounterKind = _scheduledEncounter = EncounterKind.None;
-            _storyEncounter = false;
+            _storyEncounter = _ambushCommitted = false;
             _attackers.Clear();
         }
 
@@ -196,7 +263,9 @@ namespace LastTrain
                 return (_cam.WorldToScreenPoint(Fx.V3(_storyEncounterAt, 1.75f)), $"정비 광장 구조 신호  {pendingDistance:0}m", true);
             }
             float distance = Vector2.Distance(Me.Pos, _encounterPosition);
-            string label = _encounterKind == EncounterKind.Request ? $"물자 요청  {distance:0}m"
+            string label = _encounterKind == EncounterKind.Lure
+                ? (_ambushCommitted ? "매복 공격" : $"낯선 생존자  {distance:0}m")
+                : _encounterKind == EncounterKind.Request ? $"물자 요청  {distance:0}m"
                 : _attackers.Count > 0 ? $"구조 요청  {distance:0}m · {Mathf.CeilToInt(_rescueTime)}초"
                 : $"구조된 생존자  {distance:0}m";
             if (_storyEncounter) label = (_encounterKind == EncounterKind.Request ? "윤서 · " : "지호 · ") + label;

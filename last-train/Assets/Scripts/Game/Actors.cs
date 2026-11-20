@@ -64,7 +64,7 @@ namespace LastTrain
         readonly List<View> _dying = new();
         readonly Dictionary<GameObject, Stack<View>> _pool = new();
         List<GameObject>[] _templates;
-        MaterialPropertyBlock _mpb, _screamerTint, _armoredTint;
+        MaterialPropertyBlock _mpb, _screamerTint, _armoredTint, _runnerTint, _bruteTint;
         readonly HashSet<int> _seen = new();
         Material _plain;
 
@@ -80,19 +80,24 @@ namespace LastTrain
             _mpb = new MaterialPropertyBlock();
             _mpb.SetColor("_BaseColor", new Color(1f, 0.79f, 0.63f));
             _plain = Resources.Load<Material>("Materials/Plain");
+            _runnerTint = new MaterialPropertyBlock();
+            _runnerTint.SetColor("_BaseColor", new Color(0.88f, 0.69f, 0.45f));
+            _bruteTint = new MaterialPropertyBlock();
+            _bruteTint.SetColor("_BaseColor", new Color(0.66f, 0.52f, 0.47f));
             _screamerTint = new MaterialPropertyBlock();
             _screamerTint.SetColor("_BaseColor", new Color(0.83f, 0.43f, 0.56f));
             _armoredTint = new MaterialPropertyBlock();
             _armoredTint.SetColor("_BaseColor", new Color(0.48f, 0.69f, 0.88f));
             var storeA = StoreTemplate(3);
             var storeB = StoreTemplate(2);
+            var storeC = StoreTemplate(1);
             if (storeA && storeB)
             {
                 _templates = new[]
                 {
                     new List<GameObject> { storeA, storeB },
                     new List<GameObject> { storeB },
-                    new List<GameObject> { storeA },
+                    new List<GameObject> { storeC ? storeC : storeA },
                     new List<GameObject> { storeB },
                     new List<GameObject> { storeA }
                 };
@@ -102,6 +107,7 @@ namespace LastTrain
             {
                 if (storeA) Destroy(storeA);
                 if (storeB) Destroy(storeB);
+                if (storeC) Destroy(storeC);
                 var male = Resources.Load<GameObject>("Art/Characters/Zombie_Male");
                 var female = Resources.Load<GameObject>("Art/Characters/Zombie_Female");
                 _templates = new[]
@@ -262,12 +268,14 @@ namespace LastTrain
             if (_pool.TryGetValue(template, out var stack) && stack.Count > 0)
             {
                 var v = stack.Pop();
+                v.kind = kind;
+                SetZombieProportions(v.go, kind);
                 v.go.SetActive(true);
                 Roll(v);
                 return v;
             }
             var go = Spawn(template, "zombie");
-            go.transform.localScale = Vector3.one * Tuning.Data.zombies[kind].scale * Random.Range(0.9f, 1.1f);
+            SetZombieProportions(go, kind);
             var view = new View { go = go, template = template, anim = go.GetComponentInChildren<Animation>(), renderers = go.GetComponentsInChildren<Renderer>(), kind = kind, storeZombie = go.GetComponentInChildren<StoreZombie>() };
             foreach (var r in view.renderers)
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
@@ -281,6 +289,19 @@ namespace LastTrain
                 }
             Roll(view);
             return view;
+        }
+
+        static void SetZombieProportions(GameObject model, int kind)
+        {
+            var proportions = kind switch
+            {
+                1 => new Vector3(0.80f, 1.03f, 0.84f),
+                2 => new Vector3(1.22f, 0.92f, 1.28f),
+                Horde.Screamer => new Vector3(0.80f, 1.12f, 0.78f),
+                Horde.Armored => new Vector3(1.16f, 1.01f, 1.08f),
+                _ => Vector3.one,
+            };
+            model.transform.localScale = proportions * (Tuning.Data.zombies[kind].scale * Random.Range(0.94f, 1.06f));
         }
 
         /// <summary>Each zombie gets its own hunch, head tilt and reaching arms.</summary>
@@ -483,7 +504,7 @@ namespace LastTrain
         {
             foreach (var r in v.renderers)
                 if (r.enabled) r.SetPropertyBlock(on ? _mpb : v.kind == Horde.Screamer ? _screamerTint
-                    : v.kind == Horde.Armored ? _armoredTint : null);
+                    : v.kind == Horde.Armored ? _armoredTint : v.kind == 1 ? _runnerTint : v.kind == 2 ? _bruteTint : null);
         }
 
         // ---------------------------------------------------------------- survivor
@@ -498,7 +519,7 @@ namespace LastTrain
         public bool Searching;
 
         /// <summary>A standing, idling survivor NPC (traders, contacts).</summary>
-        public GameObject SpawnNpc(string model, Vector2 at, float yaw)
+        public GameObject SpawnNpc(string model, Vector2 at, float yaw, string role = "")
         {
             // Same realistic body as the player when the licensed model is installed; low-poly fallback otherwise.
             var look = model switch
@@ -508,12 +529,61 @@ namespace LastTrain
                 _ => (tint: new Color(0.80f, 0.82f, 0.95f), height: 1.74f),
             };
             var real = ScavengerBody.SpawnNpc(transform, new Vector3(at.x, 0, at.y), yaw, look.tint, look.height, (at.x * 0.37f + at.y) % 1f);
-            if (real) return real;
+            if (real)
+            {
+                DressSurvivor(real, role.Length == 0 ? model : role);
+                return real;
+            }
             var go = Spawn(Template(Resources.Load<GameObject>("Art/Characters/" + model), "npc", -1), "npc");
             go.transform.SetPositionAndRotation(new Vector3(at.x, 0, at.y), Quaternion.Euler(0, yaw, 0));
             var a = go.GetComponentInChildren<Animation>();
             if (a && a[Idle] != null) a.Play(Idle);
             return go;
+        }
+
+        void DressSurvivor(GameObject root, string role)
+        {
+            var rig = root.GetComponentInChildren<Animator>();
+            if (!rig || !rig.isHuman) return;
+            var head = rig.GetBoneTransform(HumanBodyBones.Head);
+            var chest = rig.GetBoneTransform(HumanBodyBones.Chest);
+            if (role == "Worker_Male" || role == "station")
+            {
+                Color cap = role == "station" ? new Color(0.18f, 0.29f, 0.36f) : new Color(0.94f, 0.60f, 0.18f);
+                NpcAccessory(root.transform, head, "Duty cap", PrimitiveType.Sphere, new Vector3(0, 0.12f, 0.016f),
+                    new Vector3(0.27f, 0.17f, 0.30f), cap);
+                NpcAccessory(root.transform, head, "Cap brim", PrimitiveType.Cube, new Vector3(0, 0.075f, 0.10f),
+                    new Vector3(0.26f, 0.026f, 0.23f), cap * 0.78f);
+            }
+            if (role == "Worker_Female" || role == "Worker_Male")
+            {
+                var vest = role == "Worker_Female" ? new Color(0.29f, 0.56f, 0.44f) : new Color(0.82f, 0.48f, 0.18f);
+                foreach (int side in new[] { -1, 1 })
+                    NpcAccessory(root.transform, chest, "Work vest panel", PrimitiveType.Cube,
+                        new Vector3(side * 0.11f, 0.01f, 0.16f), new Vector3(0.105f, 0.31f, 0.04f), vest);
+            }
+            if (role == "lure")
+            {
+                NpcAccessory(root.transform, head, "Face wrap", PrimitiveType.Cube, new Vector3(0, 0.005f, 0.105f),
+                    new Vector3(0.18f, 0.075f, 0.065f), new Color(0.32f, 0.19f, 0.16f));
+                var grip = rig.GetBoneTransform(HumanBodyBones.RightHand);
+                NpcAccessory(root.transform, grip, "Concealed pipe", PrimitiveType.Cylinder, new Vector3(0.05f, -0.13f, 0f),
+                    new Vector3(0.053f, 0.31f, 0.053f), new Color(0.27f, 0.28f, 0.29f));
+            }
+        }
+
+        void NpcAccessory(Transform actor, Transform bone, string name, PrimitiveType shape, Vector3 offset, Vector3 size, Color tint)
+        {
+            if (!bone) return;
+            var item = GameObject.CreatePrimitive(shape);
+            item.name = name;
+            Destroy(item.GetComponent<Collider>());
+            item.transform.SetPositionAndRotation(bone.position + actor.rotation * offset, actor.rotation);
+            item.transform.localScale = size;
+            item.transform.SetParent(bone, true);
+            var material = new Material(_plain);
+            material.SetColor("_BaseColor", tint);
+            item.GetComponent<Renderer>().sharedMaterial = material;
         }
 
         /// <summary>Simple weapon props; the shaft runs along local +Y from the grip at the origin.</summary>

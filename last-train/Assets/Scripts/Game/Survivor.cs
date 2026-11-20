@@ -42,7 +42,25 @@ namespace LastTrain
         public string Attacked;
         public Vector2 LastAttackDirection { get; private set; } = Vector2.up;
         public bool LastWasStealthKill;
-        float _cooldown;
+        float _cooldown, _sprintDelay;
+        public float SprintEnergy { get; private set; } = 1f;
+        public bool SprintExhausted { get; private set; }
+
+        internal void TickSprint(bool moving, float dt)
+        {
+            var cfg = T.player;
+            if (Sprinting && moving)
+            {
+                _sprintDelay = cfg.sprintRecoveryDelay;
+                SprintEnergy = Mathf.Max(0f, SprintEnergy - dt / cfg.sprintSeconds);
+                if (SprintEnergy <= 0f) SprintExhausted = true;
+                return;
+            }
+            _sprintDelay = Mathf.Max(0f, _sprintDelay - dt);
+            if (_sprintDelay > 0f) return;
+            SprintEnergy = Mathf.Min(1f, SprintEnergy + dt / cfg.sprintRecoverSeconds);
+            if (SprintEnergy >= cfg.sprintRestartThreshold) SprintExhausted = false;
+        }
         static Tuning T => Tuning.Data;
 
         public Survivor()
@@ -202,7 +220,7 @@ namespace LastTrain
 
 
         /// <summary>
-        /// Attacks toward `target` with the held weapon if it is ready. Melee hits everything in the
+        /// Attacks toward `target` with the held weapon if it is ready. Melee hits the nearest reachable enemy in the
         /// arc; an unaware zombie within stealth range dies in one silent blow. Returns false when
         /// nothing happened (cooldown, no ammo).
         /// </summary>
@@ -234,19 +252,30 @@ namespace LastTrain
                     }
                     else
                     {
+                        int first = -1;
+                        float closest = float.PositiveInfinity;
                         foreach (int i in horde.Near(Pos, w.range, _hits))
                         {
-                            if (horde.Hp[i] <= 0 || !world.CanReachForStealth(Pos, horde.Pos[i])) continue;
-                            var to = horde.Pos[i] - Pos;
-                            if (to.magnitude > 0.3f && Mathf.Abs(Vector2.SignedAngle(Aim, to)) > half) continue;
-                            Vector2 impact = horde.Pos[i];
-                            bool guarded = horde.Kind[i] == Horde.Armored &&
-                                Vector2.Dot(horde.Heading[i], -to.normalized) > 0.35f;
+                            var delta = horde.Pos[i] - Pos;
+                            float distance = delta.sqrMagnitude;
+                            if (horde.Hp[i] <= 0 || distance >= closest ||
+                                (distance > 0.09f && Vector2.Angle(Aim, delta) > half) ||
+                                !world.CanReachForStealth(Pos, horde.Pos[i])) continue;
+                            first = i;
+                            closest = distance;
+                        }
+                        if (first >= 0)
+                        {
+                            Vector2 impact = horde.Pos[first];
+                            Vector2 direction = (impact - Pos).normalized;
+                            bool guarded = horde.Kind[first] == Horde.Armored &&
+                                Vector2.Dot(horde.Heading[first], -direction) > 0.35f;
                             float dealt = guarded ? dmg * 0.4f : dmg;
-                            float damage = Mathf.Min(dealt, horde.Hp[i]);
-                            horde.Damage(i, dealt, 0.14f, to.normalized * w.knockback * (guarded ? 0.25f : 1f));
-                            world.ReportImpact(impact, to.normalized, damage, horde.Hp[i] <= 0, false);
-                            horde.Alert(i, Pos, T.senses.forgetSeconds);
+                            float damage = Mathf.Min(dealt, horde.Hp[first]);
+                            horde.Damage(first, dealt, guarded ? 0f : w.stagger,
+                                direction * w.knockback * (guarded ? 0.25f : 1f));
+                            world.ReportImpact(impact, direction, damage, horde.Hp[first] <= 0, false);
+                            horde.Alert(first, Pos, T.senses.forgetSeconds);
                         }
                     }
                     world.SwingFx(Pos, Aim, w.range, half * Mathf.Deg2Rad, w.id, LastWasStealthKill);

@@ -298,14 +298,10 @@ namespace LastTrain
         string RouteObjectives()
         {
             if (_escapeRoute.HasValue) return $"{RouteName(_escapeRoute.Value)} · 탈출 준비 중";
-            var lines = new List<string>(3);
-            for (int i = 0; i < _contacts.Length; i++)
-            {
-                var route = (EscapeRoute)i;
-                string requirement = RouteRequirement(route);
-                lines.Add($"{(route == _trackedRoute ? "› " : "")}{RouteName(route)} · {(requirement.Length == 0 ? "탈출 가능" : requirement)}");
-            }
-            return string.Join("\n", lines);
+            string requirement = RouteRequirement(_trackedRoute);
+            string task = !_contacts[(int)_trackedRoute] ? $"{ContactName(_trackedRoute)}에게 연락"
+                : requirement.Length == 0 ? "탈출 지점으로 이동" : requirement;
+            return $"<color=#d0eadb>{RouteName(_trackedRoute)}</color>  <size=17>·  J 경로 변경</size>\n{task}";
         }
 
         (Vector3 screen, string label, bool active) RouteMarker()

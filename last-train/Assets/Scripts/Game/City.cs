@@ -33,6 +33,7 @@ namespace LastTrain
         public class Shop { public string name; public Vector2 pos; public Color color; }
         public readonly List<Shop> Shops = new();
         readonly List<Bounds> _buildings = new();
+        readonly List<Bounds> _commercialBuildings = new();
 
         /// <summary>Station hub: a survivor who trades, and a fuse box that powers the platform.</summary>
         public static readonly Vector2 Trader = new(36.6f, 43.2f);
@@ -97,23 +98,26 @@ namespace LastTrain
                 var c = new Vector2(-Half + CellSize * (ix + 0.5f), -Half + CellSize * (iz + 0.5f));
                 if (Vector2.Distance(c, Station) < CellSize * 0.8f) continue;
                 if (Shelter.Contains(c)) { BuildShelter(); continue; }
-                bool openLot = _rng.NextDouble() < 0.12;
-                if (BuildEscapeLocation(c) || BuildWalkInShop(c)) continue;
+                if (c == DrainChannel) continue;
+                if (BuildEscapeLocation(c) || BuildWalkInShop(c) || BuildScavengeSite(c)) continue;
                 if (c == MarketSquare || c == StationCourt) { BuildLandmark(c); continue; }
-                if (openLot) { Plaza(c); continue; }
-                PlaceBuilding(c);
+                BuildDistrictParcel(c, DistrictPlan[cells - 1 - iz][ix]);
             }
             for (int ix = 1; ix < cells; ix++)
             for (int iz = 1; iz < cells; iz++)
             {
                 var at = new Vector2(-Half + CellSize * ix, -Half + CellSize * iz);
                 double r = _rng.NextDouble();
+                if (SouthChannelContains(at + Vector2.right * 1.6f)) continue;
                 if (Vector2.Distance(at, Start) < 6f) continue;  // keep the shelter door clear
                 if (r < 0.45) Pole(at, ix, iz);
                 else if (r < 0.75) Lamp(at);
             }
             DressStreet(cells);
+            BuildBoulevards();
+            BuildDistrictWalkways();
             StreetClutter(cells);
+            BuildStationApproach();
             BuildStation();
             DressStation(Resources.Load<Material>("Materials/Concrete"));
             BuildShops();
@@ -177,7 +181,7 @@ namespace LastTrain
         /// </summary>
         void BuildShops()
         {
-            var free = new List<Bounds>(_buildings);
+            var free = new List<Bounds>(_commercialBuildings);
             free.RemoveAll(b => Vector2.Distance(new Vector2(b.center.x, b.center.z), Start) < 14 || Vector2.Distance(new Vector2(b.center.x, b.center.z), Station) < 14);
             foreach (var cfg in Tuning.Data.shops)
             for (int n = 0; n < cfg.count && free.Count > 0; n++)
@@ -322,18 +326,17 @@ namespace LastTrain
             return go;
         }
 
-        void PlaceBuilding(Vector2 c)
+        void RegisterBuilding(Bounds bounds, bool commerce)
         {
-            float size = R(7.4f, 8.4f);
-            var b = KitBuilding(c, size, size * R(0.82f, 1f), 1);
-            Walls.Add(new Rect(b.min.x, b.min.z, b.size.x, b.size.z));
-            _buildings.Add(b);
-            DressFacade(b, Pick(new[] { Vector3.forward, Vector3.back, Vector3.left, Vector3.right }));
-            _pavement.Add(new Rect(b.min.x - 0.65f, b.min.z - 0.65f, b.size.x + 1.3f, b.size.z + 1.3f));
-            if (_rng.NextDouble() < 0.75) AddContainer(b);
-            if (_rng.NextDouble() < 0.3) AddContainer(b);
-            int signs = _rng.Next(1, 3);
-            for (int k = 0; k < signs; k++) Sign(b);
+            Walls.Add(new Rect(bounds.min.x, bounds.min.z, bounds.size.x, bounds.size.z));
+            _pavement.Add(new Rect(bounds.min.x - 0.55f, bounds.min.z - 0.55f, bounds.size.x + 1.1f, bounds.size.z + 1.1f));
+            _buildings.Add(bounds);
+            if (commerce)
+            {
+                _commercialBuildings.Add(bounds);
+                Sign(bounds);
+            }
+            if (_rng.NextDouble() < 0.72) AddContainer(bounds);
         }
 
         /// <summary>A vertical neon shop sign sticking out of a wall, with a little colored light.</summary>
@@ -391,6 +394,8 @@ namespace LastTrain
                 bool east = k == 0;
                 var a = new Vector3(at.x + 1.6f, 6.6f, at.y + 1.6f);
                 var b = a + (east ? Vector3.right : Vector3.forward) * CellSize;
+                if ((a.z < -29f || b.z < -29f) &&
+                    (Mathf.Min(a.x, b.x) < 12f && Mathf.Max(a.x, b.x) > 2f)) continue;
                 var line = new GameObject("wire").AddComponent<LineRenderer>();
                 line.transform.SetParent(transform);
                 line.positionCount = 9;

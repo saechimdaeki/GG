@@ -36,7 +36,14 @@ namespace LastTrain
 
         void MoveRain(float dark)
         {
+            bool inMarketOffice = OnMarketUpper || City.MarketGroundRoom.Contains(Me.Pos);
+            if (inMarketOffice)
+            {
+                if (_rain.isPlaying) _rain.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                return;
+            }
             _rain.transform.position = Fx.V3(Me.Pos + Vector2.up * 2f, 10f);
+            if (!_rain.isPlaying) _rain.Play();
             var emission = _rain.emission;
             emission.rateOverTime = Mathf.Lerp(160f, 440f, dark);
         }
