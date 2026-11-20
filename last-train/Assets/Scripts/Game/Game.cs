@@ -103,7 +103,7 @@ namespace LastTrain
             if (FindAnyObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
-            _actors.SpawnNpc("Casual_Male", City.Trader, 180);
+            _actors.SpawnNpc("Casual_Male", City.Trader, 180, "station");
             SpawnRouteContacts();
             CreateRouteClues();
             StartPhase("day");
@@ -242,10 +242,13 @@ namespace LastTrain
         /// <summary>
         /// Unaware zombies notice a survivor they can see (in front, in range, wall not in the way)
         /// or bump into. Aware ones keep tracking whoever they can still sense. At night the horde
-        /// knows where you are and keeps coming — at the shelter door if you are inside.
+        /// converges on the shelter when the player is inside. Outside, ordinary senses apply.
         /// </summary>
+        readonly HashSet<int> _trackingPlayer = new();
+
         void Senses(float dt)
         {
+            _trackingPlayer.Clear();
             var sn = T.senses;
             foreach (var p in Players)
             {
@@ -258,10 +261,12 @@ namespace LastTrain
                     var z = Horde.Pos[i];
                     float d = Vector2.Distance(z, p.Pos);
                     float touch = p.Crouching && Survivor.IsBehind(Horde.Heading[i], p.Pos - z) ? 0.68f : sn.touch;
-                    bool sees = d <= touch
-                        || (d <= sight && Vector2.Angle(Horde.Heading[i], p.Pos - z) <= sn.sightAngle * 0.5f && Clear(z, p.Pos))
-                        || (Horde.IsAware(i) && d <= sight * 1.4f && Clear(z, p.Pos));
-                    if (sees) Horde.Alert(i, p.Pos, sn.forgetSeconds);
+                    bool sees = (d <= touch
+                        || (d <= sight && Vector2.Angle(Horde.Heading[i], p.Pos - z) <= sn.sightAngle * 0.5f)
+                        || (Horde.IsAware(i) && d <= sight * 1.4f)) && Clear(z, p.Pos);
+                    if (!sees) continue;
+                    Horde.Alert(i, p.Pos, sn.forgetSeconds);
+                    if (p == Me) _trackingPlayer.Add(Horde.Id[i]);
                 }
                 Noise(p.Pos, p.StepNoise(_moving && p == Me));
             }
@@ -270,11 +275,12 @@ namespace LastTrain
             if (_nightCallT > 0) return;
             _nightCallT = 2f;
             var target = Players.Where(p => p.Alive).Select(p => p.Pos).DefaultIfEmpty(City.Start).First();
-            var goal = InShelter(target) && BarricadeHp > 0 ? City.Door.center + Vector2.up * 0.9f : target;
+            if (!InShelter(target)) return;
+            var goal = BarricadeHp > 0 ? City.Door.center + Vector2.up * 0.9f : target;
             for (int i = 0; i < Horde.Count; i++)
             {
                 if (TryDivert(i, target)) continue;
-                if (Horde.IsAware(i) || (Horde.Pos[i] - target).sqrMagnitude < 30 * 30)
+                if ((Horde.Pos[i] - target).sqrMagnitude < 30 * 30)
                     Horde.Alert(i, goal + Random.insideUnitCircle * 1.5f, 6f);
             }
         }
@@ -357,7 +363,9 @@ namespace LastTrain
             if (k.leftCtrlKey.wasPressedThisFrame || k.cKey.wasPressedThisFrame) _crouchToggle = !_crouchToggle;
             if (k.leftShiftKey.isPressed && v != Vector2.zero) _crouchToggle = false;
             Me.Crouching = _crouchToggle;
-            Me.Sprinting = !Me.Crouching && k.leftShiftKey.isPressed;
+            Me.Sprinting = !Me.Crouching && k.leftShiftKey.isPressed && v != Vector2.zero &&
+                _searching == null && _meleeWeapon == null && _swingLock <= 0f &&
+                (InPractice || !Me.SprintExhausted);
             if (v != Vector2.zero && _searching == null)
             {
                 var before = Me.Pos;
@@ -375,7 +383,10 @@ namespace LastTrain
             if (m != null && m.leftButton.isPressed && _searching == null && !_blockAttackUntilRelease)
             {
                 bool hit = false;
-                if (Me.HeldCfg.kind == "melee") QueueMelee();
+                if (Me.HeldCfg.kind == "melee")
+                {
+                    if (m.leftButton.wasPressedThisFrame) QueueMelee();
+                }
                 else if (_meleeWeapon == null) hit = Me.Attack(_aimPoint, this, Players.Count(p => p.Alive));
                 if (hit && Me.LastWasStealthKill) ConfirmStealthKill();
                 if (!hit && Me.Ammo == 0 && m.leftButton.wasPressedThisFrame) Say(Me.Held.id == "nailgun" ? "못이 없다" : "폭죽이 없다");
@@ -416,7 +427,7 @@ namespace LastTrain
                 if (_searchT >= T.shelter.searchSeconds) FinishSearch(_searching);
                 return;
             }
-            if (InteractShelterPower(pressed) || InteractEncounter(pressed) || InteractRadio(pressed) || InteractEscapeRoutes(pressed) || PharmacyPrompt(pressed, false)) return;
+            if (InteractMarketFloors(pressed) || InteractInteriorEntrance(pressed) || InteractShelterPower(pressed) || InteractEncounter(pressed) || InteractRadio(pressed) || InteractEscapeRoutes(pressed) || PharmacyPrompt(pressed, false)) return;
             if (near != null)
             {
                 if (near.loot != null)
@@ -533,7 +544,7 @@ namespace LastTrain
             for (int i = 0; i < 96; i++)
             {
                 float a = (float)_rng.NextDouble() * Mathf.PI * 2;
-                var p = Me.Pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Mathf.Lerp(T.airdrop.minDistance, T.airdrop.maxDistance, (float)_rng.NextDouble());
+                var p = (OnMarketUpper ? City.MarketStairBottom : Me.Pos) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Mathf.Lerp(T.airdrop.minDistance, T.airdrop.maxDistance, (float)_rng.NextDouble());
                 if (Placeable(p) && !InWall(p, 1.5f, City.Walls)) { landing = p; break; }
             }
             if (!landing.HasValue) return;
@@ -712,7 +723,6 @@ namespace LastTrain
         public void SwingFx(Vector2 from, Vector2 dir, float reach, float half, string weapon, bool stealthKill)
         {
             if (_fx == null) return;
-            _fx.Fan(from, dir, reach, half, stealthKill ? new Color(0.6f, 0.05f, 0.05f, 0.5f) : new Color(1f, 0.95f, 0.85f, 0.4f));
             if (!stealthKill) _combatAudio.Play("swing");
         }
 
@@ -844,13 +854,13 @@ namespace LastTrain
                 else if (_bagOpen) HandleBag(k);
                 else if (_motionPreview) StepMotionPreview(dt);
                 else HandleInput(dt);
+                if (!InPractice && Me.Alive) Me.TickSprint(_moving && !Sleeping, dt);
                 int steps = Sleeping ? Mathf.RoundToInt(T.clock.sleepSpeed) : 1;
-                for (int s = 0; s < steps && Phase != "won" && Phase != "lost"; s++) Simulate(dt);
+                for (int s = 0; s < steps && Phase != "won" && Phase != "lost" && (!_args.TryGetValue("scene", out var scene) || scene != "character-preview"); s++) Simulate(dt);
             }
             Render(dt);
         }
 
-        const float MeleeWindup = 0.11f;
         string _meleeWeapon;
         float _meleeRemaining;
         Vector2 _meleeDirection;
@@ -861,7 +871,7 @@ namespace LastTrain
             var screenRight = new Vector2(right.x, right.z);
             var screenUp = new Vector2(-screenRight.y, screenRight.x);
             var travel = (screenRight * input.x + screenUp * input.y).normalized;
-            float pace = _meleeWeapon != null ? 0.50f : _swingLock > 0f ? 0.72f : 1f;
+            float pace = _meleeWeapon != null ? 0.44f : _swingLock > 0f ? 0.58f : 1f;
             Me.Pos = Horde.Slide(Me.Pos, travel * (Me.Speed * pace * dt), 0.4f, City.Walls);
         }
 
@@ -871,8 +881,8 @@ namespace LastTrain
             var toward = _aimPoint - Me.Pos;
             _meleeDirection = toward.sqrMagnitude > 0.0001f ? toward.normalized : Me.Aim;
             _meleeWeapon = Me.Held.id;
-            _meleeRemaining = MeleeWindup;
-            _actors.BeginMelee(_meleeDirection, _meleeWeapon, Me.HeldCfg.cooldown, MeleeWindup);
+            _meleeRemaining = Me.HeldCfg.windup;
+            _actors.BeginMelee(_meleeDirection, _meleeWeapon, Me.HeldCfg.cooldown, _meleeRemaining);
         }
 
         void TickMelee(float dt)
@@ -886,13 +896,14 @@ namespace LastTrain
             }
             _meleeRemaining -= dt;
             if (_meleeRemaining > 0f) return;
+            float recovery = Me.HeldCfg.recovery;
             _meleeWeapon = null;
             if (!Me.Attack(Me.Pos + _meleeDirection, this, Players.Count(p => p.Alive)))
             {
                 _actors.CancelMelee();
                 return;
             }
-            _swingLock = 0.16f;
+            _swingLock = recovery;
             if (Me.LastWasStealthKill) ConfirmStealthKill();
         }
 
@@ -918,6 +929,20 @@ namespace LastTrain
         void FramePlayer(float dt, bool snap)
         {
             var focus = Fx.V3(Me.Pos);
+            if (_args.TryGetValue("scene", out string preview) && preview == "city-overview")
+            {
+                _cam.orthographic = true;
+                _cam.orthographicSize = 72f;
+                _cam.farClipPlane = 300f;
+                _cam.transform.SetPositionAndRotation(new Vector3(-19f, 123f, -53f), Quaternion.Euler(65f, 20f, 0f));
+                return;
+            }
+            if (preview == "frontage-preview")
+            {
+                _cam.transform.SetPositionAndRotation(new Vector3(10.6f, 24f, 7.5f), Quaternion.Euler(59f, 24f, 0f));
+                _cam.fieldOfView = 42f;
+                return;
+            }
             if (_occlusionComparison)
             {
                 _cam.orthographic = false;
@@ -1030,17 +1055,24 @@ namespace LastTrain
             }
 
             if (_hud == null) return;
-            int chasing = 0;
+            int chasing = 0, investigating = 0;
             for (int i = 0; i < Horde.Count; i++)
-                if (Horde.IsAware(i) && (Horde.Goal[i] - Me.Pos).sqrMagnitude < 4f && (Horde.Pos[i] - Me.Pos).sqrMagnitude < 400) chasing++;
+            {
+                if (!Horde.IsAware(i) || (Horde.Pos[i] - Me.Pos).sqrMagnitude > 16f * 16f) continue;
+                if (_trackingPlayer.Contains(Horde.Id[i])) chasing++;
+                else if ((Horde.Goal[i] - Me.Pos).sqrMagnitude < 12f * 12f) investigating++;
+            }
             var routeMarker = RouteMarker();
+            if (OnMarketUpper)
+                routeMarker = (_cam.WorldToScreenPoint(Fx.V3(City.MarketStairTop, 1.05f)), "1층 계단", true);
             var playerHead = Fx.V3(Me.Pos, 1.6f);
-            City.CutAway(_cam.transform.position, playerHead, Fx.V3(Me.Pos, 0.3f));
+            if (!_args.TryGetValue("scene", out string shotScene) || shotScene != "frontage-preview")
+                City.CutAway(_cam.transform.position, playerHead, Fx.V3(Me.Pos, 0.3f));
             var playerCovered = City.PlayerCovered(playerHead, -_cam.transform.forward * CameraDistance);
             var shelterSp = _cam.WorldToScreenPoint(Fx.V3(City.Door.center, 2f));
             _hud.Refresh(new Hud.State
             {
-                day = Day, kills = Kills, stealthKills = StealthKills,
+                day = Day,
                 phase = Phase == "won" || Phase == "lost" ? (IsNight ? "night" : "day") : Phase, phaseT = PhaseT,
                 hp = Me.Hp, maxHp = Me.MaxHp, hunger = Me.Hunger, hungerMax = T.player.hungerMax, downed = !Me.Alive,
                 evacT = PhaseT, evacNeed = EvacNeed, nightLighting = IsNight,
@@ -1058,18 +1090,19 @@ namespace LastTrain
                 playerMarker = playerCovered && Me.Alive ? _cam.WorldToScreenPoint(playerHead) : Vector3.zero,
                 prompt = _prompt, searchK = _searching != null ? _searchT / T.shelter.searchSeconds : -1,
                 barricade = BarricadeHp / T.shelter.barricadeHp, showBarricade = IsNight || BarricadeHp < T.shelter.barricadeHp || InShelter(Me.Pos),
-                sleeping = Sleeping, crouching = Me.Crouching, chasing = chasing,
+                sleeping = Sleeping, crouching = Me.Crouching, chasing = chasing, investigating = investigating,
+                sprinting = _moving && Me.Sprinting, sprintEnergy = Me.SprintEnergy, exhausted = Me.SprintExhausted,
                 stationScreen = routeMarker.screen, stationOpen = routeMarker.active, routeLabel = routeMarker.label,
                 stationOnScreen = OnScreen(routeMarker.screen),
                 shelterScreen = shelterSp, shelterOnScreen = OnScreen(shelterSp), shelterDist = Vector2.Distance(Me.Pos, City.Door.center),
                 pops = _pops.Select(p => (_cam.WorldToScreenPoint(p.at + Vector3.up * p.t * 0.9f) + Vector3.up * p.screenLift, p.text, p.color, Mathf.Clamp01(1.8f - p.t) * Mathf.Clamp01(p.t * 6f))).ToList(),
                 lootMarks = Trading ? new List<Vector3>() : City.Containers.Where(c => !c.searched && c != _searching && ContainerAccessible(c) && (c.pos - Me.Pos).sqrMagnitude < 14 * 14)
                     .Select(c => _cam.WorldToScreenPoint(Fx.V3(c.pos, 1.5f))).ToList(),
-                showShelter = !InShelter(Me.Pos) && Phase != "evac" && Vector2.Distance(Me.Pos, City.Door.center) > 6f,
+                showShelter = !OnMarketUpper && !InShelter(Me.Pos) && Phase != "evac" && Vector2.Distance(Me.Pos, City.Door.center) > 6f,
             }, dt);
         }
 
-        string Objectives() => RouteObjectives();
+        string Objectives() => OnMarketUpper ? "시장 관리동 · 2층\n기록실 / 휴게실" : RouteObjectives();
 
         static bool OnScreen(Vector3 sp) => sp.z > 0 && sp.x > 0 && sp.x < Screen.width && sp.y > 0 && sp.y < Screen.height;
 
@@ -1089,6 +1122,68 @@ namespace LastTrain
         {
             switch (name)
             {
+                case "character-preview":
+                    Horde = new Horde(T.zombies, City.ZombieWalls);
+                    Me.Pos = City.MarketSquare + Vector2.up * 5.15f;
+                    Vector2 lineup = Me.Pos + Vector2.up * 0.9f;
+                    for (int kind = 0; kind < T.zombies.Length; kind++)
+                    {
+                        Horde.Spawn(lineup + Vector2.right * (kind - 3.3f) * 1.07f, kind);
+                        Horde.Heading[kind] = Vector2.down;
+                    }
+                    _actors.SpawnNpc("Worker_Female", lineup + Vector2.right * 2.1f, 180);
+                    _actors.SpawnNpc("Worker_Male", lineup + Vector2.right * 3.2f, 180);
+                    _actors.SpawnNpc("Casual_Male", lineup + Vector2.right * 4.3f, 180, "lure");
+                    _hud.gameObject.SetActive(false);
+                    break;
+                case "market-ground-preview":
+                    Me.Pos = new Vector2(20.71f, 24.2f);
+                    FramePlayer(0f, true);
+                    break;
+                case "market-upper-preview":
+                    Me.Pos = City.MarketStairBottom;
+                    InteractMarketFloors(true);
+                    break;
+                case "entrance-preview":
+                    Me.Pos = City.InteriorEntrances.Find(entry => entry.name == "시장 관리동").door + Vector2.down * 1f;
+                    FramePlayer(0f, true);
+                    break;
+                case "verify-single-swing":
+                    VerifySingleSwing();
+                    break;
+                case "verify-market-floors":
+                    VerifyMarketFloors();
+                    break;
+                case "frontage-preview":
+                    Me.Pos = new Vector2(21.0f, 17.4f);
+                    _hud.gameObject.SetActive(false);
+                    break;
+                case "city-overview":
+                    RenderSettings.fog = false;
+                    _hud.gameObject.SetActive(false);
+                    break;
+                case "neighborhood-preview":
+                    Me.Pos = new Vector2(-34f, 27f);
+                    FramePlayer(0f, true);
+                    break;
+                case "verify-city-layout":
+                    VerifyCityLayout();
+                    break;
+                case "verify-ambush":
+                    VerifyAmbush();
+                    break;
+                case "verify-scavenge-sites":
+                    VerifyScavengeSites();
+                    break;
+                case "relief-court":
+                    Me.Pos = City.ReliefCourt + Vector2.down * 2f;
+                    break;
+                case "salvage-yard":
+                    Me.Pos = City.SalvageYard + new Vector2(2.4f, -2.4f);
+                    break;
+                case "station-parking":
+                    Me.Pos = City.StationParking + Vector2.left * 2f;
+                    break;
                 case "verify-pharmacy":
                     VerifyPharmacy();
                     break;
@@ -1418,6 +1513,120 @@ namespace LastTrain
             Debug.Log("[facing] four directions and cursor reversal verified");
         }
 
+        void VerifySingleSwing()
+        {
+            Me.Pos = City.MarketSquare;
+            foreach (string weapon in new[] { "fists", "pipe", "bat", "knife", "axe" })
+            {
+                var player = new Survivor { Pos = City.MarketSquare };
+                if (weapon != "fists") player.Take(weapon, 1);
+                Players[0] = Me = player;
+                Horde = new Horde(T.zombies, City.ZombieWalls);
+                foreach (var offset in new[] { new Vector2(0, 0.75f), new Vector2(0.45f, 1.2f), new Vector2(-0.45f, 1.2f) })
+                    Horde.Spawn(Me.Pos + offset, 0);
+                Horde.Step(0f, System.Array.Empty<Vector2>());
+                float[] health = Horde.Hp.ToArray();
+                _aimPoint = Me.Pos + Vector2.up * 2f;
+                QueueMelee();
+                TickMelee(Me.HeldCfg.windup * 0.5f);
+                if (!health.SequenceEqual(Horde.Hp)) throw new System.InvalidOperationException("Melee dealt damage during its windup");
+                TickMelee(Me.HeldCfg.windup);
+                int hits = health.Where((value, index) => Horde.Hp[index] < value).Count();
+                if (hits != 1 || Horde.Hp[0] >= health[0])
+                    throw new System.InvalidOperationException($"{weapon} hit {hits} targets instead of the closest one");
+                Debug.Log($"[single-swing] {weapon}: HP {health[0]:0}/{health[1]:0}/{health[2]:0} → {Horde.Hp[0]:0}/{Horde.Hp[1]:0}/{Horde.Hp[2]:0}");
+            }
+            FramePlayer(0f, true);
+        }
+
+        void VerifyCityLayout()
+        {
+            const float interval = 0.5f;
+            int side = Mathf.RoundToInt(City.Half * 2f / interval) + 1;
+            Vector2Int Grid(Vector2 point) => Vector2Int.RoundToInt((point + Vector2.one * City.Half) / interval);
+            Vector2 World(Vector2Int point) => (Vector2)point * interval - Vector2.one * City.Half;
+
+            var visited = new bool[side, side];
+            var pending = new Queue<Vector2Int>();
+            var start = Grid(City.Start);
+            pending.Enqueue(start);
+            visited[start.x, start.y] = true;
+            var directions = new[] { Vector2Int.left, Vector2Int.right, Vector2Int.up, Vector2Int.down };
+            while (pending.Count > 0)
+            {
+                var current = pending.Dequeue();
+                foreach (var direction in directions)
+                {
+                    var next = current + direction;
+                    if (next.x < 0 || next.x >= side || next.y < 0 || next.y >= side || visited[next.x, next.y])
+                        continue;
+                    if (InWall(World(next), 0.42f, City.Walls) ||
+                        InWall((World(current) + World(next)) * 0.5f, 0.42f, City.Walls))
+                        continue;
+                    visited[next.x, next.y] = true;
+                    pending.Enqueue(next);
+                }
+            }
+
+            void Check(Vector2 at, string name, float tolerance = 1f)
+            {
+                var center = Grid(at);
+                int range = Mathf.CeilToInt(tolerance / interval);
+                for (int x = center.x - range; x <= center.x + range; x++)
+                for (int y = center.y - range; y <= center.y + range; y++)
+                    if (visited[x, y] && Vector2.Distance(World(new Vector2Int(x, y)), at) <= tolerance)
+                        return;
+                throw new System.InvalidOperationException($"Unreachable city landmark: {name}");
+            }
+
+            foreach (EscapeRoute route in System.Enum.GetValues(typeof(EscapeRoute)))
+            {
+                Check(ContactPosition(route), ContactName(route), 1.55f);
+                Check(_cluePositions[(int)route], ClueName(route), 1.25f);
+                Check(RoutePosition(route), RouteName(route));
+            }
+            foreach (var valve in City.DrainValves) Check(valve, "수문 밸브");
+            Check(new Vector2(21f, 20.2f), "시장 뒤 안뜰", 0.55f);
+            Check(new Vector2(9.15f, 18.6f), "세탁소 앞마당", 0.55f);
+            Check(new Vector2(32.85f, -9.4f), "인쇄소 앞마당", 0.55f);
+            Check(City.StoreCenter, "한빛 편의점");
+            Check(City.ClinicCenter, "새벽 약국");
+            Check(City.WorkshopCenter, "세운 철물");
+            foreach (var supply in City.Containers.Where(c => c.guaranteedItem != null))
+                Check(supply.pos, supply.kind, 1.25f);
+            Debug.Log("[city-layout] shelter reaches all contacts, clues, exits, valves, shops and guaranteed caches");
+        }
+
+        void VerifyScavengeSites()
+        {
+            VerifyCache(City.ReliefCourt, "food", new Vector2(0, -5.6f), Vector2.zero);
+            VerifyCache(City.SalvageYard, "scrap", new Vector2(2.4f, -5.6f), new Vector2(2.4f, 0.95f));
+            VerifyCache(City.StationParking, "fuse", new Vector2(-5.8f, 0), new Vector2(3.35f, 0));
+            Debug.Log("[scavenge] three approaches, searches, and pickups verified");
+
+            void VerifyCache(Vector2 center, string item, Vector2 entrance, Vector2 turn)
+            {
+                var cache = City.Containers.Single(c => c.guaranteedItem == item && Vector2.Distance(c.pos, center) < 6f);
+                Me.Pos = center + entrance;
+                Vector2 approach = cache.pos + Vector2.down * 0.18f;
+                foreach (Vector2 target in new[] { center + turn, approach })
+                {
+                    int steps = Mathf.CeilToInt(Vector2.Distance(Me.Pos, target) / 0.06f) + 12;
+                    for (int step = 0; step < steps; step++)
+                        Me.Pos = Horde.PushOut(Vector2.MoveTowards(Me.Pos, target, 0.06f), 0.4f, City.Walls);
+                    if (Vector2.Distance(Me.Pos, target) > 0.15f)
+                        throw new System.InvalidOperationException($"Blocked approach to {cache.kind} at {target}");
+                }
+                Interact(true, true, 0f);
+                if (_searching != cache) throw new System.InvalidOperationException($"Cannot search {cache.kind}");
+                FinishSearch(cache);
+                int before = Me.Bag[item];
+                ChooseLoot(cache.loot.FindIndex(row => row.item == item));
+                if (Me.Bag[item] <= before) throw new System.InvalidOperationException($"Cannot collect {item}");
+                CloseLoot();
+            }
+        }
+
         void VerifyWalkInShops()
         {
             foreach (Vector2 center in new[] { City.StoreCenter, City.ClinicCenter, City.WorkshopCenter })
@@ -1492,10 +1701,11 @@ namespace LastTrain
             Me.Pos = City.MarketSquare;
             _aimPoint = Me.Pos + Vector2.up * 2f;
             QueueMelee();
-            TickMelee(MeleeWindup * 0.5f);
+            float windup = Me.HeldCfg.windup;
+            TickMelee(windup * 0.5f);
             if (Me.Attacked != null) throw new System.InvalidOperationException("Melee struck before its windup");
             _aimPoint = Me.Pos + Vector2.down * 2f;
-            TickMelee(MeleeWindup);
+            TickMelee(windup);
             if (Me.Attacked == null || Vector2.Dot(Me.LastAttackDirection, Vector2.up) < 0.99f || Me.Pos != City.MarketSquare)
                 throw new System.InvalidOperationException("Melee changed committed direction or displaced the player");
             Debug.Log("[controls] WASD doorway, walls, diagonals and timed melee verified");

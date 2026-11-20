@@ -64,8 +64,8 @@ namespace LastTrain
 
             _controlsPanel = Img(_root, "Pause and controls", Ink, middle, middle, Vector2.zero, new Vector2(920, 610)).gameObject;
             Txt(_controlsPanel.transform,
-                "<size=38>일시 정지</size>\n\n이동  WASD     달리기  Shift     숙이기  C · Ctrl (켜기/끄기)\n조준  마우스     공격  왼쪽 클릭     무기  1–4 / 휠\n" +
-                "상호작용 / 수색 / 줍기  E     보급 유인등 예약  G\n가방  Tab     먹기  F     붕대  H     탈출로 추적  J\n" +
+                "<size=38>일시 정지</size>  <size=18>시장 관리동 · 출입구 업데이트</size>\n\n이동  WASD     달리기  Shift     숙이기  C · Ctrl (켜기/끄기)\n조준  마우스     공격  왼쪽 클릭     무기  1–4 / 휠\n" +
+                "출입 / 계단 / 상호작용  E     수색  E 길게     보급 유인등 예약  G\n가방  Tab     먹기  F     붕대  H     탈출로 추적  J\n" +
                 "암살  숙인 채 들키지 않고 등 뒤에 접근 → 조준 → 클릭",
                 24, TextAnchor.UpperLeft, top, top, new Vector2(0, -38), new Vector2(798, 330), pivot: new Vector2(0.5f, 1));
             _controlsLog = Txt(_controlsPanel.transform, "", 23, TextAnchor.MiddleLeft, new Vector2(0.5f, 0), new Vector2(0.5f, 0),

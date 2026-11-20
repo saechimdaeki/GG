@@ -21,8 +21,8 @@ namespace LastTrain
         Image _hpChip;
         float _hpChipHold;
 
-        Text _clock, _phaseIcon, _kills, _hpText, _hungerText, _bag, _msg, _prompt, _status, _evacText, _endText, _barText;
-        Image _hp, _hunger, _evac, _hurt, _search, _barricade, _sleep;
+        Text _clock, _phaseIcon, _hpText, _hungerText, _sprintText, _bag, _msg, _prompt, _status, _evacText, _endText, _barText;
+        Image _hp, _hunger, _sprint, _statusPanel, _evac, _hurt, _search, _barricade, _sleep;
         GameObject _evacRoot, _endRoot, _searchRoot, _barRoot;
         Marker _station, _shelter, _encounterMarker, _coveredPlayer;
         GameObject _bagPanel;
@@ -50,24 +50,23 @@ namespace LastTrain
             _hurt = Img(root, "hurt", new Color(0.6f, 0f, 0f, 0f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             _sleep = Img(root, "sleep", new Color(0, 0, 0.02f, 0), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
-            // top-left: clock
-            var clockBox = Img(root, "clockBox", Ink, new Vector2(0, 1), new Vector2(0, 1), new Vector2(28, -28), new Vector2(460, 120), pivot: new Vector2(0, 1));
-            _phaseIcon = Txt(clockBox.transform, "☀", 54, TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(0, 1), new Vector2(14, 0), new Vector2(80, 0), pivot: new Vector2(0, 0.5f));
-            _clock = Txt(clockBox.transform, "", 36, TextAnchor.UpperLeft, new Vector2(0, 0), Vector2.one, new Vector2(100, -14), new Vector2(-110, -20));
-            _kills = Txt(clockBox.transform, "", 24, TextAnchor.LowerLeft, new Vector2(0, 0), Vector2.one, new Vector2(100, 14), new Vector2(-110, -20));
-            _kills.color = new Color(0.8f, 0.78f, 0.74f);
+            Vector2 topLeft = Vector2.up;
+            var clockBox = Img(root, "Clock", Ink, topLeft, topLeft, new Vector2(28, -28), new Vector2(318, 66), pivot: topLeft);
+            _phaseIcon = Txt(clockBox.transform, "☀", 31, TextAnchor.MiddleCenter, Vector2.zero, Vector2.up,
+                new Vector2(29, 0), new Vector2(48, 0));
+            _clock = Txt(clockBox.transform, "", 27, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one,
+                new Vector2(23, 0), new Vector2(-80, 0));
 
-            // top-right: stealth status
-            _status = Txt(root, "", 30, TextAnchor.UpperRight, new Vector2(1, 1), new Vector2(1, 1), new Vector2(-34, -34), new Vector2(700, 50), pivot: new Vector2(1, 1));
+            _statusPanel = Img(root, "Threat", Ink, Vector2.one, Vector2.one, new Vector2(-28, -28),
+                new Vector2(416, 54), pivot: Vector2.one);
+            _status = Txt(_statusPanel.transform, "", 24, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one,
+                Vector2.zero, new Vector2(-32, 0));
 
-            // bottom-left: health and hunger
-            var hpBack = Img(root, "hpBack", Ink, new Vector2(0, 0), new Vector2(0, 0), new Vector2(28, 92), new Vector2(420, 28), pivot: new Vector2(0, 0));
-            _hpChip = Fill(hpBack.transform, new Color(1f, 0.92f, 0.8f, 0.85f));
-            _hp = Fill(hpBack.transform, new Color(0.92f, 0.25f, 0.22f));
-            _hpText = Txt(root, "", 24, TextAnchor.LowerLeft, new Vector2(0, 0), new Vector2(0, 0), new Vector2(30, 124), new Vector2(600, 34), pivot: new Vector2(0, 0));
-            var hungerBack = Img(root, "hungerBack", Ink, new Vector2(0, 0), new Vector2(0, 0), new Vector2(28, 40), new Vector2(420, 18), pivot: new Vector2(0, 0));
-            _hunger = Fill(hungerBack.transform, new Color(0.95f, 0.7f, 0.25f));
-            _hungerText = Txt(root, "", 22, TextAnchor.LowerLeft, new Vector2(0, 0), new Vector2(0, 0), new Vector2(460, 34), new Vector2(400, 30), pivot: new Vector2(0, 0));
+            var vitals = Img(root, "Vitals", Ink, Vector2.zero, Vector2.zero, new Vector2(28, 28),
+                new Vector2(362, 134), pivot: Vector2.zero).transform;
+            (_hpText, _hp, _hpChip) = Vital(vitals, "Health", 101, new Color(0.92f, 0.32f, 0.28f), chip: true);
+            (_sprintText, _sprint, _) = Vital(vitals, "Sprint", 61, new Color(0.43f, 0.79f, 0.92f));
+            (_hungerText, _hunger, _) = Vital(vitals, "Hunger", 21, new Color(0.92f, 0.73f, 0.37f));
 
             // bottom-center: weapon hotbar
             for (int k = 0; k < 4; k++)
@@ -77,7 +76,7 @@ namespace LastTrain
                 var name = Txt(box.transform, "", 26, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(0, 8), new Vector2(-10, -30));
                 var info = Txt(box.transform, "", 20, TextAnchor.LowerCenter, Vector2.zero, Vector2.one, new Vector2(0, 14), new Vector2(-10, -20));
                 var wearBack = Img(box.transform, "wearBack", new Color(0, 0, 0, 0.6f), new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 6), new Vector2(-24, 6), pivot: new Vector2(0.5f, 0));
-                var wear = Fill(wearBack.transform, new Color(0.6f, 0.9f, 0.5f));
+                var wear = Fill(wearBack.transform, new Color(0.6f, 0.9f, 0.5f), inset: 0f);
                 _slots.Add((box, name, info, wear));
             }
             // bottom-right: bag
@@ -92,9 +91,9 @@ namespace LastTrain
 
             // prompt + search bar above the hotbar
             Vector2 bottom = new(0.5f, 0);
-            _promptPanel = Img(root, "Interaction", Ink, bottom, bottom, new Vector2(0, 189), new Vector2(760, 58)).gameObject;
+            _promptPanel = Img(root, "Interaction", Ink, bottom, bottom, new Vector2(0, 168), new Vector2(760, 58)).gameObject;
             _prompt = Txt(_promptPanel.transform, "", 25, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-36, -4));
-            _searchRoot = Img(root, "searchBack", Ink, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 236), new Vector2(360, 16)).gameObject;
+            _searchRoot = Img(root, "searchBack", Ink, new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 205), new Vector2(360, 16)).gameObject;
             _search = Fill(_searchRoot.transform, new Color(0.95f, 0.85f, 0.5f));
 
             // barricade bar, top-center
@@ -110,9 +109,9 @@ namespace LastTrain
             _msg = Txt(_messagePanel.transform, "", 25, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-38, -8));
 
             Vector2 corner = Vector2.one;
-            var objectivePanel = Img(root, "Objectives", Ink, corner, corner, new Vector2(-28, -96), new Vector2(416, 110), pivot: corner);
+            var objectivePanel = Img(root, "Objectives", Ink, corner, corner, new Vector2(-28, -92), new Vector2(416, 82), pivot: corner);
             _objectives = Txt(objectivePanel.transform, "", 21, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-36, -10));
-            _eventPanel = Img(root, "Street event", Ink, corner, corner, new Vector2(-28, -215), new Vector2(416, 52), pivot: corner).gameObject;
+            _eventPanel = Img(root, "Street event", Ink, corner, corner, new Vector2(-28, -184), new Vector2(416, 52), pivot: corner).gameObject;
             Img(_eventPanel.transform, "Signal", new Color(0.67f, 0.81f, 0.72f), Vector2.zero, Vector2.up,
                 Vector2.zero, new Vector2(4, 0), pivot: new Vector2(0, 0.5f));
             _streetEvent = Txt(_eventPanel.transform, "", 20, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-36, -8));
@@ -164,10 +163,22 @@ namespace LastTrain
             _msgT = 4f;
         }
 
+        (Text label, Image fill, Image chip) Vital(Transform parent, string name, float y, Color color, bool chip = false)
+        {
+            var label = Txt(parent, "", 19, TextAnchor.MiddleLeft, Vector2.zero, Vector2.zero,
+                new Vector2(16, y + 14), new Vector2(330, 24), pivot: new Vector2(0, 0.5f));
+            var track = Img(parent, name, new Color(1f, 1f, 1f, 0.14f), Vector2.zero, Vector2.zero,
+                new Vector2(16, y - 4), new Vector2(330, 7), pivot: Vector2.zero);
+            var trailing = chip ? Fill(track.transform, Cream, inset: 0f) : null;
+            return (label, Fill(track.transform, color, inset: 0f), trailing);
+        }
+
         public struct State
         {
-            public int day, kills, stealthKills, current, chasing;
+            public int day, current, chasing, investigating;
             public string phase, prompt;
+            public float sprintEnergy;
+            public bool sprinting, exhausted;
             public float phaseT, hp, maxHp, hunger, hungerMax, evacT, evacNeed, searchK, barricade;
             public bool downed, sleeping, crouching, showBarricade, showShelter;
             public List<(string name, int durability, int maxDurability, int ammo)> slots;
@@ -241,7 +252,6 @@ namespace LastTrain
                 "evac" => "탈출 준비 중",
                 _ => _clock.text,
             };
-            _kills.text = $"처치 {s.kills}  ·  암살 {s.stealthKills}";
 
             float hpK = s.hp / s.maxHp;
             if (hpK < _hp.fillAmount - 0.001f) _hpChipHold = 0.45f;
@@ -251,6 +261,9 @@ namespace LastTrain
             float beat = hpK < 0.3f ? 0.5f + 0.5f * Mathf.Sin(Time.time * 9f) : 0f;
             _hp.color = Color.Lerp(new Color(0.92f, 0.25f, 0.22f), new Color(1f, 0.55f, 0.45f), beat);
             _hpText.text = s.downed ? "쓰러짐!" : $"체력 {Mathf.CeilToInt(s.hp)} / {Mathf.RoundToInt(s.maxHp)}";
+            _sprint.fillAmount = s.sprintEnergy;
+            _sprint.color = s.exhausted ? new Color(0.98f, 0.59f, 0.34f) : new Color(0.43f, 0.79f, 0.92f);
+            _sprintText.text = s.exhausted ? "숨 고르는 중" : "질주  ·  Shift";
             _hunger.fillAmount = s.hunger / s.hungerMax;
             _hungerText.text = s.hunger <= 0 ? "<color=#ff6050>굶주림! (F: 먹기)</color>" : s.hunger < 30 ? "배고프다 (F: 먹기)" : "배고픔";
 
@@ -260,7 +273,6 @@ namespace LastTrain
                 bool has = k < s.slots.Count;
                 bool sel = k == s.current && has;
                 ui.box.color = sel ? new Color(0.30f, 0.20f, 0.12f, 0.95f) : has ? Ink : new Color(Ink.r, Ink.g, Ink.b, 0.45f);
-                ui.box.transform.localScale = Vector3.one * Mathf.MoveTowards(ui.box.transform.localScale.x, sel ? 1.1f : 1f, dt * 2f);
                 ui.name.color = sel ? Accent : Cream;
                 ui.name.text = has ? s.slots[k].name : "";
                 ui.info.text = !has ? "" : s.slots[k].ammo >= 0 ? $"× {s.slots[k].ammo}" : "";
@@ -296,9 +308,12 @@ namespace LastTrain
             _searchRoot.SetActive(s.searchK >= 0);
             _search.fillAmount = Mathf.Clamp01(s.searchK);
 
-            _status.text = s.sleeping ? "<color=#9fb4ff>자는 중… (E: 일어나기)</color>"
-                : s.chasing > 0 ? $"<color=#ff5040>들켰다! 쫓아오는 좀비 {s.chasing}</color>"
-                : s.crouching ? "<color=#a0e0a0>숙이는 중 (C: 일어서기)</color>" : "";
+            _status.text = s.sleeping ? "자는 중  ·  E 일어나기"
+                : s.chasing > 0 ? $"<color=#ff9e8f>추격 {s.chasing}</color>  ·  골목에서 시야 끊기"
+                : s.investigating > 0 ? $"<color=#ffd197>수색 {s.investigating}</color>  ·  발소리 줄이기"
+                : s.sprinting ? "질주 소음  ·  주변 좀비가 들을 수 있음"
+                : s.crouching ? "잠행  ·  C 일어서기" : "";
+            _statusPanel.gameObject.SetActive(_status.text.Length > 0);
 
             _barRoot.SetActive(s.showBarricade);
             _barricade.fillAmount = s.barricade;
@@ -351,7 +366,7 @@ namespace LastTrain
             Place(_encounterMarker, s.encounter.screen, s.encounter.visible && OnScreen(s.encounter.screen),
                 s.encounter.label, s.encounter.visible && !s.bagOpen, 1f);
             Place(_coveredPlayer, s.playerMarker, true, "민서", OnScreen(s.playerMarker), 1f);
-            Place(_station, s.stationScreen, s.stationOnScreen, s.routeLabel, !practicing, s.stationOpen ? 1f : 0.55f);
+            Place(_station, s.stationScreen, s.stationOnScreen, s.routeLabel, !practicing && s.phase != "evac", s.stationOpen ? 1f : 0.55f);
             Place(_shelter, s.shelterScreen, s.shelterOnScreen, $"쉼터 {s.shelterDist:0}m", s.showShelter, 1f);
             RefreshInteractionPanels(s);
         }
@@ -440,9 +455,9 @@ namespace LastTrain
             }
         }
 
-        static Image Fill(Transform back, Color c)
+        static Image Fill(Transform back, Color c, float inset = 3f)
         {
-            var img = Img(back, "fill", c, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(-6, -6));
+            var img = Img(back, "fill", c, Vector2.zero, Vector2.one, Vector2.zero, Vector2.one * (-2f * inset));
             var tex = Texture2D.whiteTexture;
             img.sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
             img.type = Image.Type.Filled;

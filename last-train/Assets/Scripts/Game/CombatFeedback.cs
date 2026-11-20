@@ -14,9 +14,6 @@ namespace LastTrain
         Vector2 _lastDamageSource;
         float _damageCue, _playerRecoil, _impactSoundGate;
 
-        internal const float AttackWindup = 0.43f;
-        internal const float AttackRecovery = 0.78f;
-        const float StrikeReach = 1.26f;
 
         void TickIncomingAttacks(float dt)
         {
@@ -37,9 +34,10 @@ namespace LastTrain
                     _incoming.Remove(id);
                     continue;
                 }
-                if (cue.winding && Horde.Flash[zombie] > 0)
+                var profile = Horde.Type(zombie);
+                if (cue.winding && Horde.Slow[zombie] > 0)
                 {
-                    _incoming[id] = new AttackCue { remaining = AttackRecovery };
+                    _incoming[id] = new AttackCue { remaining = profile.recovery };
                     continue;
                 }
                 cue.remaining -= dt;
@@ -56,21 +54,30 @@ namespace LastTrain
                 }
 
                 Vector2 toward = Me.Pos - cue.origin;
-                if (toward.sqrMagnitude <= StrikeReach * StrikeReach &&
-                    Vector2.Angle(cue.direction, toward) <= 27f && CanReachForStealth(Me.Pos, Horde.Pos[zombie]))
-                    HurtPlayer(Me, Horde.Type(zombie).dps * (AttackWindup + AttackRecovery), Horde.Pos[zombie]);
-                _incoming[id] = new AttackCue { remaining = AttackRecovery };
+                if (toward.sqrMagnitude <= profile.reach * profile.reach &&
+                    Vector2.Angle(cue.direction, toward) <= profile.attackHalfAngle && CanReachForStealth(Me.Pos, Horde.Pos[zombie]))
+                    HurtPlayer(Me, profile.dps * 1.21f, Horde.Pos[zombie]);
+                _incoming[id] = new AttackCue { remaining = profile.recovery };
             }
 
-            foreach (int i in Horde.Near(Me.Pos, 0.82f, _attackNearby))
+            foreach (int i in Horde.Near(Me.Pos, 2.2f, _attackNearby))
             {
-                if (!Horde.IsAware(i) || Horde.Hp[i] <= 0 || Horde.Flash[i] > 0 ||
+                if (!Horde.IsAware(i) || Horde.Hp[i] <= 0 || Horde.Slow[i] > 0 ||
                     _incoming.ContainsKey(Horde.Id[i]) || !CanReachForStealth(Me.Pos, Horde.Pos[i])) continue;
                 Vector2 from = Horde.Pos[i];
                 Vector2 dir = (Me.Pos - from).normalized;
-                _incoming[Horde.Id[i]] = new AttackCue { remaining = AttackWindup, winding = true, origin = from, direction = dir };
+                var profile = Horde.Type(i);
+                if (Vector2.Distance(from, Me.Pos) > profile.reach - 0.12f) continue;
+                _incoming[Horde.Id[i]] = new AttackCue { remaining = profile.windup, winding = true, origin = from, direction = dir };
                 _windingZombies.Add(Horde.Id[i]);
-                _fx.Fan(from, dir, StrikeReach, 0.45f, new Color(1f, 0.34f, 0.16f, 0.88f), AttackWindup);
+                var color = Horde.Kind[i] switch
+                {
+                    1 => new Color(1f, 0.69f, 0.24f, 0.9f),
+                    2 => new Color(1f, 0.22f, 0.19f, 0.9f),
+                    Horde.Armored => new Color(0.4f, 0.74f, 1f, 0.9f),
+                    _ => new Color(1f, 0.34f, 0.16f, 0.88f),
+                };
+                _fx.Fan(from, dir, profile.reach, profile.attackHalfAngle * Mathf.Deg2Rad, color, profile.windup);
             }
         }
 
@@ -114,6 +121,7 @@ namespace LastTrain
             Horde.Spawn(attacker, 0);
             Horde.Alert(Horde.Count - 1, Me.Pos, 15f);
             Horde.Step(0f, Players.ConvertAll(player => player.Pos));
+            var walker = T.zombies[0];
             float hp = Me.Hp;
             TickIncomingAttacks(0f);
             if (Me.Hp != hp || _incoming.Count == 0)
@@ -123,17 +131,17 @@ namespace LastTrain
             {
                 if (!Me.Attack(attacker, this) || Horde.Flash[Horde.Count - 1] <= 0f)
                     throw new System.InvalidOperationException("Melee hit did not register");
-                TickIncomingAttacks(AttackWindup);
+                TickIncomingAttacks(walker.windup);
                 if (Me.Hp != hp) throw new System.InvalidOperationException("Stagger did not interrupt the attack");
             }
             else if (capture == "combat-hurt")
             {
                 Me.Pos = attacker + Vector2.right * 0.95f;
-                TickIncomingAttacks(AttackWindup + 0.02f);
+                TickIncomingAttacks(walker.windup + 0.02f);
                 if (Me.Hp != hp) throw new System.InvalidOperationException("Sidestepping the warning arc did not avoid damage");
                 Me.Pos = attacker + Vector2.down * 0.86f;
-                TickIncomingAttacks(AttackRecovery + 0.02f);
-                TickIncomingAttacks(AttackWindup + 0.02f);
+                TickIncomingAttacks(walker.recovery + 0.02f);
+                TickIncomingAttacks(walker.windup + 0.02f);
                 if (Me.Hp >= hp || _damageCue <= 0f)
                     throw new System.InvalidOperationException("A landed attack did not display its damage cue");
             }
@@ -147,7 +155,7 @@ namespace LastTrain
             {
                 if (!pair.Value.winding) continue;
                 int i = Horde.Id.IndexOf(pair.Key);
-                if (i >= 0 && Horde.Flash[i] <= 0) _attackWarnings.Add(_cam.WorldToScreenPoint(Fx.V3(Horde.Pos[i], 1.85f)) + Vector3.up * 32f);
+                if (i >= 0 && Horde.Slow[i] <= 0) _attackWarnings.Add(_cam.WorldToScreenPoint(Fx.V3(Horde.Pos[i], 1.85f)) + Vector3.up * 32f);
             }
             Vector2 direction = Me.Pos + (_lastDamageSource - Me.Pos).normalized * 1.9f;
             return (_attackWarnings, _cam.WorldToScreenPoint(Fx.V3(direction, 1.1f)), _damageCue / 0.55f);

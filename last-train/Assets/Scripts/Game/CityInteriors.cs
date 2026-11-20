@@ -9,6 +9,7 @@ namespace LastTrain
         internal static readonly Vector2 WorkshopCenter = new(21f, -21f);
         internal static readonly Vector2 StoreCenter = new(7f, 7f);
         internal readonly List<Vector2> InteriorZombies = new();
+        internal readonly List<(string name, Rect room, Vector2 door)> InteriorEntrances = new();
 
         bool BuildWalkInShop(Vector2 center)
         {
@@ -101,7 +102,8 @@ namespace LastTrain
 
             DressShopInterior(center, table, accent);
             if (table != "store") InteriorZombies.Add(center + new Vector2(0.70f, 1.35f));
-            Shops.Add(new Shop { name = name, pos = new Vector2(center.x, front - 1.1f), color = accent });
+            InteriorEntrances.Add((name, room, new Vector2(center.x, front + wall * 0.5f)));
+            Shops.Add(new Shop { name = name + " · 출입구", pos = new Vector2(center.x, front - 1.1f), color = accent });
         }
 
         void DressShopInterior(Vector2 center, string table, Color accent)

@@ -88,7 +88,7 @@ namespace LastTrain
                     var to = Goal[i] - p;
                     if (to.sqrMagnitude > 0.04f && !(winding?.Contains(Id[i]) ?? false))
                     {
-                        Heading[i] = to.normalized;
+                        Heading[i] = PursuitHeading(p, Goal[i], t.radius, Heading[i]);
                         p += Heading[i] * t.chaseSpeed * slow * dt;
                     }
                 }
@@ -121,6 +121,43 @@ namespace LastTrain
                 Pos[i] = p;
             }
             RebuildGrid();
+        }
+
+        Vector2 PursuitHeading(Vector2 position, Vector2 goal, float radius, Vector2 previous)
+        {
+            Vector2 direct = (goal - position).normalized;
+            const float lookAhead = 0.34f;
+            Vector2 probe = position + direct * lookAhead;
+            foreach (var wall in _walls)
+            {
+                var expanded = Rect.MinMaxRect(wall.xMin - radius, wall.yMin - radius,
+                    wall.xMax + radius, wall.yMax + radius);
+                if (!expanded.Contains(probe)) continue;
+
+                // Follow the contacted edge to its cheaper corner. Previous motion breaks ties.
+                float nearestX = Mathf.Abs(position.x - Mathf.Clamp(position.x, expanded.xMin, expanded.xMax));
+                float nearestY = Mathf.Abs(position.y - Mathf.Clamp(position.y, expanded.yMin, expanded.yMax));
+                if (nearestX <= 0.001f && nearestY <= 0.001f)
+                {
+                    nearestX = -Mathf.Min(position.x - expanded.xMin, expanded.xMax - position.x);
+                    nearestY = -Mathf.Min(position.y - expanded.yMin, expanded.yMax - position.y);
+                }
+                bool vertical = nearestX > nearestY;
+                float edge = vertical
+                    ? (position.x < expanded.center.x ? expanded.xMin : expanded.xMax)
+                    : (position.y < expanded.center.y ? expanded.yMin : expanded.yMax);
+                const float offset = lookAhead + 0.04f;
+                float low = (vertical ? expanded.yMin : expanded.xMin) - offset;
+                float high = (vertical ? expanded.yMax : expanded.xMax) + offset;
+                float outside = edge + (edge < (vertical ? expanded.center.x : expanded.center.y) ? -offset : offset);
+                var a = vertical ? new Vector2(outside, low) : new Vector2(low, outside);
+                var b = vertical ? new Vector2(outside, high) : new Vector2(high, outside);
+                float costA = Vector2.Distance(position, a) + Vector2.Distance(a, goal);
+                float costB = Vector2.Distance(position, b) + Vector2.Distance(b, goal);
+                float bias = Vector2.Dot(previous, (b - a).normalized) * 0.25f;
+                return ((costA + bias < costB ? a : b) - position).normalized;
+            }
+            return direct;
         }
 
         /// <summary>Indices of zombies whose body touches the circle (center, r).</summary>

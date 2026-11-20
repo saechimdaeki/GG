@@ -91,9 +91,9 @@ namespace LastTrain
                     float center = -Half + (block + 0.5f) * CellSize;
                     var north = new Vector2(street, center);
                     var east = new Vector2(center, street);
-                    if (Vector2.Distance(north, Station) > 7f && !Shelter.Contains(north))
+                    if (street != 28f && !SouthChannelContains(north) && Vector2.Distance(north, Station) > 7f && !Shelter.Contains(north))
                         marks.Add(north, new Vector2(0.10f, 2.1f), 0.018f);
-                    if (Vector2.Distance(east, Station) > 7f && !Shelter.Contains(east))
+                    if (!(center == 49f && street > 0f) && !(street == 28f && center < -14f) && !(street == 14f && center > 0f && center < 28f) && street != 0f && !SouthChannelContains(east) && Vector2.Distance(east, Station) > 7f && !Shelter.Contains(east))
                         marks.Add(east, new Vector2(2.1f, 0.10f), 0.018f);
                 }
             }
@@ -111,6 +111,50 @@ namespace LastTrain
             var linePaint = new Material(concrete);
             linePaint.SetColor("_BaseColor", new Color(0.65f, 0.67f, 0.63f));
             crosswalks.Create("Crosswalk paint", transform, linePaint);
+        }
+
+        void BuildBoulevards()
+        {
+            var curbs = new SurfaceBatch();
+            var edges = new SurfaceBatch();
+            var medians = new SurfaceBatch();
+            for (int block = -3; block <= 3; block++)
+            {
+                float middle = (block + 0.5f) * CellSize;
+                foreach (int side in new[] { -1, 1 })
+                {
+                    curbs.Add(new Vector2(middle, side * 3.02f), new Vector2(9.7f, 0.7f), 0.023f);
+                    edges.Add(new Vector2(middle, side * 2.61f), new Vector2(8.6f, 0.10f), 0.020f);
+                    medians.Add(new Vector2(middle, side * 0.17f), new Vector2(7.1f, 0.09f), 0.019f);
+                    if (middle > 29f) continue;
+                    curbs.Add(new Vector2(28 + side * 3.10f, middle), new Vector2(0.82f, 9.7f), 0.023f);
+                    edges.Add(new Vector2(28 + side * 2.58f, middle), new Vector2(0.10f, 8.6f), 0.020f);
+                    medians.Add(new Vector2(28 + side * 0.17f, middle), new Vector2(0.09f, 7.1f), 0.019f);
+                }
+            }
+            curbs.Create("Boulevard curb paving", transform, Resources.Load<Material>("Materials/Sidewalk"));
+            edges.Create("Boulevard white edge lines", transform, SiteMaterial(new Color(0.62f, 0.64f, 0.59f)));
+            medians.Create("Boulevard center markings", transform, _streetPaint);
+        }
+
+        void BuildStationApproach()
+        {
+            // Continue the service court into the station forecourt, leaving the panel and contact accessible.
+            var center = new Vector2(36.8f, 32.5f);
+            var paving = new SurfaceBatch();
+            paving.Add(center, new Vector2(10.4f, 15.6f), 0.026f);
+            paving.Create("Station approach paving", transform, Resources.Load<Material>("Materials/Sidewalk"));
+
+            var guidance = new SurfaceBatch();
+            for (int tile = 0; tile < 16; tile++)
+                guidance.Add(new Vector2(38.4f, 25.1f + tile * 0.86f), new Vector2(0.38f, 0.68f), 0.029f);
+            guidance.Create("Station tactile path", transform, _streetPaint);
+
+            var concrete = Resources.Load<Material>("Materials/Concrete");
+            SiteBarrier(new Vector2(32.3f, 30.1f), new Vector2(0.52f, 4.2f), 0.57f, concrete);
+            SiteBarrier(new Vector2(41.1f, 29.6f), new Vector2(0.52f, 3.2f), 0.57f, concrete);
+            SiteProp("wooden_picnic_table", new Vector2(33.3f, 36.8f), 2.0f, 0.86f, 0);
+            SiteLamp(new Vector2(33.1f, 30.4f), 2.8f, new Color(0.53f, 0.84f, 0.79f));
         }
 
         void BuildLandmark(Vector2 center)
@@ -175,7 +219,7 @@ namespace LastTrain
                     kind = "시장 좌판", table = "store", basePos = stand.position });
         }
 
-        void SignFace(string key, Vector3 at, Vector3 normal, float width, float height)
+        void SignFace(string key, Vector3 at, Vector3 normal, float width, float height, Transform parent = null)
         {
             if (!_signFaces.TryGetValue(key, out var material))
             {
@@ -195,6 +239,7 @@ namespace LastTrain
             face.transform.SetParent(transform);
             face.transform.SetPositionAndRotation(at, Quaternion.LookRotation(-normal, Vector3.up));
             face.transform.localScale = new Vector3(width, height, 1);
+            if (parent) face.transform.SetParent(parent, true);
             var renderer = face.GetComponent<Renderer>();
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off;

@@ -6,6 +6,7 @@ namespace LastTrain
     public partial class City
     {
         internal static readonly Vector2 WestGate = new(-35f, 7f);
+        internal static readonly Vector2 DrainChannel = new(7f, -49f);
         internal static readonly Vector2 DrainExit = new(7f, -35f);
         internal static readonly Vector2 DrainContact = new(7f, -21f);
         internal static readonly Vector2 MarketContact = MarketSquare + new Vector2(0, 3.5f);
@@ -130,6 +131,9 @@ namespace LastTrain
             RoadRing = EscapeRing(at, Tuning.Data.clock.evacRadius);
         }
 
+        static bool SouthChannelContains(Vector2 at) =>
+            at.y < DrainExit.y - 3.25f && Mathf.Abs(at.x - DrainExit.x) < 4.8f;
+
         void BuildDrain()
         {
             Vector2 at = DrainExit;
@@ -138,20 +142,45 @@ namespace LastTrain
             water.SetFloat("_Smoothness", 0.75f);
             var grate = SiteMaterial(new Color(0.25f, 0.34f, 0.36f));
 
-            Block(Fx.V3(at, 0.025f), new Vector3(8.4f, 0.05f, 10.9f), concrete);
-            Block(Fx.V3(at + Vector2.down * 3.6f, 0.068f), new Vector3(4.55f, 0.025f, 3.7f), water);
-            Block(Fx.V3(at + Vector2.up * 3.7f, 0.97f), new Vector3(5.1f, 1.9f, 0.55f), concrete);
-            Walls.Add(new Rect(at.x - 2.55f, at.y + 3.43f, 5.1f, 0.55f));
-            for (int i = -4; i <= 4; i++)
-                Block(Fx.V3(at + new Vector2(i * 0.48f, 3.36f), 0.91f), new Vector3(0.13f, 1.71f, 0.17f), grate);
+            var apron = SiteMaterial(new Color(0.37f, 0.41f, 0.40f));
+            var caution = SiteMaterial(new Color(0.81f, 0.54f, 0.23f));
+            Block(Fx.V3(at + Vector2.down * 1.4f, 0.025f), new Vector3(10.4f, 0.05f, 13.7f), apron);
+            float lip = at.y - 3.25f;
+            float length = lip + Half;
+            var canal = new Vector2(at.x, (lip - Half) / 2);
+            Block(Fx.V3(canal, 0.032f), new Vector3(5.8f, 0.04f, length), water);
+            Walls.Add(new Rect(at.x - 2.9f, -Half, 5.8f, length));
+
+            var bankPaint = new SurfaceBatch();
             foreach (int side in new[] { -1, 1 })
             {
-                Vector2 edge = at + new Vector2(side * 3.3f, -0.8f);
-                Block(Fx.V3(edge, 0.37f), new Vector3(0.44f, 0.7f, 6.7f), concrete);
-                Walls.Add(new Rect(edge.x - 0.22f, edge.y - 3.35f, 0.44f, 6.7f));
+                var bank = canal + Vector2.right * (side * 3.8f);
+                Block(Fx.V3(bank, 0.06f), new Vector3(1.9f, 0.12f, length), concrete);
+                SiteBarrier(canal + Vector2.right * (side * 3.0f), new Vector2(0.25f, length), 0.49f, grate);
+                for (int post = 0; post < 7; post++)
+                {
+                    var foot = new Vector2(at.x + side * 3f, lip - 1.5f - post * 2.5f);
+                    Block(Fx.V3(foot, 0.55f), new Vector3(0.15f, 1.1f, 0.15f), grate);
+                }
+                Block(Fx.V3(canal + Vector2.right * (side * 3.0f), 1.02f), new Vector3(0.10f, 0.12f, length), grate);
+                SiteBarrier(at + new Vector2(side * 4.6f, 0.2f), new Vector2(0.40f, 3.3f), 0.72f, concrete);
+                bankPaint.Add(new Vector2(at.x + side * 3.58f, canal.y), new Vector2(0.10f, length - 0.5f), 0.124f);
             }
 
-            var sign = Fx.V3(at + Vector2.up * 3.37f, 1.78f);
+            for (int stripe = -5; stripe <= 5; stripe++)
+                bankPaint.Add(new Vector2(at.x + stripe * 0.49f, lip + 0.32f), new Vector2(0.23f, 0.36f), 0.055f);
+            bankPaint.Create("Canal safety paint", transform, caution);
+            Block(Fx.V3(at + Vector2.up * 4.25f, 0.70f), new Vector3(8.5f, 1.40f, 2f), concrete);
+            Walls.Add(new Rect(at.x - 4.25f, at.y + 3.25f, 8.5f, 2f));
+            var recess = SiteMaterial(new Color(0.085f, 0.12f, 0.12f));
+            Block(Fx.V3(at + Vector2.up * 3.20f, 0.63f), new Vector3(5.34f, 1.26f, 0.12f), recess);
+            foreach (int side in new[] { -1, 1 })
+                Block(Fx.V3(at + new Vector2(side * 2.73f, 3.26f), 0.8f), new Vector3(0.36f, 1.6f, 0.62f), concrete);
+            Block(Fx.V3(at + Vector2.up * 3.42f, 1.40f), new Vector3(5.8f, 0.23f, 0.85f), concrete);
+            for (int i = -4; i <= 4; i++)
+                Block(Fx.V3(at + new Vector2(i * 0.53f, 3.16f), 0.59f), new Vector3(0.13f, 1.17f, 0.29f), grate);
+
+            var sign = Fx.V3(at + Vector2.up * 3.24f, 1.46f);
             SignFace("drain-exit", sign, Vector3.back, 3.52f, 0.63f);
             SiteLamp(at + new Vector2(1.9f, 2.65f), 2.25f, new Color(0.35f, 0.80f, 1f));
             DrainRing = EscapeRing(at, Tuning.Data.escape.drainRadius);
