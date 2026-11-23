@@ -424,7 +424,7 @@ namespace ResidualSignal
             return arrived > 0;
         }
 
-        static int HumanPlayerCount()
+        internal static int HumanPlayerCount()
         {
             int count = 0;
             foreach (var member in SquadMember.All)

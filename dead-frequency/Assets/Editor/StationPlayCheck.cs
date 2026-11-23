@@ -40,6 +40,12 @@ namespace ResidualSignal
         static int demoFrame;
         static float nextDemoFrame;
         static bool demoBossWalked;
+        static bool bossThrowCheck;
+        static bool bossDodgeCheck;
+        static bool bossCoverCheck;
+        static bool capturedBossLift;
+        static bool sawBossChunk;
+        static bool bossDodged;
 
 
         static StationPlayCheck()
@@ -152,15 +158,35 @@ namespace ResidualSignal
                     settings.FindProperty("spawnSpecials").boolValue = false;
                     specialsMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-specialsCheck") >= 0;
                     netMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-netHost") >= 0;
-                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-bossModelCheck") >= 0)
+                    bossThrowCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossThrowCheck") >= 0;
+                    bossDodgeCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossDodgeCheck") >= 0;
+                    bossCoverCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossCoverCheck") >= 0;
+                    if (bossThrowCheck || bossDodgeCheck || bossCoverCheck || Array.IndexOf(Environment.GetCommandLineArgs(), "-bossModelCheck") >= 0)
                     {
                         settings.ApplyModifiedPropertiesWithoutUndo();
                         controller.enabled = false;
                         controller.transform.position = new Vector3(-1.6f, 0.08f, 59.0f);
                         controller.enabled = true;
-                        target = trial.SpawnInfected(-1.6f, 65.8f, false, InfectedKind.Brute);
+                        bool rangedBossTest = bossThrowCheck || bossDodgeCheck || bossCoverCheck ||
+                            !string.IsNullOrEmpty(demoFrameFolder);
+                        target = trial.SpawnInfected(-1.6f, rangedBossTest ? 65.8f : 62.65f, false, InfectedKind.Brute);
+                        approachStart = target.transform.position;
                         stepTime = Time.time;
                         step = 96;
+                        if (bossThrowCheck || bossDodgeCheck || bossCoverCheck)
+                        {
+                            target.StageEncounter();
+                            target.Hit(9999);
+                            if (target.Dead)
+                            {
+                                Finish(false, "The staged boss can be killed before the arena opens.");
+                                return;
+                            }
+                            target.BeginStagedEncounter();
+                            target.Hit(900);
+                            healthBefore = trial.Health;
+                            step = 97;
+                        }
                         break;
                     }
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-callerCheck") >= 0)
@@ -805,21 +831,62 @@ namespace ResidualSignal
                         if (elapsed > 0.6f && elapsed < 2.55f && !target.Dead)
                             trial.TryFire();
                         if (elapsed > 2.55f && !target.Dead)
-                            target.Hit(1800);
+                            target.Hit(9999);
                         if (elapsed > 3.8f)
                             Finish(demoBossWalked && target.Dead, "PLATFORM03 BOSS GAMEPLAY CAPTURE READY");
                         break;
                     }
-                    if (bossMove.normalizedTime <= 0.02f && Time.time < stepTime + 2.2f)
+                    if (bossMove.normalizedTime <= 0.02f && Time.time < stepTime + 5f)
                         break;
                     AimAtPoint(target.transform.position + Vector3.up * 1.36f);
                     Capture(Camera.main, Shot(".boss.png"));
-                    float bossTravel = Mathf.Abs(65.8f - target.transform.position.z);
+                    float bossTravel = Mathf.Abs(approachStart.z - target.transform.position.z);
                     bool animate = bossMove.normalizedTime > 0.02f && bossTravel > 0.12f;
                     Debug.Log($"Loading boss motion: {bossMove.clip.name} at {bossMove.normalizedTime:F2}, travel {bossTravel:F2}m, {bossCharge.clip.name}.");
-                    target.Hit(1800);
+                    target.Hit(9999);
                     Finish(animate && target.Dead && target.GetComponent<InfectedBody>().Ragdolled,
                         "PLATFORM03 BOSS MODEL, ANIMATION AND RAGDOLL CHECK");
+                    break;
+                case 97:
+                    if (target.Dead)
+                    {
+                        Finish(false, "The boss fell to 900 damage before throwing.");
+                        return;
+                    }
+                    AimAtPoint(target.transform.position + Vector3.up * 2.2f);
+                    var chunk = GameObject.Find("Concrete chunk");
+                    if (chunk != null && !sawBossChunk)
+                    {
+                        sawBossChunk = true;
+                        stepTime = Time.time;
+                    }
+                    if (chunk != null && !capturedBossLift && Time.time > stepTime + 0.86f)
+                    {
+                        Capture(Camera.main, Shot(".lift.png"));
+                        capturedBossLift = true;
+                        if (bossDodgeCheck)
+                        {
+                            controller.Move(Vector3.left * 2.8f);
+                            bossDodged = true;
+                        }
+                        if (bossCoverCheck)
+                        {
+                            var cover = new GameObject("Temporary throw test cover");
+                            cover.transform.position = controller.transform.position + Vector3.forward * 1.1f + Vector3.up * 1.5f;
+                            cover.AddComponent<BoxCollider>().size = new Vector3(2.4f, 3f, 0.3f);
+                            Physics.SyncTransforms();
+                        }
+                    }
+                    if (chunk == null && sawBossChunk)
+                    {
+                        int damage = healthBefore - trial.Health;
+                        Capture(Camera.main, Shot(".throw.png"));
+                        bool protectedPlayer = bossDodgeCheck ? bossDodged : bossCoverCheck;
+                        Finish(protectedPlayer ? damage == 0 : damage >= 25,
+                            $"PLATFORM03 BOSS THROW CHECK (dodge {bossDodgeCheck}, cover {bossCoverCheck}, damage {damage})");
+                    }
+                    else if (Time.time > stepTime + 6f)
+                        Finish(false, "The concrete throw did not complete.");
                     break;
                 case 93:
                     ClearAnnexTestThreats(trial, controller);

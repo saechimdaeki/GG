@@ -781,6 +781,7 @@ MonoBehaviour:
   attackClip: {fileID: -7674456839047118478, guid: 74326ed205c754ec4a7361e4054be20d, type: 3}
   bossSlamClip: {fileID: 5192616912201976275, guid: 74326ed205c754ec4a7361e4054be20d, type: 3}
   bespokeBoss: 1
+  debrisMaterial: {fileID: 2100000, guid: 32e027dd71ca549e794064a7d8256cc1, type: 2}
   speed: 2.6
   sprintSpeed: 4.6
   groans:

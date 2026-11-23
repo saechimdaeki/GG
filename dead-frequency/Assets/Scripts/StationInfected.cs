@@ -8,7 +8,7 @@ namespace ResidualSignal
     public enum InfectedKind { Common, Leaper, Dragger, Bloater, Brute, Caller }
 
     [RequireComponent(typeof(CharacterController))]
-    public sealed class StationInfected : NetworkBehaviour
+    public sealed partial class StationInfected : NetworkBehaviour
     {
         [SerializeField] Animation rig;
         [Tooltip("Shamble while calm (specials: their only movement clip).")]
@@ -105,6 +105,7 @@ namespace ResidualSignal
                 {
                     if (bone.name == "mixamorigLeftToeBase") bossLeftFoot = bone;
                     if (bone.name == "mixamorigRightToeBase") bossRightFoot = bone;
+                    FindBossThrowBone(bone);
                 }
             physique = GetComponent<InfectedBody>();
             if (physique == null)
@@ -139,7 +140,11 @@ namespace ResidualSignal
             preferredFlank = Living.Count % 2 == 0 ? -1f : 1f;
             Living.Add(this);
         }
-        void OnDisable() => Living.Remove(this);
+        void OnDisable()
+        {
+            Living.Remove(this);
+            ClearBossDebris();
+        }
 
         /// <summary>Gunfire and screams: every calm infected within <paramref name="radius"/> wakes up.</summary>
         public static void Noise(Vector3 point, float radius)
@@ -209,7 +214,7 @@ namespace ResidualSignal
                 InfectedKind.Leaper => 220,
                 InfectedKind.Dragger => 260,
                 InfectedKind.Bloater => 60,
-                InfectedKind.Brute => StationTrial.Networked ? 1250 : 850,
+                InfectedKind.Brute => bespokeBoss ? 2400 + 400 * (StationTrial.HumanPlayerCount() - 1) : 850,
                 InfectedKind.Caller => 95,
                 _ => maximumHealth
             };
@@ -337,6 +342,7 @@ namespace ResidualSignal
 
         void Update()
         {
+            RestoreBossArms();
             physique.RestoreAnimatedPose();
             if (!Authority)
             {
@@ -359,7 +365,7 @@ namespace ResidualSignal
             if (!mission.InCombat)
                 return;
             retarget -= Time.deltaTime;
-            if (!holding && leaping <= 0 && (target == null || !target.Available || retarget <= 0))
+            if (!holding && leaping <= 0 && chargeWindup <= 0f && throwWindup <= 0f && (target == null || !target.Available || retarget <= 0))
             {
                 target = SquadMember.Nearest(transform.position);
                 retarget = 0.5f;
@@ -503,6 +509,7 @@ namespace ResidualSignal
             bool sprinting = runClip != null && rig.IsPlaying("run") && Alerted && windup <= 0 && !physique.IsFlinching;
             physique.SetFrenzy(sprinting ? 1f : 0f);
             physique.ApplyFlinch();
+            PoseBossThrowArms();
         }
 
         /// <summary>Special behaviour; returns true when it took over movement this frame.</summary>
@@ -608,22 +615,32 @@ namespace ResidualSignal
                     }
                     return false;
                 case InfectedKind.Brute:
+                    if (bespokeBoss && UpdateBossThrow(toTarget, distance, delta))
+                        return true;
                     if (chargeWindup > 0f)
                     {
                         chargeWindup -= delta;
                         if (chargeWindup <= 0f && clear)
                             leaping = 1.12f;
+                        else if (chargeWindup <= 0f)
+                            bossRecovery = 0.55f;
                         return true;
                     }
                     if (leaping > 0)
                     {
                         leaping -= delta;
-                        body.Move((lunge + Vector3.down * 3f) * delta);
-                        if (distance < Scaled(reach))
+                        CollisionFlags collision = body.Move((lunge + Vector3.down * 3f) * delta);
+                        if (distance < Scaled(reach) && clear && Vector3.Dot(lunge.normalized, toTarget.normalized) > 0.25f)
                         {
-                            target.knock(lunge.normalized * 9f, 26);
+                            target.knock(lunge.normalized * 9f, bespokeBoss ? 35 : 26);
                             leaping = 0;
                         }
+                        if ((collision & CollisionFlags.Sides) != 0)
+                            leaping = 0;
+                        if (leaping <= 0f)
+                            bossRecovery = 0.7f;
+                        else
+                            Locomotion(chargeSpeed);
                         return true;
                     }
                     if (clear && distance > 4f && distance < 14f && specialCooldown <= 0 && mission.TryReserveSpecial(target))
@@ -631,8 +648,9 @@ namespace ResidualSignal
                         specialCooldown = 6f;
                         chargeWindup = 0.78f;
                         lunge = toTarget.normalized * chargeSpeed;
-                        if (bossSlamClip != null)
-                            rig.Play("slam");
+                        PlayBossSlam();
+                        if (IsSpawned)
+                            BossChargeCueRpc();
                         warningAudio.pitch = 0.55f;
                         warningAudio.PlayOneShot(attackCue, 1f);
                         target.warn(transform.position);
@@ -695,8 +713,10 @@ namespace ResidualSignal
 
         void MirrorAnimation()
         {
+            UpdateHeldDebris();
             if (netDead.Value)
             {
+                CancelBossThrow();
                 if (!physique.Ragdolled)
                     physique.Ragdoll(transform.position + Vector3.up * 1.1f, netKillDirection.Value, 80);
                 return;
@@ -738,7 +758,7 @@ namespace ResidualSignal
                 RequestHitRpc(damage, point, direction);
                 return;
             }
-            if (Dead)
+            if (Dead || stagedEncounter)
                 return;
             health = Mathf.Max(0, health - damage);
             Alert();
@@ -748,7 +768,8 @@ namespace ResidualSignal
             stagger = kind == InfectedKind.Brute ? 0f : damage >= 60 ? 0.33f : 0.2f;
             if (!Dead && kind != InfectedKind.Brute)
                 hitRecoil = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * Mathf.Clamp(damage * 0.056f, 1.3f, 4.1f);
-            windup = 0;
+            if (kind != InfectedKind.Brute)
+                windup = 0;
             callWindup = 0;
             // Any hit on a holder breaks the grip (solo players can still save themselves).
             if (kind == InfectedKind.Dragger || (kind == InfectedKind.Leaper && Dead))
@@ -757,6 +778,7 @@ namespace ResidualSignal
                 mission.Burst(transform.position, burstRadius);
             if (Dead)
             {
+                CancelBossThrow();
                 body.enabled = false;
                 if (IsSpawned)
                 {
