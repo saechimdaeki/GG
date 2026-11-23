@@ -6,6 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
+| <img src="dead-frequency/docs/media/approach.gif" width="260" alt="해림역 광장 진입과 분대 교전"> | **[잔류신호](dead-frequency/)** | 폐역을 수색하고 구조 대상과 함께 탈출하는 1인칭 협동 FPS (Unity HDRP) | 1차 개발판 · macOS 로컬 빌드 가능 |
 | <img src="last-train/docs/media/gameplay.gif" width="260" alt="시장 관리동 출입과 수색"> | **[막차까지](last-train/)** | 봉쇄 도시 수색과 다층 건물 탐색, 세 가지 탈출로 (3D 탑다운, Unity) | macOS 로컬 빌드 플레이 가능 |
 | <img src="reel-dungeon/docs/media/combat.gif" width="260"> | **[슬롯 던전](reel-dungeon/)** | 슬롯머신 턴제 던전 로그라이크 — 동료 한 명이 슬롯 한 줄, 11명 중 골라 3장 돌파 (2D 픽셀, Unity) | 플레이 가능 (이어하기·어려움 0~5·도감), 사람 플레이테스트 전 |
 | <img src="haunted-movers/docs/media/run.gif" width="260"> | **[유령집 이삿짐센터](haunted-movers/)** | 2~4인 온라인 협동 호러 — 귀신 들린 저택에서 고물 건지기 (1인칭 3D) | 플레이 가능, 플레이테스트 중 |
@@ -30,6 +31,8 @@ godot --headless --import   # 클론 직후 한 번
 godot
 ```
 
+**잔류신호** (Unity 6000.6.9f1) — Unity Hub에서 `dead-frequency`를 열고 `Platform03` 씬을 실행합니다. [실행과 조작 안내](dead-frequency/README.md)
+
 **슬롯 던전** (Unity 6000.6.9f1) — Unity Hub → Add → `reel-dungeon` 폴더로 열거나, 명령줄로 맥 빌드:
 
 ```bash
@@ -40,7 +43,7 @@ open Builds/Mac/ReelDungeon.app
 
 ## 개발
 
-- 슬롯 던전·막차까지는 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
+- 잔류신호·슬롯 던전·막차까지는 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
 - 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 슬롯 던전은 Mac 러너에서 EditMode 테스트를 돌립니다
 - 버전 태그를 푸시하면 게임 패키지가 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
 
