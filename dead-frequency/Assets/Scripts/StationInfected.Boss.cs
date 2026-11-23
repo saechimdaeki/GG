@@ -101,7 +101,7 @@ namespace ResidualSignal
                         !ClearAttackLine(member, 1.05f, out _))
                         continue;
                     Vector3 away = Vector3.ProjectOnPlane(member.body.position - transform.position, Vector3.up);
-                    member.knock(away.normalized * 8f, 34);
+                    member.knock(away.normalized * 10.5f + Vector3.up * 5.7f, 34);
                 }
                 return true;
             }
@@ -371,7 +371,7 @@ namespace ResidualSignal
                 Vector3 push = Vector3.ProjectOnPlane(toMember, Vector3.up);
                 if (push.sqrMagnitude < 0.01f)
                     push = Vector3.ProjectOnPlane(destination - origin, Vector3.up);
-                member.knock(push.normalized * 6f, Mathf.RoundToInt(Mathf.Lerp(42f, 14f, distance / ImpactRadius)));
+                member.knock(push.normalized * Mathf.Lerp(9.5f, 5.5f, distance / ImpactRadius) + Vector3.up * 4.2f, Mathf.RoundToInt(Mathf.Lerp(42f, 14f, distance / ImpactRadius)));
             }
             BossImpactVisual(previous);
             if (IsSpawned)

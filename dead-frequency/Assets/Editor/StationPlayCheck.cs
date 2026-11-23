@@ -50,6 +50,8 @@ namespace ResidualSignal
         static readonly Vector3[] ShoveOrigins = new Vector3[3];
         static bool yardSawDebris;
         static int yardShots;
+        static float impactPeak;
+        static Vector3 impactStart;
         static bool bossCoverCheck;
         static bool capturedBossLift;
         static bool sawBossChunk;
@@ -167,6 +169,34 @@ namespace ResidualSignal
                     settings.FindProperty("spawnSpecials").boolValue = false;
                     specialsMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-specialsCheck") >= 0;
                     netMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-netHost") >= 0;
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-bossImpactCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.3f, 0.09f, 57.2f);
+                        controller.enabled = true;
+                        impactStart = controller.transform.position;
+                        healthBefore = trial.Health;
+                        target = trial.SpawnInfected(-2.3f, 59.7f, false, InfectedKind.Brute);
+                        stepTime = Time.time;
+                        step = 100;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-escortCoverCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.3f, 0.09f, 57.2f);
+                        controller.enabled = true;
+                        impactStart = new Vector3(-2.3f, 0.03f, 58.2f);
+                        trial.Witness.transform.position = impactStart;
+                        trial.Witness.EvacuateWith(trial, impactStart + Vector3.forward * 3f);
+                        target = trial.SpawnInfected(-2.3f, 60.4f, false);
+                        target.enabled = false;
+                        stepTime = Time.time;
+                        step = 101;
+                        break;
+                    }
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-shoveCheck") >= 0)
                     {
                         settings.ApplyModifiedPropertiesWithoutUndo();
@@ -935,6 +965,30 @@ namespace ResidualSignal
                     }
                     else if (Time.time > stepTime + 6f)
                         Finish(false, "The concrete throw did not complete.");
+                    break;
+                case 100:
+                    Vector3 impactTravel = controller.transform.position - impactStart;
+                    impactPeak = Mathf.Max(impactPeak, impactTravel.y);
+                    float horizontalThrow = Vector3.ProjectOnPlane(impactTravel, Vector3.up).magnitude;
+                    if (trial.Health < healthBefore && impactPeak > 0.43f && horizontalThrow >= 2.5f &&
+                        impactTravel.y < 0.12f && trial.TryFire())
+                        Finish(true, $"PLATFORM03 BOSS IMPACT CHECK (damage {healthBefore - trial.Health}, flight {horizontalThrow:F2}m, height {impactPeak:F2}m, recovered)");
+                    else if (Time.time > stepTime + 5f)
+                        Finish(false, $"Boss impact did not launch and recover: height {impactPeak:F2}, travel {horizontalThrow:F2}, health {trial.Health}.");
+                    break;
+                case 101 when Time.time >= stepTime + 0.65f:
+                    if (Vector3.Distance(trial.Witness.transform.position, impactStart) > 0.15f)
+                    {
+                        Finish(false, "The witness walked into an alerted infected.");
+                        break;
+                    }
+                    target.Hit(9999);
+                    stepTime = Time.time;
+                    step = 102;
+                    break;
+                case 102 when Time.time >= stepTime + 0.65f:
+                    Finish(trial.Witness.Walking && trial.Witness.transform.position.z > impactStart.z + 0.7f,
+                        "PLATFORM03 ESCORT COVER CHECK (stopped near threat and resumed when cleared)");
                     break;
                 case 99 when Time.time >= stepTime + 0.35f:
                     int pushed = 0;

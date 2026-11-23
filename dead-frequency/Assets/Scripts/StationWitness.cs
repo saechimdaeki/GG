@@ -12,6 +12,8 @@ namespace ResidualSignal
         Vector3 destination;
         StationTrial rescuer;
         float stride;
+        float nextCoverCheck;
+        bool takingCover;
 
         public bool HasArrived { get; private set; }
         public bool Walking { get; private set; }
@@ -26,6 +28,8 @@ namespace ResidualSignal
             HasArrived = false;
             rescuer = player;
             destination = exit;
+            nextCoverCheck = 0f;
+            takingCover = false;
         }
 
         void Update()
@@ -38,6 +42,16 @@ namespace ResidualSignal
             // She follows whoever of the squad is closest, not only the player who started the escort.
             var escort = SquadMember.Nearest(transform.position);
             if (escort == null || Vector3.Distance(escort.body.position, transform.position) > 5f)
+            {
+                PoseLegs(0);
+                return;
+            }
+            if (Time.time >= nextCoverCheck)
+            {
+                nextCoverCheck = Time.time + 0.18f;
+                takingCover = rescuer.EscortPathThreatened(transform.position);
+            }
+            if (takingCover)
             {
                 PoseLegs(0);
                 return;

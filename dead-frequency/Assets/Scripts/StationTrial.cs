@@ -107,6 +107,10 @@ namespace ResidualSignal
         float holdDamage;
         float blindUntil;
         Vector3 knock;
+        float knockLandingAt;
+        bool launchedByImpact;
+        float impactRoll;
+        float impactPitch;
         int specialTurn;
         float specialAttackAvailableAt;
         bool workshopEntered;
@@ -506,7 +510,7 @@ namespace ResidualSignal
         /// <summary>Right click: shove nearby infected and release teammates they are holding.</summary>
         public bool TryShove()
         {
-            if (pinnedBy != null || Downed || Time.time < shoveReadyAt || phase is Phase.Complete or Phase.Failed)
+            if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt || Time.time < shoveReadyAt || phase is Phase.Complete or Phase.Failed)
                 return false;
             shoveReadyAt = Time.time + 0.57f;
             shoveStarted = Time.time;
@@ -611,11 +615,13 @@ namespace ResidualSignal
         {
             player.transform.Rotate(Vector3.up, Input.GetAxisRaw("Mouse X") * mouseSensitivity);
             pitch = Mathf.Clamp(pitch - Input.GetAxisRaw("Mouse Y") * mouseSensitivity, -83f, 83f);
-            eyes.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            eyes.transform.localRotation = Quaternion.Euler(pitch + impactPitch, 0f, impactRoll);
         }
 
         void Move()
         {
+            if (launchedByImpact || Time.time < knockLandingAt)
+                return;
             Vector2 input = Vector2.ClampMagnitude(new Vector2(
                 Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")), 1f);
             Vector3 horizontal = player.transform.right * input.x + player.transform.forward * input.y;
@@ -813,7 +819,8 @@ namespace ResidualSignal
         public bool TryFire()
         {
             var gun = Current;
-            if (pinnedBy != null || phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
+            if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt ||
+                phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
                 Time.time < nextShotAt)
                 return false;
             gun.rounds--;
@@ -988,7 +995,15 @@ namespace ResidualSignal
 
         public void Knockback(Vector3 push, int damage)
         {
-            knock = push + Vector3.up * 2.5f;
+            if (!InCombat || Downed)
+                return;
+            Vector3 horizontal = Vector3.ProjectOnPlane(push, Vector3.up);
+            knock = horizontal + Vector3.up * push.y;
+            launchedByImpact = true;
+            isWalking = false;
+            float side = Vector3.Dot(horizontal, transform.right);
+            impactRoll = Mathf.Clamp(-side * 1.8f, -24f, 24f);
+            impactPitch = -10f;
             TakeHit(damage);
         }
 
@@ -1035,11 +1050,42 @@ namespace ResidualSignal
             Vector3 eye = eyes.transform.localPosition;
             eye.y = Mathf.MoveTowards(eye.y, pinnedBy != null || Downed ? 0.55f : 1.65f, Time.deltaTime * 4f);
             eyes.transform.localPosition = eye;
-            if (knock.sqrMagnitude > 0.01f)
+            if (launchedByImpact)
             {
-                player.Move(knock * Time.deltaTime);
-                knock = Vector3.MoveTowards(knock, Vector3.zero, Time.deltaTime * 16f);
+                float delta = Time.deltaTime;
+                CollisionFlags contact = player.Move(knock * delta);
+                Vector3 horizontal = Vector3.ProjectOnPlane(knock, Vector3.up);
+                horizontal = Vector3.MoveTowards(horizontal, Vector3.zero, delta * 6f);
+                if ((contact & CollisionFlags.Sides) != 0)
+                    horizontal *= 0.25f;
+                float rise = (contact & CollisionFlags.Above) != 0 ? Mathf.Min(0f, knock.y) : knock.y;
+                if ((contact & CollisionFlags.Below) != 0 && rise <= 0f)
+                {
+                    launchedByImpact = false;
+                    knockLandingAt = Time.time + 0.23f;
+                    verticalSpeed = -2f;
+                }
+                knock = horizontal + Vector3.up * (rise - gravity * delta);
             }
+            if (impactPitch != 0f || impactRoll != 0f)
+            {
+                float settle = launchedByImpact ? 19f : 42f;
+                impactRoll = Mathf.MoveTowards(impactRoll, 0f, settle * Time.deltaTime);
+                impactPitch = Mathf.MoveTowards(impactPitch, 0f, settle * Time.deltaTime);
+                if (acceptLocalInput && !Application.isBatchMode)
+                    eyes.transform.localRotation = Quaternion.Euler(pitch + impactPitch, 0f, impactRoll);
+            }
+        }
+
+        internal bool EscortPathThreatened(Vector3 witnessPosition)
+        {
+            Vector3 eyesAt = witnessPosition + Vector3.up * 1.25f;
+            foreach (var threat in threats)
+                if (threat != null && !threat.Dead && threat.Alerted &&
+                    (threat.transform.position - witnessPosition).sqrMagnitude <= 11.56f &&
+                    !CoveredByMap(eyesAt, threat.transform.position + Vector3.up * 1.25f))
+                    return true;
+            return false;
         }
 
         public void WarnOfAttack(Vector3 position)

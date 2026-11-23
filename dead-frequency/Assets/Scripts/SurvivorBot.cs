@@ -99,6 +99,9 @@ namespace ResidualSignal
         Quaternion aimedRifleRotation;
         Vector3 restRigPosition;
         Transform hips;
+        Vector3 impactVelocity;
+        float impactHeight;
+        float impactUntil;
         float gaitSpeed;
         float readyWeight;
         int squadSlot;
@@ -155,7 +158,7 @@ namespace ResidualSignal
             {
                 body = transform,
                 hurt = Hurt,
-                knock = (push, amount) => { agent.Move(push * 0.25f); Hurt(amount); },
+                knock = TakeImpact,
                 warn = _ => { },
                 pin = Grab,
                 drag = Grab,
@@ -197,6 +200,16 @@ namespace ResidualSignal
             heldBy = source;
             Say(source.Kind == InfectedKind.Leaper ? "덮쳤어! 도와줘!" : "끌려간다!", true);
             return true;
+        }
+
+        void TakeImpact(Vector3 push, int amount)
+        {
+            if (Down)
+                return;
+            impactVelocity = push;
+            impactHeight = 0f;
+            impactUntil = Time.time + Mathf.Max(0.46f, 2f * push.y / 18f + 0.15f);
+            Hurt(amount);
         }
 
         void Hurt(int amount)
@@ -250,6 +263,20 @@ namespace ResidualSignal
             TrackLeaderMovement();
             muzzle.enabled = Time.time < flashUntil;
             rig.transform.localRotation = Quaternion.Euler(Down ? -80f : 0f, 0f, 0f) * restRotation;
+            if (Time.time < impactUntil)
+            {
+                agent.isStopped = true;
+                float delta = Time.deltaTime;
+                Vector3 slide = Vector3.ProjectOnPlane(impactVelocity, Vector3.up);
+                agent.Move(slide * delta);
+                impactHeight = Mathf.Max(0f, impactHeight + impactVelocity.y * delta);
+                impactVelocity = Vector3.MoveTowards(slide, Vector3.zero, delta * 12f) +
+                    Vector3.up * (impactVelocity.y - 18f * delta);
+                rig.transform.localRotation = Quaternion.Euler(Down ? -80f : -38f, 0f, 11f) * restRotation;
+                Play("idle");
+                return;
+            }
+            impactHeight = 0f;
             if (Down)
             {
                 agent.isStopped = true;
@@ -577,7 +604,7 @@ namespace ResidualSignal
         {
             if (leader == null)
                 return;
-            rig.transform.localPosition = restRigPosition;
+            rig.transform.localPosition = restRigPosition + Vector3.up * impactHeight;
             if (!Down && hips != null)
             {
                 Vector3 drift = Vector3.ProjectOnPlane(hips.position - transform.position, Vector3.up);
@@ -594,7 +621,7 @@ namespace ResidualSignal
             for (int i = 0; i < armBones.Length; i++)
                 animatedArmPose[i] = armBones[i].localRotation;
             armPoseApplied = true;
-            bool aiming = aim != null && !aim.Dead && Time.time >= reloadUntil;
+            bool aiming = aim != null && !aim.Dead && Time.time >= reloadUntil && Time.time >= impactUntil;
             readyWeight = Mathf.MoveTowards(readyWeight, aiming ? 1f : 0f, Time.deltaTime * 5f);
             Vector3 outward = transform.right, up = transform.up, forward = transform.forward;
             Vector3 shoulder = rightArm.position + outward * Mathf.Lerp(-0.065f, 0.012f, readyWeight)

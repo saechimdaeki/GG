@@ -420,7 +420,7 @@ namespace ResidualSignal
                 if (windup <= 0f && InReach(direction, distance) && hasLineOfSight)
                 {
                     if (kind == InfectedKind.Brute)
-                        target.knock(direction.normalized * 6f, 30);
+                        target.knock(direction.normalized * 7.5f + Vector3.up * 4.3f, 30);
                     else
                         target.hurt(runner ? 19 : attackDamage);
                 }
@@ -656,7 +656,7 @@ namespace ResidualSignal
                         CollisionFlags collision = MoveInCombat((lunge + Vector3.down * 3f) * delta);
                         if (distance < Scaled(reach) && clear && Vector3.Dot(lunge.normalized, toTarget.normalized) > 0.25f)
                         {
-                            target.knock(lunge.normalized * 9f, bespokeBoss ? 35 : 26);
+                            target.knock(lunge.normalized * 12f + Vector3.up * 5.1f, bespokeBoss ? 35 : 26);
                             leaping = 0;
                         }
                         if ((collision & CollisionFlags.Sides) != 0)
