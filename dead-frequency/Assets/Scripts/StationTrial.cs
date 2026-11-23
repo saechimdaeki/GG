@@ -340,7 +340,7 @@ namespace ResidualSignal
                 loadingReinforcements = true;
                 if (yardBoss != null && !yardBoss.Dead)
                 {
-                    yardBoss.BeginStagedEncounter();
+                    yardBoss.RevealFrom(new Vector3(-1.45f, 0.03f, 63.10f));
                     Signal("서이경: 거대체다! 적재장 기둥 뒤로!", 4f);
                 }
                 QueueReinforcements(3 + HumanPlayerCount(), new Vector3(4.5f, 0, 60f), true);
@@ -766,7 +766,7 @@ namespace ResidualSignal
                         routes.Clear();
                         if (spawnSpecials && yardBoss == null)
                         {
-                            yardBoss = SpawnInfected(3.25f, 64.25f, false, InfectedKind.Brute, calm: true);
+                            yardBoss = SpawnInfected(1.9f, 63.45f, false, InfectedKind.Brute, calm: true);
                             yardBoss.StageEncounter();
                         }
                         QueueReinforcements(3 + HumanPlayerCount(), new Vector3(-4.3f, 0, 42.8f),

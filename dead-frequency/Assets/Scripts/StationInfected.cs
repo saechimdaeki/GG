@@ -89,6 +89,7 @@ namespace ResidualSignal
         Quaternion restRotation;
         public bool Dead => Authority ? health <= 0 : netDead.Value;
         public InfectedKind Kind => kind;
+        public int RemainingHealth => health;
         public bool PreparingCall => callWindup > 0f && !Dead;
         /// <summary>Hunting the squad (as opposed to wandering, unaware).</summary>
         public bool Alerted => Authority ? alerted : netAlerted.Value;
@@ -214,7 +215,7 @@ namespace ResidualSignal
                 InfectedKind.Leaper => 220,
                 InfectedKind.Dragger => 260,
                 InfectedKind.Bloater => 60,
-                InfectedKind.Brute => bespokeBoss ? 2400 + 400 * (StationTrial.HumanPlayerCount() - 1) : 850,
+                InfectedKind.Brute => bespokeBoss ? 4500 + 750 * (StationTrial.HumanPlayerCount() - 1) : 850,
                 InfectedKind.Caller => 95,
                 _ => maximumHealth
             };
@@ -225,6 +226,12 @@ namespace ResidualSignal
         public void BeginStagedEncounter()
         {
             stagedEncounter = false;
+            if (bespokeBoss)
+            {
+                bossOpeningUntil = Time.time + 8f;
+                bossOpeningFloor = health / 2;
+                specialCooldown = 0.45f;
+            }
             Alert();
         }
 
@@ -270,10 +277,12 @@ namespace ResidualSignal
             return fallback;
         }
 
-        bool ClearAttackLine(float height, out RaycastHit obstruction)
+        bool ClearAttackLine(float height, out RaycastHit obstruction) => ClearAttackLine(target, height, out obstruction);
+
+        bool ClearAttackLine(SquadMember member, float height, out RaycastHit obstruction)
         {
             Vector3 from = transform.position + Vector3.up * height;
-            Vector3 ray = target.body.position + Vector3.up * height - from;
+            Vector3 ray = member.body.position + Vector3.up * height - from;
             int hits = Physics.RaycastNonAlloc(from, ray.normalized, sightHits, ray.magnitude,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             obstruction = default;
@@ -281,8 +290,9 @@ namespace ResidualSignal
             for (int i = 0; i < hits; i++)
             {
                 var hit = sightHits[i];
-                if (hit.transform.root == target.body.root || hit.transform.IsChildOf(transform) ||
-                    hit.collider.GetComponentInParent<StationInfected>() != null || hit.distance >= closest)
+                if (hit.transform.root == member.body.root || hit.transform.IsChildOf(transform) ||
+                    hit.collider.GetComponentInParent<StationInfected>() != null ||
+                    (bespokeBoss && hit.collider is CharacterController) || hit.distance >= closest)
                     continue;
                 closest = hit.distance;
                 obstruction = hit;
@@ -364,10 +374,12 @@ namespace ResidualSignal
             }
             if (!mission.InCombat)
                 return;
+            if (bespokeBoss && MoveOutFromBehindScreen(Time.deltaTime))
+                return;
             retarget -= Time.deltaTime;
-            if (!holding && leaping <= 0 && chargeWindup <= 0f && throwWindup <= 0f && (target == null || !target.Available || retarget <= 0))
+            if (!holding && leaping <= 0 && chargeWindup <= 0f && throwWindup <= 0f && bossSweep <= 0f && (target == null || !target.Available || retarget <= 0))
             {
-                target = SquadMember.Nearest(transform.position);
+                target = bespokeBoss ? PickBossTarget() : SquadMember.Nearest(transform.position);
                 retarget = 0.5f;
             }
             if (target == null)
@@ -446,7 +458,7 @@ namespace ResidualSignal
             }
 
             Vector3 before = transform.position;
-            body.Move((move + hitRecoil + Vector3.down * 3f) * delta);
+            MoveInCombat((move + hitRecoil + Vector3.down * 3f) * delta);
             hitRecoil = Vector3.MoveTowards(hitRecoil, Vector3.zero, 13f * delta);
             float measured = Vector3.ProjectOnPlane(transform.position - before, Vector3.up).magnitude / Mathf.Max(delta, 0.0001f);
             blockedTime = move.sqrMagnitude > 1f && measured < 0.25f ? blockedTime + delta : Mathf.Max(0f, blockedTime - delta);
@@ -619,21 +631,26 @@ namespace ResidualSignal
                     }
                     return false;
                 case InfectedKind.Brute:
-                    if (bespokeBoss && UpdateBossThrow(toTarget, distance, delta))
-                        return true;
+                    if (bespokeBoss)
+                    {
+                        clear = ClearAttackLine(1.2f, out _);
+                        if (UpdateBossThrow(toTarget, distance, delta) || UpdateBossSweep(distance, clear, delta))
+                            return true;
+                    }
                     if (chargeWindup > 0f)
                     {
                         chargeWindup -= delta;
-                        if (chargeWindup <= 0f && clear)
+                        if (chargeWindup <= 0f)
+                        {
                             leaping = 1.12f;
-                        else if (chargeWindup <= 0f)
-                            bossRecovery = 0.55f;
+                            BossAttacksCommitted++;
+                        }
                         return true;
                     }
                     if (leaping > 0)
                     {
                         leaping -= delta;
-                        CollisionFlags collision = body.Move((lunge + Vector3.down * 3f) * delta);
+                        CollisionFlags collision = MoveInCombat((lunge + Vector3.down * 3f) * delta);
                         if (distance < Scaled(reach) && clear && Vector3.Dot(lunge.normalized, toTarget.normalized) > 0.25f)
                         {
                             target.knock(lunge.normalized * 9f, bespokeBoss ? 35 : 26);
@@ -647,9 +664,9 @@ namespace ResidualSignal
                             Locomotion(chargeSpeed);
                         return true;
                     }
-                    if (clear && distance > 4f && distance < 14f && specialCooldown <= 0 && mission.TryReserveSpecial(target))
+                    if (clear && distance > 4f && distance < 14f && specialCooldown <= 0 && (bespokeBoss || mission.TryReserveSpecial(target)))
                     {
-                        specialCooldown = 6f;
+                        specialCooldown = 4.2f;
                         chargeWindup = 0.78f;
                         lunge = toTarget.normalized * chargeSpeed;
                         PlayBossSlam();
@@ -764,7 +781,9 @@ namespace ResidualSignal
             }
             if (Dead || stagedEncounter)
                 return;
-            health = Mathf.Max(0, health - damage);
+            int openingFloor = bespokeBoss && BossAttacksCommitted == 0 && Time.time < bossOpeningUntil
+                ? bossOpeningFloor : 0;
+            health = Mathf.Max(openingFloor, health - damage);
             Alert();
             physique.React(point, direction, damage);
             if (IsSpawned)

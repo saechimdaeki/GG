@@ -710,7 +710,8 @@ namespace ResidualSignal
             if (Random.value > Mathf.Lerp(accuracy, 0.87f, effectiveness))
                 return;
             Vector3 point = aim.transform.position + Vector3.up * Random.Range(1.0f, 1.6f);
-            aim.Hit(Mathf.RoundToInt(damage * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
+            float damageScale = aim.Kind == InfectedKind.Brute ? 0.45f : 1f;
+            aim.Hit(Mathf.RoundToInt(damage * damageScale * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
                 point - (transform.position + Vector3.up * 1.5f));
         }
 

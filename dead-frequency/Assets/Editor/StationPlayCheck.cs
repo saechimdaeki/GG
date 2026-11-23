@@ -43,6 +43,10 @@ namespace ResidualSignal
         static bool demoBossWalked;
         static bool bossThrowCheck;
         static bool bossDodgeCheck;
+        static bool yardBossCheck;
+        static bool yardBotEngaged;
+        static bool yardSawDebris;
+        static int yardShots;
         static bool bossCoverCheck;
         static bool capturedBossLift;
         static bool sawBossChunk;
@@ -117,7 +121,7 @@ namespace ResidualSignal
                 Finish(false, "Player controller did not load.");
                 return;
             }
-            if (sinceStart > (netMode ? 240 : 75))
+            if (sinceStart > (netMode ? 240 : yardBossCheck ? 115 : 75))
             {
                 var shutter = GameObject.Find("Security shutter");
                 Finish(false, $"Station check timed out at step {step}, player {controller.transform.position}, shutter {shutter.transform.position.y:F2}, health {trial.Health}, clock {Time.time:F2}/{stepTime:F2}.");
@@ -161,6 +165,7 @@ namespace ResidualSignal
                     specialsMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-specialsCheck") >= 0;
                     netMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-netHost") >= 0;
                     bossThrowCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossThrowCheck") >= 0;
+                    yardBossCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-yardBossCheck") >= 0;
                     bossDodgeCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossDodgeCheck") >= 0;
                     bossCoverCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossCoverCheck") >= 0;
                     if (bossThrowCheck || bossDodgeCheck || bossCoverCheck || Array.IndexOf(Environment.GetCommandLineArgs(), "-bossModelCheck") >= 0)
@@ -780,6 +785,12 @@ namespace ResidualSignal
                         break;
                     AimAtPoint(new Vector3(3.15f, 0.95f, 48.4f));
                     Capture(Camera.main, Shot(".workshop.png"));
+                    if (yardBossCheck)
+                    {
+                        var yardSettings = new SerializedObject(trial);
+                        yardSettings.FindProperty("spawnSpecials").boolValue = true;
+                        yardSettings.ApplyModifiedPropertiesWithoutUndo();
+                    }
                     if (!trial.TryInteract() || trial.Countdown <= 0)
                     {
                         Finish(false, "Annex pump did not start transfer defense.");
@@ -899,7 +910,70 @@ namespace ResidualSignal
                     else if (Time.time > stepTime + 6f)
                         Finish(false, "The concrete throw did not complete.");
                     break;
+                case 98:
+                    ClearAnnexTestThreats(trial, controller);
+                    if (target == null || target.Dead)
+                    {
+                        int attacks = target != null ? target.BossAttacksCommitted : 0;
+                        bool success = attacks >= 2 && yardBotEngaged && yardSawDebris && yardShots >= 10 &&
+                            Time.time - stepTime >= 10f;
+                        Finish(success, $"PLATFORM03 LOADING BOSS CHECK (attacks {attacks}, threw debris {yardSawDebris}, bots engaged {yardBotEngaged}, shots {yardShots}, lasted {Time.time - stepTime:F1}s)");
+                        break;
+                    }
+                    if (Time.time > stepTime + 42f)
+                    {
+                        Finish(false, $"Loading boss alive after 42s, {target.BossAttacksCommitted} attacks, {yardShots} shots, {target.RemainingHealth} boss HP at {target.transform.position}, player at {controller.transform.position}");
+                        break;
+                    }
+                    foreach (var ally in SurvivorBot.All)
+                        yardBotEngaged |= ally.AimedTarget == target;
+                    if (target.BossDebrisInFlight && !yardSawDebris)
+                    {
+                        yardSawDebris = true;
+                        Capture(Camera.main, Shot(".yard-throw.png"));
+                    }
+                    // Batch play skips the input-driven local gravity and movement.
+                    controller.Move(Vector3.down * (9f * Time.deltaTime));
+                    float lane = -2.45f + Mathf.Sin((Time.time - stepTime) * 1.45f) * 0.95f;
+                    MoveToward(controller, new Vector3(lane, 0, 57.25f));
+                    AimAtPoint(target.transform.position + Vector3.up * 1.6f);
+                    if (trial.TryFire())
+                        yardShots++;
+                    else if (trial.Rounds == 0)
+                        trial.TryReload();
+                    if (trial.Health < 45 && !trial.Downed)
+                        trial.Heal(60);
+                    break;
                 case 93:
+                    if (yardBossCheck)
+                    {
+                        MoveToward(controller, new Vector3(-1.6f, 0, 56.4f));
+                        if (controller.transform.position.z < 56.3f)
+                            break;
+                        foreach (var infected in trial.Threats)
+                            if (infected != null && infected.Kind == InfectedKind.Brute)
+                                target = infected;
+                        if (target == null || target.Dead)
+                        {
+                            Finish(false, "Production loading bay did not spawn a live boss.");
+                            return;
+                        }
+                        var arenaSettings = new SerializedObject(trial);
+                        var prefab = (SurvivorBot)arenaSettings.FindProperty("botPrefab").objectReferenceValue;
+                        for (int slot = 0; slot < 3; slot++)
+                        {
+                            var position = controller.transform.position + SurvivorBot.OpeningOffset(slot);
+                            if (UnityEngine.AI.NavMesh.SamplePosition(position, out var landing, 2f, UnityEngine.AI.NavMesh.AllAreas))
+                                position = landing.position;
+                            var ally = UnityEngine.Object.Instantiate(prefab, position, Quaternion.identity);
+                            ally.Join(trial, slot);
+                        }
+                        trial.Equip(4);
+                        trial.GiveAmmo();
+                        stepTime = Time.time;
+                        step = 98;
+                        break;
+                    }
                     ClearAnnexTestThreats(trial, controller);
                     MoveToward(controller, new Vector3(-1.6f, 0, 66.8f));
                     if (controller.transform.position.z < 66.45f || !trial.Complete)
@@ -914,7 +988,7 @@ namespace ResidualSignal
         static void ClearAnnexTestThreats(StationTrial trial, CharacterController controller)
         {
             foreach (var infected in trial.Threats)
-                if (infected != null && !infected.Dead &&
+                if (infected != null && !infected.Dead && (!yardBossCheck || infected.Kind != InfectedKind.Brute) &&
                     Vector3.Distance(infected.transform.position, controller.transform.position) < 5f)
                     infected.Hit(1800);
         }

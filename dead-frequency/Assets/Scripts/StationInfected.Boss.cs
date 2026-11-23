@@ -12,6 +12,106 @@ namespace ResidualSignal
 
         float throwWindup;
         float nextThrow;
+        float bossSweep;
+        float nextBossSweep;
+        float bossOpeningUntil;
+        int bossOpeningFloor;
+        Vector3? bossRevealPoint;
+        bool bossArenaActive;
+        const float BossArenaEntrance = 55.25f;
+
+        public int BossAttacksCommitted { get; private set; }
+        public bool BossDebrisInFlight => flyingDebris != null;
+
+        internal void RevealFrom(Vector3 exit)
+        {
+            bossRevealPoint = exit;
+            bossArenaActive = true;
+            BeginStagedEncounter();
+        }
+
+        bool MoveOutFromBehindScreen(float delta)
+        {
+            if (!bossRevealPoint.HasValue)
+                return false;
+
+            Vector3 toward = Vector3.ProjectOnPlane(bossRevealPoint.Value - transform.position, Vector3.up);
+            if (toward.sqrMagnitude < 0.16f || Time.time >= bossOpeningUntil - 5f)
+            {
+                bossRevealPoint = null;
+                return false;
+            }
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(toward), 480f * delta);
+            body.Move((toward.normalized * 4.7f + Vector3.down * 3f) * delta);
+            Locomotion(4.7f);
+            return true;
+        }
+
+        CollisionFlags MoveInCombat(Vector3 displacement)
+        {
+            if (bossArenaActive && displacement.z < 0f && transform.position.z + displacement.z < BossArenaEntrance)
+            {
+                displacement.z = Mathf.Min(0f, BossArenaEntrance - transform.position.z);
+                return body.Move(displacement) | CollisionFlags.Sides;
+            }
+            return body.Move(displacement);
+        }
+
+        SquadMember PickBossTarget()
+        {
+            SquadMember best = null;
+            float bestScore = float.PositiveInfinity;
+            foreach (var member in SquadMember.All)
+            {
+                if (!member.Available || (bossArenaActive && member.body.position.z < BossArenaEntrance - 0.7f))
+                    continue;
+                float distance = Vector3.Distance(member.body.position, transform.position);
+                float score = distance + (ClearAttackLine(member, 1.45f, out _) ? 0f : 18f)
+                    + (member.body.GetComponent<SurvivorBot>() != null ? 3.5f : 0f);
+                if (score < bestScore)
+                {
+                    best = member;
+                    bestScore = score;
+                }
+            }
+            return best;
+        }
+
+        bool UpdateBossSweep(float distance, bool clear, float delta)
+        {
+            if (bossSweep > 0f)
+            {
+                bossSweep -= delta;
+                if (bossSweep > 0f)
+                    return true;
+
+                BossAttacksCommitted++;
+                bossRecovery = 0.7f;
+                foreach (var member in SquadMember.All)
+                {
+                    if (!member.Available || Vector3.Distance(member.body.position, transform.position) > 3.2f ||
+                        !ClearAttackLine(member, 1.05f, out _))
+                        continue;
+                    Vector3 away = Vector3.ProjectOnPlane(member.body.position - transform.position, Vector3.up);
+                    member.knock(away.normalized * 8f, 34);
+                }
+                return true;
+            }
+
+            if (!clear || distance > 2.9f || Time.time < nextBossSweep || chargeWindup > 0f || leaping > 0f || windup > 0f)
+                return false;
+
+            bossSweep = 0.68f;
+            nextBossSweep = Time.time + 2.75f;
+            transform.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(target.body.position - transform.position, Vector3.up));
+            PlayAttack();
+            PlayBossSound(0.55f);
+            foreach (var member in SquadMember.All)
+                if (member.Available && Vector3.Distance(member.body.position, transform.position) <= 5f)
+                    member.warn(transform.position);
+            return true;
+        }
+
         float bossRecovery;
         float throwStarted;
         Vector3 lockedThrowTarget;
@@ -40,10 +140,11 @@ namespace ResidualSignal
                 {
                     Vector3 origin = heldDebris.transform.position;
                     float duration = Mathf.Clamp(Vector3.Distance(origin, lockedThrowTarget) / 15f, 0.42f, 1.3f);
+                    BossAttacksCommitted++;
                     LaunchBossDebris(origin, lockedThrowTarget, duration);
                     if (IsSpawned)
                         BossThrowRpc(origin, lockedThrowTarget, duration);
-                    nextThrow = Time.time + 6.5f;
+                    nextThrow = Time.time + 5.1f;
                     specialCooldown = Mathf.Max(specialCooldown, 1.35f);
                     bossRecovery = 0.8f;
                 }
@@ -57,8 +158,8 @@ namespace ResidualSignal
                 return true;
             }
 
-            if (chargeWindup > 0f || leaping > 0f || windup > 0f || Time.time < nextThrow ||
-                distance < 5.5f || distance > 21f || !ClearAttackLine(1.5f, out _))
+            if (chargeWindup > 0f || leaping > 0f || windup > 0f || bossSweep > 0f || Time.time < nextThrow ||
+                distance < 4.6f || distance > 21f || !ClearAttackLine(1.5f, out _))
                 return false;
 
             lockedThrowTarget = target.body.position + Vector3.up * 0.85f;
