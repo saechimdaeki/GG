@@ -65,6 +65,7 @@ namespace ResidualSignal
         readonly NetworkVariable<Vector3> netKillDirection = new();
         readonly NetworkVariable<bool> netAlerted = new();
         static readonly System.Collections.Generic.List<StationInfected> Living = new();
+        internal static System.Collections.Generic.IReadOnlyList<StationInfected> ActiveInfected => Living;
         bool alerted;
         float nextGroan;
         Vector3 shoveVelocity;
@@ -187,7 +188,7 @@ namespace ResidualSignal
             Alert();
             stagger = 0.95f;
             windup = 0;
-            shoveVelocity = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * 4.2f;
+            shoveVelocity = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * 5.6f;
             physique.React(transform.position + Vector3.up * 1.2f, direction, 30);
             if (IsSpawned)
                 ReactRpc(transform.position + Vector3.up * 1.2f, direction, 30);
@@ -400,6 +401,8 @@ namespace ResidualSignal
             {
                 body.Move((shoveVelocity + Vector3.down * 3f) * delta);
                 shoveVelocity = Vector3.MoveTowards(shoveVelocity, Vector3.zero, delta * 12f);
+                Locomotion(0f);
+                return;
             }
             bool hasLineOfSight = ClearAttackLine(0.9f, out RaycastHit obstruction);
             float pace = kind switch
@@ -783,7 +786,7 @@ namespace ResidualSignal
                 return;
             int openingFloor = bespokeBoss && BossAttacksCommitted == 0 && Time.time < bossOpeningUntil
                 ? bossOpeningFloor : 0;
-            health = Mathf.Max(openingFloor, health - damage);
+            health = Mathf.Max(Mathf.Max(openingFloor, BossArmorFloor), health - damage);
             Alert();
             physique.React(point, direction, damage);
             if (IsSpawned)

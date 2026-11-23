@@ -14,6 +14,8 @@ namespace ResidualSignal
             new(-4.2f, 0, 7.0f), new(4.2f, 0, 7.0f),
             new(-3.4f, 0, 12.2f), new(3.4f, 0, 12.2f),
             new(-3.4f, 0, 15.8f), new(3.4f, 0, 15.8f),
+            new(-3.6f, 0, 10.6f), new(3.6f, 0, 10.6f),
+            new(-4.1f, 0, 18.8f), new(4.1f, 0, 18.8f),
             new(-3.7f, 0, 27.2f), new(3.7f, 0, 27.2f),
             new(-1.7f, 0, 34.2f), new(1.7f, 0, 34.2f),
             new(-4.4f, 0, 39.7f), new(4.4f, 0, 42.5f), new(3.7f, 0, 46.0f),
@@ -77,8 +79,9 @@ namespace ResidualSignal
                 return;
 
             // Try both fronts. A blocked entrance cannot starve the opposite side of the fight.
-            foreach (var group in routes)
+            for (int index = routes.Count - 1; index >= 0 && threats.Count < maxInfected; index--)
             {
+                var group = routes[index];
                 if (Time.time < group.ReadyAt || !TryFindCoveredEntry(group, out Vector3 entry))
                     continue;
                 if (group.NeedsWarning)
@@ -92,16 +95,24 @@ namespace ResidualSignal
                     continue;
                 }
 
-                var kind = InfectedKind.Common;
-                if (group.Special != InfectedKind.Common && !SquadUnderPressure() && !NearbySpecial())
+                int batch = spawnSpecials && !group.Calm ? 5 : 1;
+                for (int delivered = 0; delivered < batch && group.Remaining > 0 && threats.Count < maxInfected; delivered++)
                 {
-                    kind = group.Special;
-                    group.Special = InfectedKind.Common;
+                    if (delivered > 0 && !TryFindCoveredEntry(group, out entry))
+                        break;
+                    var kind = InfectedKind.Common;
+                    if (group.Special != InfectedKind.Common && !SquadUnderPressure() && !NearbySpecial())
+                    {
+                        kind = group.Special;
+                        group.Special = InfectedKind.Common;
+                    }
+                    SpawnInfected(entry.x, entry.z, !group.Calm && group.Remaining % 3 != 1, kind, calm: group.Calm);
+                    group.Remaining--;
                 }
-                SpawnInfected(entry.x, entry.z, !group.Calm && group.Remaining % 3 != 1, kind, calm: group.Calm);
-                if (--group.Remaining == 0)
-                    routes.Remove(group);
-                return;
+                if (group.Remaining == 0)
+                    routes.RemoveAt(index);
+                else
+                    group.ReadyAt = Time.time + (spawnSpecials && !group.Calm ? 0.6f : 0.22f);
             }
         }
 
@@ -124,9 +135,17 @@ namespace ResidualSignal
             {
                 if ((pocket - anchor).sqrMagnitude > 190f)
                     continue;
-                for (int offset = -1; offset <= 1; offset++)
+                for (int offset = 0; offset < 5; offset++)
                 {
-                    Vector3 sample = pocket + new Vector3(offset * 0.9f, 0, offset * 0.48f);
+                    Vector3 offsetVector = offset switch
+                    {
+                        1 => new Vector3(-0.82f, 0f, -0.35f),
+                        2 => new Vector3(0.82f, 0f, 0.35f),
+                        3 => new Vector3(0.15f, 0f, -0.85f),
+                        4 => new Vector3(-0.15f, 0f, 0.85f),
+                        _ => Vector3.zero,
+                    };
+                    Vector3 sample = pocket + offsetVector;
                     if (!NavMesh.SamplePosition(sample, out var origin, 0.6f, NavMesh.AllAreas))
                         continue;
                     float score = (origin.position - anchor).sqrMagnitude;
@@ -164,7 +183,7 @@ namespace ResidualSignal
         public bool IsConcealedEntry(Vector3 entry)
         {
             foreach (var threat in threats)
-                if (threat != null && !threat.Dead && (threat.transform.position - entry).sqrMagnitude < 1.15f)
+                if (threat != null && !threat.Dead && (threat.transform.position - entry).sqrMagnitude < 0.68f)
                     return false;
             foreach (var member in SquadMember.All)
             {

@@ -45,6 +45,9 @@ namespace ResidualSignal
         static bool bossDodgeCheck;
         static bool yardBossCheck;
         static bool yardBotEngaged;
+        static float nextSquadBurst;
+        static readonly StationInfected[] ShoveTargets = new StationInfected[3];
+        static readonly Vector3[] ShoveOrigins = new Vector3[3];
         static bool yardSawDebris;
         static int yardShots;
         static bool bossCoverCheck;
@@ -164,6 +167,29 @@ namespace ResidualSignal
                     settings.FindProperty("spawnSpecials").boolValue = false;
                     specialsMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-specialsCheck") >= 0;
                     netMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-netHost") >= 0;
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-shoveCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.4f, 0.08f, 57f);
+                        controller.enabled = true;
+                        for (int i = 0; i < ShoveTargets.Length; i++)
+                        {
+                            var at = controller.transform.position + new Vector3((i - 1) * 0.88f, 0f, 1.40f);
+                            ShoveTargets[i] = trial.SpawnInfected(at.x, at.z, false);
+                            ShoveOrigins[i] = ShoveTargets[i].transform.position;
+                        }
+                        Physics.SyncTransforms();
+                        AimAtPoint(controller.transform.position + new Vector3(0f, 1.45f, 6f));
+                        if (!trial.TryShove())
+                        {
+                            Finish(false, "Right-click shove was not accepted.");
+                            return;
+                        }
+                        stepTime = Time.time;
+                        step = 99;
+                        break;
+                    }
                     bossThrowCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossThrowCheck") >= 0;
                     yardBossCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-yardBossCheck") >= 0;
                     bossDodgeCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossDodgeCheck") >= 0;
@@ -641,7 +667,7 @@ namespace ResidualSignal
                     break;
                 case 83:
                     int arrivals = trial.Threats.Count - preparationThreats;
-                    if (!trial.PreparingDefense && arrivals >= (liveDefenseMode ? 5 : 1))
+                    if (!trial.PreparingDefense && arrivals >= (liveDefenseMode ? 14 : 1))
                     {
                         if (liveDefenseMode)
                             AimAtPoint(trial.Threats[trial.Threats.Count - 1].transform.position + Vector3.up * 1.25f);
@@ -910,13 +936,22 @@ namespace ResidualSignal
                     else if (Time.time > stepTime + 6f)
                         Finish(false, "The concrete throw did not complete.");
                     break;
+                case 99 when Time.time >= stepTime + 0.35f:
+                    int pushed = 0;
+                    for (int i = 0; i < ShoveTargets.Length; i++)
+                        if (Vector3.Distance(ShoveTargets[i].transform.position, ShoveOrigins[i]) >= 0.6f &&
+                            ShoveTargets[i].transform.position.z > ShoveOrigins[i].z)
+                            pushed++;
+                    bool followup = trial.TryFire();
+                    Finish(pushed == 3 && followup, $"PLATFORM03 SHOVE CHECK (pushed {pushed}/3, follow-up shot {followup})");
+                    break;
                 case 98:
                     ClearAnnexTestThreats(trial, controller);
                     if (target == null || target.Dead)
                     {
                         int attacks = target != null ? target.BossAttacksCommitted : 0;
                         bool success = attacks >= 2 && yardBotEngaged && yardSawDebris && yardShots >= 10 &&
-                            Time.time - stepTime >= 10f;
+                            Time.time - stepTime >= 30f;
                         Finish(success, $"PLATFORM03 LOADING BOSS CHECK (attacks {attacks}, threw debris {yardSawDebris}, bots engaged {yardBotEngaged}, shots {yardShots}, lasted {Time.time - stepTime:F1}s)");
                         break;
                     }
@@ -941,14 +976,21 @@ namespace ResidualSignal
                         yardShots++;
                     else if (trial.Rounds == 0)
                         trial.TryReload();
-                    if (trial.Health < 45 && !trial.Downed)
+                    // Four headshot AK streams at full cyclic rate, without reload gaps.
+                    if (Time.time >= nextSquadBurst)
+                    {
+                        nextSquadBurst = Time.time + 0.105f;
+                        for (int gun = 0; gun < 4; gun++)
+                            target.Hit(68);
+                    }
+                    if (trial.Health < 75 && !trial.Downed)
                         trial.Heal(60);
                     break;
                 case 93:
                     if (yardBossCheck)
                     {
-                        MoveToward(controller, new Vector3(-1.6f, 0, 56.4f));
-                        if (controller.transform.position.z < 56.3f)
+                        MoveToward(controller, new Vector3(-1.6f, 0, 55.6f));
+                        if (controller.transform.position.z < 55.5f)
                             break;
                         foreach (var infected in trial.Threats)
                             if (infected != null && infected.Kind == InfectedKind.Brute)

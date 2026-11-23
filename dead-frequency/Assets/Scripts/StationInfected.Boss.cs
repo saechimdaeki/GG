@@ -18,6 +18,12 @@ namespace ResidualSignal
         int bossOpeningFloor;
         Vector3? bossRevealPoint;
         bool bossArenaActive;
+        float bossRevealedAt;
+        int bossArenaStartingHealth;
+        const float BossArmorDuration = 30.5f;
+
+        int BossArmorFloor => bossArenaActive ? Mathf.CeilToInt(bossArenaStartingHealth *
+            (1f - Mathf.Clamp01((Time.time - bossRevealedAt) / BossArmorDuration))) : 0;
         const float BossArenaEntrance = 55.25f;
 
         public int BossAttacksCommitted { get; private set; }
@@ -27,6 +33,8 @@ namespace ResidualSignal
         {
             bossRevealPoint = exit;
             bossArenaActive = true;
+            bossRevealedAt = Time.time;
+            bossArenaStartingHealth = health;
             BeginStagedEncounter();
         }
 

@@ -42,7 +42,7 @@ namespace ResidualSignal
         [SerializeField] AudioClip shoveSound;
         [SerializeField] AudioClip fleshSound;
         [SerializeField] AudioClip hordeSound;
-        [SerializeField] int maxInfected = 26;
+        [SerializeField] int maxInfected = 48;
         [Tooltip("Solo play: AI teammates that follow, fight and revive.")]
         [SerializeField] SurvivorBot botPrefab;
         [SerializeField] AudioSource weaponAudio;
@@ -324,7 +324,7 @@ namespace ResidualSignal
                     NearbyPressure() < 6 && !SquadUnderPressure())
                 {
                     nextPumpPush = 0f;
-                    QueueReinforcements(4 + HumanPlayerCount(), new Vector3(4.3f, 0f, 50.7f), true, InfectedKind.Bloater);
+                    QueueReinforcements(8 + 2 * HumanPlayerCount(), new Vector3(4.3f, 0f, 50.7f), true, InfectedKind.Bloater);
                 }
                 if (countdown <= 0f)
                     SetPhase(Phase.LoadingEscort);
@@ -343,7 +343,7 @@ namespace ResidualSignal
                     yardBoss.RevealFrom(new Vector3(-1.45f, 0.03f, 63.10f));
                     Signal("서이경: 거대체다! 적재장 기둥 뒤로!", 4f);
                 }
-                QueueReinforcements(3 + HumanPlayerCount(), new Vector3(4.5f, 0, 60f), true);
+                QueueReinforcements((spawnSpecials ? 8 : 3) + HumanPlayerCount(), new Vector3(4.5f, 0, 60f), true);
                 nextYardPush = Time.time + 7f;
             }
             if (spawnSpecials && loadingReinforcements && Time.time >= nextYardPush && routes.Count == 0 &&
@@ -508,22 +508,21 @@ namespace ResidualSignal
         {
             if (pinnedBy != null || Downed || Time.time < shoveReadyAt || phase is Phase.Complete or Phase.Failed)
                 return false;
-            shoveReadyAt = Time.time + 0.7f;
+            shoveReadyAt = Time.time + 0.57f;
             shoveStarted = Time.time;
             weaponAudio.pitch = 1f;
             weaponAudio.PlayOneShot(shoveSound, 0.7f);
             Vector3 forward = Vector3.ProjectOnPlane(eyes.transform.forward, Vector3.up).normalized;
             bool connected = false;
-            var shoved = new HashSet<StationInfected>();
-            foreach (var hit in Physics.OverlapSphere(transform.position + forward * 0.9f + Vector3.up, 1.15f,
-                         Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            Vector3 origin = transform.position + Vector3.up;
+            foreach (var infected in StationInfected.ActiveInfected)
             {
-                var infected = hit.GetComponentInParent<StationInfected>();
-                if (infected == null || infected.Dead || !shoved.Add(infected))
+                if (infected == null || infected.Dead || infected.Kind == InfectedKind.Brute)
                     continue;
                 Vector3 to = infected.transform.position - transform.position;
                 to.y = 0;
-                if (Vector3.Angle(forward, to) > 80f)
+                if (to.sqrMagnitude > 5.29f || Vector3.Dot(forward, to.normalized) < 0.34f ||
+                    CoveredByMap(origin, infected.transform.position + Vector3.up))
                     continue;
                 infected.Shove(to.normalized);
                 connected = true;
@@ -769,7 +768,7 @@ namespace ResidualSignal
                             yardBoss = SpawnInfected(1.9f, 63.45f, false, InfectedKind.Brute, calm: true);
                             yardBoss.StageEncounter();
                         }
-                        QueueReinforcements(3 + HumanPlayerCount(), new Vector3(-4.3f, 0, 42.8f),
+                        QueueReinforcements((spawnSpecials ? 9 : 3) + HumanPlayerCount(), new Vector3(-4.3f, 0, 42.8f),
                             true, spawnSpecials && !SquadUnderPressure() ? InfectedKind.Dragger : InfectedKind.Common);
                     }
                     break;
@@ -1103,23 +1102,26 @@ namespace ResidualSignal
         void SpawnWave()
         {
             bool underPressure = SquadUnderPressure();
-            if (wave > 0 && (routes.Count > 0 || NearbyPressure() >= (underPressure ? 2 : 4)))
+            if (wave > 0 && (routes.Count > 0 || NearbyPressure() >= (underPressure ? 4 : 12)))
             {
                 nextWave = underPressure ? 3f : 1.5f;
                 return;
             }
 
-            int count = Mathf.Clamp((spawnSpecials ? 6 : 3) + HumanPlayerCount() + wave - (underPressure ? 3 : 0), 2, 12);
+            int humans = HumanPlayerCount();
+            int count = spawnSpecials
+                ? Mathf.Clamp(16 + 4 * humans + wave * 2 - (underPressure ? 10 : 0), 10, 36)
+                : 3 + humans + wave;
             nextWave = waveInterval + (underPressure ? 3f : 0f);
             bool fromFarSide = wave % 2 != 0;
             var special = spawnSpecials && !underPressure && wave >= 1
                 ? (InfectedKind)(1 + specialTurn++ % 3)
                 : InfectedKind.Common;
             wave++;
-            int flank = spawnSpecials && !underPressure && wave > 1 ? 3 : 0;
-            QueueReinforcements(count - flank, new Vector3(0, 0, fromFarSide ? 28f : 13f), true, special);
+            int flank = spawnSpecials && !underPressure ? count / 2 : 0;
+            QueueReinforcements(count - flank, new Vector3(-3.4f, 0, fromFarSide ? 27.2f : 12.2f), true, special);
             if (flank > 0)
-                QueueReinforcements(flank, new Vector3(0, 0, fromFarSide ? 13f : 28f), true);
+                QueueReinforcements(flank, new Vector3(3.4f, 0, fromFarSide ? 15.8f : 12.2f), true);
         }
 
         /// <summary>Spawn one infected; public so tests can stage a specific special.</summary>

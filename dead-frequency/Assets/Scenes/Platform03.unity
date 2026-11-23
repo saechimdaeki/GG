@@ -106543,7 +106543,7 @@ MonoBehaviour:
   shoveSound: {fileID: 8300000, guid: 728699b3778d245579bfac65556e1c03, type: 3}
   fleshSound: {fileID: 8300000, guid: af04e1713cd894a038913322a6d9c960, type: 3}
   hordeSound: {fileID: 8300000, guid: 9f9f68aac92e34a6f86a48380c341f24, type: 3}
-  maxInfected: 26
+  maxInfected: 48
   botPrefab: {fileID: 5952501938567767773, guid: ec05e4f906f40461da506fe5746e2189, type: 3}
   weaponAudio: {fileID: 1134502519}
   reloadSound: {fileID: 8300000, guid: 01aa632ed330244cc8cd58673d20f47e, type: 3}
