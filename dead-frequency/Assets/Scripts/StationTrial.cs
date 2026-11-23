@@ -111,6 +111,9 @@ namespace ResidualSignal
         float specialAttackAvailableAt;
         bool workshopEntered;
         bool loadingReinforcements;
+        bool extractionSurge;
+        float nextPumpPush;
+        float nextYardPush;
         Vector3 closedServiceShutter;
         public IReadOnlyList<StationInfected> Threats => threats;
         public int Rounds => Current.rounds;
@@ -279,8 +282,8 @@ namespace ResidualSignal
             if (Authority && phase == Phase.FindTerminal && !routeEncounterStarted && SquadFurthestZ() > 9.4f)
             {
                 routeEncounterStarted = true;
-                QueueReinforcements(1 + HumanPlayerCount(), new Vector3(drainSelected ? -3.5f : 3.5f, 0, 15f), true,
-                    spawnSpecials ? InfectedKind.Leaper : InfectedKind.Common);
+                QueueReinforcements((spawnSpecials ? 3 : 1) + HumanPlayerCount(), new Vector3(drainSelected ? -3.5f : 3.5f, 0, 15f), true,
+                    spawnSpecials ? (drainSelected ? InfectedKind.Dragger : InfectedKind.Leaper) : InfectedKind.Common);
                 crossingPressureAt = Time.time + crossingPressureDelay;
             }
 
@@ -317,6 +320,12 @@ namespace ResidualSignal
             if (phase == Phase.TransferDefense && Authority)
             {
                 countdown -= Time.deltaTime;
+                if (spawnSpecials && nextPumpPush > 0f && Time.time >= nextPumpPush && countdown > 2f &&
+                    NearbyPressure() < 6 && !SquadUnderPressure())
+                {
+                    nextPumpPush = 0f;
+                    QueueReinforcements(4 + HumanPlayerCount(), new Vector3(4.3f, 0f, 50.7f), true, InfectedKind.Bloater);
+                }
                 if (countdown <= 0f)
                     SetPhase(Phase.LoadingEscort);
             }
@@ -335,6 +344,21 @@ namespace ResidualSignal
                     Signal("서이경: 거대체다! 적재장 기둥 뒤로!", 4f);
                 }
                 QueueReinforcements(3 + HumanPlayerCount(), new Vector3(4.5f, 0, 60f), true);
+                nextYardPush = Time.time + 7f;
+            }
+            if (spawnSpecials && loadingReinforcements && Time.time >= nextYardPush && routes.Count == 0 &&
+                NearbyPressure() < 4 && !SquadUnderPressure())
+            {
+                if (yardBoss != null && !yardBoss.Dead)
+                {
+                    QueueReinforcements(3 + HumanPlayerCount(), new Vector3(-5.3f, 0f, 57.2f), true);
+                    nextYardPush = Time.time + 11f;
+                }
+                else if (!extractionSurge)
+                {
+                    extractionSurge = true;
+                    QueueReinforcements(5 + HumanPlayerCount(), new Vector3(4.5f, 0f, 58.7f), true);
+                }
             }
             if (witness.HasArrived && (yardBoss == null || yardBoss.Dead) && SquadAt(loadingExtraction))
                 SetPhase(Phase.Complete);
@@ -376,7 +400,7 @@ namespace ResidualSignal
             }
             if (SessionMenu.Blocking)
                 return;
-            if (!ambientSpawned)
+            if (!ambientSpawned && phase == Phase.ReceiveSignal)
             {
                 ambientSpawned = true;
                 if (!Networked && botPrefab != null)
@@ -720,8 +744,9 @@ namespace ResidualSignal
                     {
                         witness.EvacuateWith(this, evacuationPoint);
                         routes.Clear();
-                        int pursuit = 2 + HumanPlayerCount();
-                        QueueReinforcements(pursuit, new Vector3(0, 0, 24f), true);
+                        int pursuit = (spawnSpecials ? 5 : 2) + HumanPlayerCount();
+                        QueueReinforcements(pursuit, new Vector3(-3.7f, 0, 27.2f), true,
+                            spawnSpecials ? InfectedKind.Leaper : InfectedKind.Common);
                     }
                     break;
                 case Phase.Maintenance:
@@ -734,6 +759,7 @@ namespace ResidualSignal
                     break;
                 case Phase.TransferDefense:
                     countdown = serviceTransferSeconds;
+                    nextPumpPush = Time.time + Mathf.Min(6f, serviceTransferSeconds * 0.5f);
                     Signal("유압 펌프 가동. 셔터가 열릴 때까지 버텨요.");
                     if (Authority)
                     {
@@ -1083,14 +1109,17 @@ namespace ResidualSignal
                 return;
             }
 
-            int count = Mathf.Clamp(3 + HumanPlayerCount() + wave - (underPressure ? 2 : 0), 2, 10);
+            int count = Mathf.Clamp((spawnSpecials ? 6 : 3) + HumanPlayerCount() + wave - (underPressure ? 3 : 0), 2, 12);
             nextWave = waveInterval + (underPressure ? 3f : 0f);
-            bool fromFarSide = wave % 2 == 0;
+            bool fromFarSide = wave % 2 != 0;
             var special = spawnSpecials && !underPressure && wave >= 1
                 ? (InfectedKind)(1 + specialTurn++ % 3)
                 : InfectedKind.Common;
             wave++;
-            QueueReinforcements(count, new Vector3(0, 0, fromFarSide ? 28f : 13f), true, special);
+            int flank = spawnSpecials && !underPressure && wave > 1 ? 3 : 0;
+            QueueReinforcements(count - flank, new Vector3(0, 0, fromFarSide ? 28f : 13f), true, special);
+            if (flank > 0)
+                QueueReinforcements(flank, new Vector3(0, 0, fromFarSide ? 13f : 28f), true);
         }
 
         /// <summary>Spawn one infected; public so tests can stage a specific special.</summary>

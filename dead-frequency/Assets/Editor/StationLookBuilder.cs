@@ -12,7 +12,7 @@ namespace ResidualSignal
         {
             var fog = StationVolumeSetting<Fog>(profile);
             fog.enabled.Override(true);
-            fog.meanFreePath.Override(68f);
+            fog.meanFreePath.Override(105f);
             fog.baseHeight.Override(0f);
             fog.maximumHeight.Override(14f);
             fog.albedo.Override(new Color(0.62f, 0.72f, 0.78f));
@@ -23,7 +23,7 @@ namespace ResidualSignal
             EditorUtility.SetDirty(fog);
 
             var bloom = StationVolumeSetting<Bloom>(profile);
-            bloom.intensity.Override(0.32f);
+            bloom.intensity.Override(0.24f);
             bloom.scatter.Override(0.78f);
             bloom.threshold.Override(0.9f);
             EditorUtility.SetDirty(bloom);
@@ -67,7 +67,7 @@ namespace ResidualSignal
             EditorUtility.SetDirty(grain);
 
             var lens = StationVolumeSetting<ChromaticAberration>(profile);
-            lens.intensity.Override(0.06f);
+            lens.intensity.Override(0.025f);
             EditorUtility.SetDirty(lens);
         }
 

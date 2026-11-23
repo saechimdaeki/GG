@@ -72,6 +72,7 @@ namespace ResidualSignal
             DressForecourt(plaza, darkMetal, whiteLamp, redLamp, greenLamp);
             DressCordon(plaza, masonry, window, darkMetal, whiteLamp);
             AddForecourtPractical(plaza);
+            BuildStreetPhotography(plaza, masonry, window, darkMetal);
 
             Spotlight(plaza, "Entrance light pool", new(0f, 3.09f, -6.54f), new(0, 0, -8.6f),
                 new Color(1f, 0.78f, 0.48f), 3600, 100f, 15f);
@@ -312,7 +313,7 @@ namespace ResidualSignal
             var sky = StationVolumeSetting<HDRISky>(profile);
             sky.hdriSky.Override(AssetDatabase.LoadAssetAtPath<Cubemap>(source));
             sky.rotation.Override(92f);
-            sky.exposure.Override(4.8f);
+            sky.exposure.Override(3.7f);
             EditorUtility.SetDirty(sky);
         }
     }

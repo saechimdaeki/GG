@@ -35,6 +35,9 @@ namespace ResidualSignal
             public float Expires;
             public bool Alert;
             public bool Calm;
+            public bool NeedsWarning;
+            public float ReadyAt;
+            public Vector3 LastEntry;
             public InfectedKind Special;
         }
 
@@ -49,7 +52,8 @@ namespace ResidualSignal
             routes.Add(new Reinforcements
             {
                 Remaining = count, Near = near, Alert = alert, Calm = calm, Special = special,
-                Expires = Time.time + (phase == Phase.Opening ? 16f : 10f)
+                NeedsWarning = alert, ReadyAt = Time.time,
+                Expires = Time.time + (phase == Phase.Opening ? 18f : 13f)
             });
         }
 
@@ -63,57 +67,70 @@ namespace ResidualSignal
             if (routes.Count == 0 || Time.time < nextDelivery)
                 return;
 
-            nextDelivery = Time.time + 0.45f;
-            var group = routes[0];
-            if (Time.time >= group.Expires)
-            {
-                routes.RemoveAt(0);
+            nextDelivery = Time.time + 0.22f;
+            routes.RemoveAll(group => Time.time >= group.Expires);
+            if (routes.Count == 0)
                 return;
-            }
 
             threats.RemoveAll(threat => threat == null || threat.Dead);
-            if (threats.Count >= maxInfected || !TryFindCoveredEntry(group.Near, out Vector3 entry))
+            if (threats.Count >= maxInfected)
                 return;
 
-            InfectedKind kind = group.Special;
-            if (kind != InfectedKind.Common)
-                foreach (var active in threats)
-                    if (active.Kind != InfectedKind.Common && active.Alerted &&
-                        SquadNear(active.transform.position, 16f))
-                    {
-                        kind = InfectedKind.Common;
-                        break;
-                    }
-            group.Special = InfectedKind.Common;
-            bool alerted = !group.Calm;
-            SpawnInfected(entry.x, entry.z, alerted && group.Remaining % 3 == 0, kind, calm: group.Calm);
-            if (group.Alert)
+            // Try both fronts. A blocked entrance cannot starve the opposite side of the fight.
+            foreach (var group in routes)
             {
-                group.Alert = false;
-                PlayHorde(entry);
-                if (MissionSync.Instance != null)
-                    MissionSync.Instance.HordeRpc(entry);
+                if (Time.time < group.ReadyAt || !TryFindCoveredEntry(group, out Vector3 entry))
+                    continue;
+                if (group.NeedsWarning)
+                {
+                    group.NeedsWarning = false;
+                    group.LastEntry = entry;
+                    group.ReadyAt = Time.time + 0.55f;
+                    PlayHorde(entry);
+                    if (MissionSync.Instance != null)
+                        MissionSync.Instance.HordeRpc(entry);
+                    continue;
+                }
+
+                var kind = InfectedKind.Common;
+                if (group.Special != InfectedKind.Common && !SquadUnderPressure() && !NearbySpecial())
+                {
+                    kind = group.Special;
+                    group.Special = InfectedKind.Common;
+                }
+                SpawnInfected(entry.x, entry.z, !group.Calm && group.Remaining % 3 != 1, kind, calm: group.Calm);
+                if (--group.Remaining == 0)
+                    routes.Remove(group);
+                return;
             }
-            if (--group.Remaining == 0)
-                routes.RemoveAt(0);
         }
 
-        bool TryFindCoveredEntry(Vector3 near, out Vector3 entry)
+        bool NearbySpecial()
+        {
+            foreach (var active in threats)
+                if (active.Kind is not (InfectedKind.Common or InfectedKind.Brute) && active.Alerted &&
+                    SquadNear(active.transform.position, 18f))
+                    return true;
+            return false;
+        }
+
+        bool TryFindCoveredEntry(Reinforcements group, out Vector3 entry)
         {
             entry = default;
             float best = float.PositiveInfinity;
             entryPath ??= new NavMeshPath();
+            Vector3 anchor = group.Alert && !group.NeedsWarning ? group.LastEntry : group.Near;
             foreach (var pocket in EntryPockets)
             {
+                if ((pocket - anchor).sqrMagnitude > 190f)
+                    continue;
                 for (int offset = -1; offset <= 1; offset++)
                 {
                     Vector3 sample = pocket + new Vector3(offset * 0.9f, 0, offset * 0.48f);
                     if (!NavMesh.SamplePosition(sample, out var origin, 0.6f, NavMesh.AllAreas))
                         continue;
-                    float score = (origin.position - near).sqrMagnitude;
-                    if (score >= best || !IsConcealedEntry(origin.position))
-                        continue;
-                    if (!HasApproach(origin.position))
+                    float score = (origin.position - anchor).sqrMagnitude;
+                    if (score >= best || !IsConcealedEntry(origin.position) || !HasApproach(origin.position))
                         continue;
                     best = score;
                     entry = origin.position;
@@ -125,11 +142,20 @@ namespace ResidualSignal
         bool HasApproach(Vector3 entry)
         {
             foreach (var member in SquadMember.All)
-                if (member.Available &&
-                    NavMesh.SamplePosition(member.body.position, out var destination, 1.5f, NavMesh.AllAreas) &&
-                    NavMesh.CalculatePath(entry, destination.position, NavMesh.AllAreas, entryPath) &&
-                    entryPath.status == NavMeshPathStatus.PathComplete)
+            {
+                if (!member.Available || member.body.GetComponent<SurvivorBot>() != null ||
+                    (member.body.position - entry).sqrMagnitude > 784f ||
+                    !NavMesh.SamplePosition(member.body.position, out var destination, 1.5f, NavMesh.AllAreas) ||
+                    !NavMesh.CalculatePath(entry, destination.position, NavMesh.AllAreas, entryPath) ||
+                    entryPath.status != NavMeshPathStatus.PathComplete)
+                    continue;
+                float length = 0f;
+                var corners = entryPath.corners;
+                for (int i = 1; i < corners.Length; i++)
+                    length += Vector3.Distance(corners[i - 1], corners[i]);
+                if (length <= 32f)
                     return true;
+            }
             return false;
         }
 

@@ -34,6 +34,7 @@ namespace ResidualSignal
         static bool squadFollowedFocus;
         static SurvivorBot posedRescuer;
         static bool campaignMode;
+        static bool liveDefenseMode;
         static int preparationThreats;
         static Vector3 approachStart;
         static string demoFrameFolder;
@@ -149,7 +150,8 @@ namespace ResidualSignal
                     }
                     var settings = new SerializedObject(trial);
                     settings.FindProperty("acceptLocalInput").boolValue = false;
-                    campaignMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-campaignCheck") >= 0;
+                    liveDefenseMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-liveDefenseCheck") >= 0;
+                    campaignMode = liveDefenseMode || Array.IndexOf(Environment.GetCommandLineArgs(), "-campaignCheck") >= 0;
                     if (!campaignMode)
                     {
                         settings.FindProperty("shutterDelay").floatValue = 5.8f;
@@ -552,6 +554,12 @@ namespace ResidualSignal
                     if (useDrain)
                         controller.Move(Vector3.right * (2.3f - controller.transform.position.x));
                     controller.Move(Vector3.forward * 0.38f);
+                    if (liveDefenseMode)
+                    {
+                        var liveSettings = new SerializedObject(trial);
+                        liveSettings.FindProperty("spawnSpecials").boolValue = true;
+                        liveSettings.ApplyModifiedPropertiesWithoutUndo();
+                    }
                     if (!trial.TryInteract() || trial.Countdown <= 0)
                     {
                         Finish(false, $"Power and holdout failed after the route encounter at {controller.transform.position}.");
@@ -627,14 +635,17 @@ namespace ResidualSignal
                     step = 83;
                     break;
                 case 83:
-                    if (!trial.PreparingDefense && trial.Threats.Count > preparationThreats)
+                    int arrivals = trial.Threats.Count - preparationThreats;
+                    if (!trial.PreparingDefense && arrivals >= (liveDefenseMode ? 5 : 1))
                     {
+                        if (liveDefenseMode)
+                            AimAtPoint(trial.Threats[trial.Threats.Count - 1].transform.position + Vector3.up * 1.25f);
                         Capture(Camera.main, Shot(".defense.png"));
-                        Finish(true, "PLATFORM03 CAMPAIGN PACING CHECK PASS (quiet preparation, then covered reinforcements)");
+                        Finish(true, $"PLATFORM03 CAMPAIGN PACING CHECK PASS (quiet preparation, then {arrivals} covered reinforcements)");
                         return;
                     }
                     if (Time.time > stepTime + 13f)
-                        Finish(false, "No opening defense wave arrived after preparation.");
+                        Finish(false, $"Only {arrivals} opening defense reinforcements arrived after preparation.");
                     break;
                 case 86:
                     float approachDistance = Vector3.Distance(approachStart, target.transform.position);

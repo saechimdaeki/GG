@@ -93,7 +93,6 @@ namespace ResidualSignal
         bool hasMedkit;
         int health = 150;
         StationInfected heldBy;
-        float heldSince;
         readonly HashSet<StationInfected> calledOut = new();
         Transform leftArm, rightArm, leftFore, rightFore, leftHand, rightHand, leftKnuckle, rightKnuckle;
         Quaternion restRotation;
@@ -196,7 +195,6 @@ namespace ResidualSignal
         bool Grab(StationInfected source)
         {
             heldBy = source;
-            heldSince = Time.time;
             Say(source.Kind == InfectedKind.Leaper ? "덮쳤어! 도와줘!" : "끌려간다!", true);
             return true;
         }
@@ -210,6 +208,8 @@ namespace ResidualSignal
                 return;
             Down = true;
             member.down = true;
+            if (heldBy != null)
+                heldBy.ReleaseHold();
             ReleaseLoot();
             if (agent.isOnNavMesh)
                 agent.ResetPath();
@@ -257,12 +257,20 @@ namespace ResidualSignal
                 return;
             }
             agent.isStopped = false;
-            if (heldBy != null && (heldBy.Dead || Time.time > heldSince + 1.6f))
-            {
-                var holder = heldBy;
+            if (heldBy != null && heldBy.Dead)
                 heldBy = null;
-                if (!holder.Dead)
-                    holder.Shove(holder.transform.position - transform.position); // fights its way free
+            if (heldBy != null)
+            {
+                agent.ResetPath();
+                if (heldBy.Kind == InfectedKind.Dragger)
+                {
+                    Vector3 pull = Vector3.ProjectOnPlane(heldBy.transform.position - transform.position, Vector3.up);
+                    if (pull.sqrMagnitude > 1f)
+                        agent.Move(pull.normalized * (2.8f * Time.deltaTime));
+                }
+                rig.transform.localRotation = Quaternion.Euler(-28f, 0f, 0f) * restRotation;
+                Play("idle");
+                return;
             }
 
             if (Time.time > nextLook)
@@ -653,17 +661,22 @@ namespace ResidualSignal
         {
             StationInfected best = null;
             float bestScore = float.MaxValue;
-            foreach (var infected in FindObjectsByType<StationInfected>(FindObjectsSortMode.None))
+            foreach (var infected in leader.Threats)
             {
+                if (infected == null || infected.Dead)
+                    continue;
                 // Leave unaware wanderers to the player; react to what is coming for the squad.
                 bool focused = infected == leader.FocusTarget;
-                if (infected.Dead || (!infected.Alerted && !leader.IsHeldBy(infected) && !focused))
+                bool captor = leader.IsHeldBy(infected);
+                foreach (var ally in All)
+                    captor |= ally.heldBy == infected;
+                if (!infected.Alerted && !captor && !focused)
                     continue;
                 float fromMe = Vector3.Distance(infected.transform.position, transform.position);
-                if (fromMe > (focused ? range + 4f : range) || !Visible(infected.transform.position + Vector3.up * 1.2f, infected.transform))
+                if (fromMe > (focused || captor ? range + 4f : range) || !Visible(infected.transform.position + Vector3.up * 1.2f, infected.transform))
                     continue;
                 float toLeader = Vector3.Distance(infected.transform.position, leader.transform.position);
-                float score = Mathf.Min(fromMe, toLeader) - (leader.IsHeldBy(infected) ? 100f : 0f) -
+                float score = Mathf.Min(fromMe, toLeader) - (captor ? 100f : 0f) -
                     (infected.Kind != InfectedKind.Common ? 4f : 0f) - (focused ? 25f : 0f);
                 if (score < bestScore)
                 {

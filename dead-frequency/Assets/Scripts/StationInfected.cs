@@ -430,6 +430,10 @@ namespace ResidualSignal
                     flank = Vector3.Dot(side, obstruction.normal) >= 0 ? 1f : -1f;
                     heading = PursueAroundWall((heading * 0.4f + side * flank).normalized);
                 }
+                else if (blockedTime > 0.42f)
+                {
+                    heading = PursueAroundWall((heading * 0.35f + side * flank).normalized);
+                }
                 else if (blockedTime > 0.12f || distance <= Scaled(closeIn))
                 {
                     heading = (heading * 0.22f + side * flank).normalized;
