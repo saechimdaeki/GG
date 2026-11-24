@@ -8,7 +8,7 @@ namespace ResidualSignal
     public enum InfectedKind { Common, Leaper, Dragger, Bloater, Brute, Caller }
 
     [RequireComponent(typeof(CharacterController))]
-    public sealed class StationInfected : NetworkBehaviour
+    public sealed partial class StationInfected : NetworkBehaviour
     {
         [SerializeField] Animation rig;
         [Tooltip("Shamble while calm (specials: their only movement clip).")]
@@ -20,6 +20,40 @@ namespace ResidualSignal
         [Tooltip("Optional swing; without it the arms are swung procedurally.")]
         [SerializeField] AnimationClip attackClip;
         [SerializeField] AnimationClip bossSlamClip;
+        /// <summary>Optional stagger played over locomotion when a round lands (Mixamo bodies).</summary>
+        [SerializeField] AnimationClip hitClip;
+        [Header("Motion variety (Mixamo bodies)")]
+        [SerializeField] AnimationClip[] idleVariants;
+        [SerializeField] AnimationClip[] walkVariants;
+        [SerializeField] AnimationClip[] runVariants;
+        [SerializeField] AnimationClip[] attackVariants;
+        [SerializeField] AnimationClip[] hitVariants;
+        /// <summary>Some commons scream when they first spot the squad, rooted until it ends.</summary>
+        [SerializeField] AnimationClip screamClip;
+        /// <summary>Some calm commons lie on the floor and get up when alerted.</summary>
+        [SerializeField] AnimationClip riseClip;
+        [SerializeField] AnimationClip crawlClip;
+        [SerializeField] AnimationClip crawlRunClip;
+        [SerializeField, Range(0f, 1f)] float screamChance = 0.35f;
+        [SerializeField, Range(0f, 1f)] float lyingChance = 0.3f;
+        [SerializeField, Range(0f, 1f)] float crawlerChance = 0.1f;
+        float holdUntil;
+        bool lyingDown;
+        bool crawler;
+
+        static AnimationClip Pick(AnimationClip[] pool, AnimationClip fallback) =>
+            pool != null && pool.Length > 0 ? pool[Random.Range(0, pool.Length)] : fallback;
+
+        void SwapClip(string name, AnimationClip clip, WrapMode wrap, float speed = 1f)
+        {
+            if (clip == null)
+                return;
+            if (rig.GetClip(name) != null)
+                rig.RemoveClip(name);
+            rig.AddClip(clip, name);
+            rig[name].wrapMode = wrap;
+            rig[name].speed = speed;
+        }
         [SerializeField] bool bespokeBoss;
         [SerializeField] float speed = 2.6f;
         [Tooltip("Alerted commons sprint at this speed (m/s).")]
@@ -51,6 +85,7 @@ namespace ResidualSignal
         float callWindup;
         float chargeWindup;
         bool stagedEncounter;
+        float waitInCoverUntil;
         float leaping;
         Vector3 lunge;
         bool holding;
@@ -65,6 +100,7 @@ namespace ResidualSignal
         readonly NetworkVariable<Vector3> netKillDirection = new();
         readonly NetworkVariable<bool> netAlerted = new();
         static readonly System.Collections.Generic.List<StationInfected> Living = new();
+        internal static System.Collections.Generic.IReadOnlyList<StationInfected> ActiveInfected => Living;
         bool alerted;
         float nextGroan;
         Vector3 shoveVelocity;
@@ -89,6 +125,7 @@ namespace ResidualSignal
         Quaternion restRotation;
         public bool Dead => Authority ? health <= 0 : netDead.Value;
         public InfectedKind Kind => kind;
+        public int RemainingHealth => health;
         public bool PreparingCall => callWindup > 0f && !Dead;
         /// <summary>Hunting the squad (as opposed to wandering, unaware).</summary>
         public bool Alerted => Authority ? alerted : netAlerted.Value;
@@ -103,12 +140,20 @@ namespace ResidualSignal
             if (bespokeBoss)
                 foreach (var bone in rig.GetComponentsInChildren<Transform>())
                 {
-                    if (bone.name == "mixamorigLeftToeBase") bossLeftFoot = bone;
-                    if (bone.name == "mixamorigRightToeBase") bossRightFoot = bone;
+                    string bare = bone.name.Replace(":", "");
+                    if (bare == "mixamorigLeftToeBase") bossLeftFoot = bone;
+                    if (bare == "mixamorigRightToeBase") bossRightFoot = bone;
+                    FindBossThrowBone(bone);
                 }
             physique = GetComponent<InfectedBody>();
             if (physique == null)
                 physique = gameObject.AddComponent<InfectedBody>();
+            // Each body keeps one gait for its life, so a crowd shuffles, creeps and lurches differently.
+            idleClip = Pick(idleVariants, idleClip);
+            walkClip = Pick(walkVariants, walkClip);
+            runClip = Pick(runVariants, runClip);
+            SwapClip("scream", screamClip, WrapMode.Once, 1.3f);
+            SwapClip("rise", riseClip, WrapMode.ClampForever, 1.4f);
             rig.AddClip(walkClip, "walk");
             rig["walk"].wrapMode = WrapMode.Loop;
             if (runClip != null)
@@ -131,6 +176,12 @@ namespace ResidualSignal
                 rig.AddClip(bossSlamClip, "slam");
                 rig["slam"].wrapMode = WrapMode.Once;
             }
+            if (hitClip != null)
+            {
+                rig.AddClip(hitClip, "hit");
+                rig["hit"].wrapMode = WrapMode.Once;
+                rig["hit"].speed = 1.6f;
+            }
             nextGroan = Time.time + Random.Range(1f, 6f);
         }
 
@@ -139,7 +190,11 @@ namespace ResidualSignal
             preferredFlank = Living.Count % 2 == 0 ? -1f : 1f;
             Living.Add(this);
         }
-        void OnDisable() => Living.Remove(this);
+        void OnDisable()
+        {
+            Living.Remove(this);
+            ClearBossDebris();
+        }
 
         /// <summary>Gunfire and screams: every calm infected within <paramref name="radius"/> wakes up.</summary>
         public static void Noise(Vector3 point, float radius)
@@ -157,6 +212,19 @@ namespace ResidualSignal
             if (IsSpawned)
                 netAlerted.Value = true;
             Voice(screams, 0.9f);
+            if (lyingDown)
+            {
+                lyingDown = false;
+                rig["rise"].time = 0f;
+                rig["rise"].speed = 1.4f;
+                rig.Play("rise");
+                holdUntil = Time.time + rig["rise"].length / 1.4f;
+            }
+            else if (screamClip != null && kind == InfectedKind.Common && !crawler && Random.value < screamChance)
+            {
+                rig.Play("scream");
+                holdUntil = Time.time + rig["scream"].length / 1.3f;
+            }
         }
 
         void Voice(AudioClip[] pool, float volume)
@@ -179,9 +247,16 @@ namespace ResidualSignal
             if (Dead || kind == InfectedKind.Brute)
                 return;
             Alert();
+            // A shove interrupts a scream or a rise: the body must take the push.
+            if (Time.time < holdUntil)
+            {
+                holdUntil = 0f;
+                if (rig.IsPlaying("scream"))
+                    rig.Stop("scream");
+            }
             stagger = 0.95f;
             windup = 0;
-            shoveVelocity = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * 4.2f;
+            shoveVelocity = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * 5.6f;
             physique.React(transform.position + Vector3.up * 1.2f, direction, 30);
             if (IsSpawned)
                 ReactRpc(transform.position + Vector3.up * 1.2f, direction, 30);
@@ -204,12 +279,32 @@ namespace ResidualSignal
             netKind.Value = (byte)special;
             netRunner.Value = isRunner;
             Dress(isRunner, special);
+            // ponytail: solo only; online these would need their own synced flags.
+            if (special == InfectedKind.Common && !StationTrial.Networked)
+            {
+                if (crawlClip != null && Random.value < crawlerChance)
+                {
+                    crawler = true;
+                    SwapClip("walk", crawlClip, WrapMode.Loop);
+                    SwapClip("run", crawlRunClip != null ? crawlRunClip : crawlClip, WrapMode.Loop);
+                    body.height = 0.8f;
+                    body.center = new Vector3(0f, 0.4f, 0f);
+                    rig.Play("walk");
+                }
+                else if (calm && riseClip != null && Random.value < lyingChance)
+                {
+                    lyingDown = true;
+                    rig["rise"].time = 0f;
+                    rig["rise"].speed = 0f;
+                    rig.Play("rise");
+                }
+            }
             health = kind switch
             {
                 InfectedKind.Leaper => 220,
                 InfectedKind.Dragger => 260,
                 InfectedKind.Bloater => 60,
-                InfectedKind.Brute => StationTrial.Networked ? 1250 : 850,
+                InfectedKind.Brute => bespokeBoss ? 4500 + 750 * (StationTrial.HumanPlayerCount() - 1) : 850,
                 InfectedKind.Caller => 95,
                 _ => maximumHealth
             };
@@ -217,9 +312,17 @@ namespace ResidualSignal
 
         public void StageEncounter() => stagedEncounter = true;
 
+        internal void WaitInEntryCover() => waitInCoverUntil = Time.time + 0.3f;
+
         public void BeginStagedEncounter()
         {
             stagedEncounter = false;
+            if (bespokeBoss)
+            {
+                bossOpeningUntil = Time.time + 8f;
+                bossOpeningFloor = health / 2;
+                specialCooldown = 0.45f;
+            }
             Alert();
         }
 
@@ -265,10 +368,12 @@ namespace ResidualSignal
             return fallback;
         }
 
-        bool ClearAttackLine(float height, out RaycastHit obstruction)
+        bool ClearAttackLine(float height, out RaycastHit obstruction) => ClearAttackLine(target, height, out obstruction);
+
+        bool ClearAttackLine(SquadMember member, float height, out RaycastHit obstruction)
         {
             Vector3 from = transform.position + Vector3.up * height;
-            Vector3 ray = target.body.position + Vector3.up * height - from;
+            Vector3 ray = member.body.position + Vector3.up * height - from;
             int hits = Physics.RaycastNonAlloc(from, ray.normalized, sightHits, ray.magnitude,
                 Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             obstruction = default;
@@ -276,8 +381,9 @@ namespace ResidualSignal
             for (int i = 0; i < hits; i++)
             {
                 var hit = sightHits[i];
-                if (hit.transform.root == target.body.root || hit.transform.IsChildOf(transform) ||
-                    hit.collider.GetComponentInParent<StationInfected>() != null || hit.distance >= closest)
+                if (hit.transform.root == member.body.root || hit.transform.IsChildOf(transform) ||
+                    hit.collider.GetComponentInParent<StationInfected>() != null ||
+                    (bespokeBoss && hit.collider is CharacterController) || hit.distance >= closest)
                     continue;
                 closest = hit.distance;
                 obstruction = hit;
@@ -287,7 +393,8 @@ namespace ResidualSignal
 
         void Locomotion(float pace)
         {
-            if ((attackClip != null && rig.IsPlaying("attack")) || (bossSlamClip != null && rig.IsPlaying("slam")))
+            if ((attackClip != null && rig.IsPlaying("attack")) || (bossSlamClip != null && rig.IsPlaying("slam")) ||
+                (hitClip != null && rig.IsPlaying("hit")) || lyingDown || Time.time < holdUntil)
                 return;
             string clip = pace < 0.25f && idleClip != null ? "idle" :
                 runClip != null && pace > 2.1f && Alerted ? "run" : "walk";
@@ -297,6 +404,8 @@ namespace ResidualSignal
 
         void PlayAttack()
         {
+            if (attackVariants != null && attackVariants.Length > 0 && !crawler)
+                SwapClip("attack", Pick(attackVariants, attackClip), WrapMode.Once);
             if (attackClip != null)
                 rig.Play("attack");
             else
@@ -309,14 +418,15 @@ namespace ResidualSignal
         {
             runner = isRunner;
             kind = special;
-            // Distinct silhouettes from the shared rig until each special gets its own model.
+            physique.SetPosture(special);
+            // Keep proportions close to the imported bodies; pose and clothing distinguish the variants.
             (Vector3 scale, Color tint) look = kind switch
             {
-                InfectedKind.Leaper => (new Vector3(0.88f, 0.84f, 0.88f), new Color(0.75f, 0.8f, 0.95f)),
-                InfectedKind.Dragger => (new Vector3(0.82f, 1.22f, 0.82f), new Color(0.85f, 0.78f, 0.7f)),
-                InfectedKind.Bloater => (new Vector3(1.55f, 1.0f, 1.45f), new Color(0.7f, 0.95f, 0.55f)),
+                InfectedKind.Leaper => (new Vector3(0.88f, 0.84f, 0.88f), new Color(0.80f, 0.81f, 0.85f)),
+                InfectedKind.Dragger => (new Vector3(0.94f, 1.09f, 0.94f), new Color(0.85f, 0.78f, 0.7f)),
+                InfectedKind.Bloater => (new Vector3(1.26f, 1.03f, 1.19f), new Color(0.85f, 0.88f, 0.70f)),
                 InfectedKind.Brute => (new Vector3(1.5f, 1.38f, 1.5f), new Color(0.95f, 0.72f, 0.66f)),
-                InfectedKind.Caller => (new Vector3(0.74f, 1.24f, 0.75f), new Color(0.94f, 0.71f, 0.38f)),
+                InfectedKind.Caller => (new Vector3(0.94f, 1.06f, 0.94f), new Color(0.92f, 0.82f, 0.71f)),
                 _ => (Vector3.one, Color.white)
             };
             // Scale the whole body (collider included): the rig pivot sits far from its mesh, so scaling it alone shifts the model.
@@ -337,15 +447,24 @@ namespace ResidualSignal
 
         void Update()
         {
+            RestoreBossArms();
             physique.RestoreAnimatedPose();
             if (!Authority)
             {
                 MirrorAnimation();
                 return;
             }
-            if (Dead || mission == null || stagedEncounter || SessionMenu.Blocking ||
+            if (Dead || mission == null || stagedEncounter || Time.time < waitInCoverUntil || SessionMenu.Blocking ||
                 (mission.OpeningStaging && transform.position.z < 4f && !alerted))
                 return;
+            // A shove always lands, whatever the combat state or target: the body takes the push first.
+            if (shoveVelocity.sqrMagnitude > 0.01f)
+            {
+                body.Move((shoveVelocity + Vector3.down * 3f) * Time.deltaTime);
+                shoveVelocity = Vector3.MoveTowards(shoveVelocity, Vector3.zero, Time.deltaTime * 12f);
+                Locomotion(0f);
+                return;
+            }
             if (Time.time > nextGroan)
             {
                 nextGroan = Time.time + Random.Range(3.5f, 9f);
@@ -358,16 +477,20 @@ namespace ResidualSignal
             }
             if (!mission.InCombat)
                 return;
+            if (bespokeBoss && MoveOutFromBehindScreen(Time.deltaTime))
+                return;
             retarget -= Time.deltaTime;
-            if (!holding && leaping <= 0 && (target == null || !target.Available || retarget <= 0))
+            if (!holding && leaping <= 0 && chargeWindup <= 0f && throwWindup <= 0f && bossSweep <= 0f && (target == null || !target.Available || retarget <= 0))
             {
-                target = SquadMember.Nearest(transform.position);
+                target = bespokeBoss ? PickBossTarget() : SquadMember.Nearest(transform.position);
                 retarget = 0.5f;
             }
             if (target == null)
                 return;
 
             float delta = Time.deltaTime;
+            if (bespokeBoss)
+                TrackBossEngagement(delta);
             if (kind != InfectedKind.Common && UpdateSpecial(delta))
                 return;
             Vector3 direction = target.body.position - transform.position;
@@ -378,10 +501,17 @@ namespace ResidualSignal
                     Quaternion.LookRotation(direction), delta * 9f);
             attackCooldown -= delta;
             stagger = Mathf.Max(0, stagger - delta);
+            if (Time.time < holdUntil)
+            {
+                body.Move(Vector3.down * 3f * delta);
+                return;
+            }
             if (shoveVelocity.sqrMagnitude > 0.01f)
             {
                 body.Move((shoveVelocity + Vector3.down * 3f) * delta);
                 shoveVelocity = Vector3.MoveTowards(shoveVelocity, Vector3.zero, delta * 12f);
+                Locomotion(0f);
+                return;
             }
             bool hasLineOfSight = ClearAttackLine(0.9f, out RaycastHit obstruction);
             float pace = kind switch
@@ -389,6 +519,7 @@ namespace ResidualSignal
                 InfectedKind.Leaper => speed * 1.7f,
                 InfectedKind.Bloater => speed * 0.6f,
                 InfectedKind.Brute => speed * 1.25f,
+                _ when crawler => speed * 1.1f,
                 _ when runClip != null => runner ? sprintSpeed * 1.15f : sprintSpeed,
                 _ => runner ? speed * 1.75f : speed
             };
@@ -399,7 +530,7 @@ namespace ResidualSignal
                 if (windup <= 0f && InReach(direction, distance) && hasLineOfSight)
                 {
                     if (kind == InfectedKind.Brute)
-                        target.knock(direction.normalized * 6f, 30);
+                        target.knock(direction.normalized * 7.5f + Vector3.up * 4.3f, 30);
                     else
                         target.hurt(runner ? 19 : attackDamage);
                 }
@@ -424,6 +555,10 @@ namespace ResidualSignal
                     flank = Vector3.Dot(side, obstruction.normal) >= 0 ? 1f : -1f;
                     heading = PursueAroundWall((heading * 0.4f + side * flank).normalized);
                 }
+                else if (blockedTime > 0.42f)
+                {
+                    heading = PursueAroundWall((heading * 0.35f + side * flank).normalized);
+                }
                 else if (blockedTime > 0.12f || distance <= Scaled(closeIn))
                 {
                     heading = (heading * 0.22f + side * flank).normalized;
@@ -436,7 +571,7 @@ namespace ResidualSignal
             }
 
             Vector3 before = transform.position;
-            body.Move((move + hitRecoil + Vector3.down * 3f) * delta);
+            MoveInCombat((move + hitRecoil + Vector3.down * 3f) * delta);
             hitRecoil = Vector3.MoveTowards(hitRecoil, Vector3.zero, 13f * delta);
             float measured = Vector3.ProjectOnPlane(transform.position - before, Vector3.up).magnitude / Mathf.Max(delta, 0.0001f);
             blockedTime = move.sqrMagnitude > 1f && measured < 0.25f ? blockedTime + delta : Mathf.Max(0f, blockedTime - delta);
@@ -462,6 +597,8 @@ namespace ResidualSignal
                     return;
                 }
             }
+            if (lyingDown)
+                return;
             if (Time.time > wanderUntil)
             {
                 wanderUntil = Time.time + Random.Range(3f, 8f);
@@ -502,7 +639,9 @@ namespace ResidualSignal
             }
             bool sprinting = runClip != null && rig.IsPlaying("run") && Alerted && windup <= 0 && !physique.IsFlinching;
             physique.SetFrenzy(sprinting ? 1f : 0f);
+            physique.SetPoseTension(holding || callWindup > 0f ? 1f : 0f);
             physique.ApplyFlinch();
+            PoseBossThrowArms();
         }
 
         /// <summary>Special behaviour; returns true when it took over movement this frame.</summary>
@@ -533,9 +672,8 @@ namespace ResidualSignal
                         {
                             holding = true;
                             leaping = 0;
-                            // The attack clip drifts its hips sideways; the in-place walk reads as clawing at close range.
-                            rig["walk"].speed = 2.2f;
-                            rig.Play("walk");
+                            Locomotion(0f);
+                            PlayAttack();
                         }
                         return true;
                     }
@@ -608,31 +746,47 @@ namespace ResidualSignal
                     }
                     return false;
                 case InfectedKind.Brute:
+                    if (bespokeBoss)
+                    {
+                        clear = ClearAttackLine(1.2f, out _);
+                        if (UpdateBossThrow(toTarget, distance, delta) || UpdateBossSweep(distance, clear, delta))
+                            return true;
+                    }
                     if (chargeWindup > 0f)
                     {
                         chargeWindup -= delta;
-                        if (chargeWindup <= 0f && clear)
+                        if (chargeWindup <= 0f)
+                        {
                             leaping = 1.12f;
+                            BossAttacksCommitted++;
+                        }
                         return true;
                     }
                     if (leaping > 0)
                     {
                         leaping -= delta;
-                        body.Move((lunge + Vector3.down * 3f) * delta);
-                        if (distance < Scaled(reach))
+                        CollisionFlags collision = MoveInCombat((lunge + Vector3.down * 3f) * delta);
+                        if (distance < Scaled(reach) && clear && Vector3.Dot(lunge.normalized, toTarget.normalized) > 0.25f)
                         {
-                            target.knock(lunge.normalized * 9f, 26);
+                            target.knock(lunge.normalized * 12f + Vector3.up * 5.1f, bespokeBoss ? 35 : 26);
                             leaping = 0;
                         }
+                        if ((collision & CollisionFlags.Sides) != 0)
+                            leaping = 0;
+                        if (leaping <= 0f)
+                            bossRecovery = 0.7f;
+                        else
+                            Locomotion(chargeSpeed);
                         return true;
                     }
-                    if (clear && distance > 4f && distance < 14f && specialCooldown <= 0 && mission.TryReserveSpecial(target))
+                    if (clear && distance > 4f && distance < 14f && specialCooldown <= 0 && (bespokeBoss || mission.TryReserveSpecial(target)))
                     {
-                        specialCooldown = 6f;
+                        specialCooldown = 4.2f;
                         chargeWindup = 0.78f;
                         lunge = toTarget.normalized * chargeSpeed;
-                        if (bossSlamClip != null)
-                            rig.Play("slam");
+                        PlayBossSlam();
+                        if (IsSpawned)
+                            BossChargeCueRpc();
                         warningAudio.pitch = 0.55f;
                         warningAudio.PlayOneShot(attackCue, 1f);
                         target.warn(transform.position);
@@ -695,8 +849,10 @@ namespace ResidualSignal
 
         void MirrorAnimation()
         {
+            UpdateHeldDebris();
             if (netDead.Value)
             {
+                CancelBossThrow();
                 if (!physique.Ragdolled)
                     physique.Ragdoll(transform.position + Vector3.up * 1.1f, netKillDirection.Value, 80);
                 return;
@@ -738,17 +894,30 @@ namespace ResidualSignal
                 RequestHitRpc(damage, point, direction);
                 return;
             }
-            if (Dead)
+            if (Dead || stagedEncounter)
                 return;
-            health = Mathf.Max(0, health - damage);
+            if (bossArenaActive && damage > 0)
+                bossRecentDamageUntil = Time.time + 2.6f;
+            int openingFloor = bespokeBoss && BossAttacksCommitted == 0 && Time.time < bossOpeningUntil
+                ? bossOpeningFloor : 0;
+            health = Mathf.Max(Mathf.Max(openingFloor, BossArmorFloor), health - damage);
             Alert();
             physique.React(point, direction, damage);
             if (IsSpawned)
                 ReactRpc(point, direction, damage);
             stagger = kind == InfectedKind.Brute ? 0f : damage >= 60 ? 0.33f : 0.2f;
+            bool rising = rig.IsPlaying("rise") && Time.time < holdUntil;
+            if (!rising)
+                holdUntil = 0f;
+            if (!Dead && hitClip != null && damage >= 20 && !crawler && !rising)
+            {
+                SwapClip("hit", Pick(hitVariants, hitClip), WrapMode.Once, 1.6f);
+                rig.CrossFade("hit", 0.05f);
+            }
             if (!Dead && kind != InfectedKind.Brute)
                 hitRecoil = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * Mathf.Clamp(damage * 0.056f, 1.3f, 4.1f);
-            windup = 0;
+            if (kind != InfectedKind.Brute)
+                windup = 0;
             callWindup = 0;
             // Any hit on a holder breaks the grip (solo players can still save themselves).
             if (kind == InfectedKind.Dragger || (kind == InfectedKind.Leaper && Dead))
@@ -757,6 +926,7 @@ namespace ResidualSignal
                 mission.Burst(transform.position, burstRadius);
             if (Dead)
             {
+                CancelBossThrow();
                 body.enabled = false;
                 if (IsSpawned)
                 {

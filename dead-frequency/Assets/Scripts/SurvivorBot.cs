@@ -18,6 +18,11 @@ namespace ResidualSignal
         [SerializeField] AnimationClip idleClip;
         [SerializeField] AnimationClip walkClip;
         [SerializeField] AnimationClip runClip;
+        [Tooltip("Per squad slot: a Mixamo character that replaces the default rescuer model.")]
+        [SerializeField] GameObject[] survivorModels;
+        [SerializeField] AnimationClip rifleIdle;
+        [SerializeField] AnimationClip rifleWalk;
+        [SerializeField] AnimationClip rifleRun;
         [SerializeField] AudioSource voice;
         [SerializeField] AudioClip shot;
         [SerializeField] Light muzzle;
@@ -35,7 +40,7 @@ namespace ResidualSignal
         [SerializeField] float reaction = 0.6f;
         [SerializeField] int magazine = 30;
 
-        static readonly string[] Names = { "민호", "지훈", "태식" };
+        static readonly string[] Names = { "민호", "수아", "태식" };
         static float nextAnyCallout;
 
         public static readonly List<SurvivorBot> All = new();
@@ -93,13 +98,15 @@ namespace ResidualSignal
         bool hasMedkit;
         int health = 150;
         StationInfected heldBy;
-        float heldSince;
         readonly HashSet<StationInfected> calledOut = new();
         Transform leftArm, rightArm, leftFore, rightFore, leftHand, rightHand, leftKnuckle, rightKnuckle;
         Quaternion restRotation;
         Quaternion aimedRifleRotation;
         Vector3 restRigPosition;
         Transform hips;
+        Vector3 impactVelocity;
+        float impactHeight;
+        float impactUntil;
         float gaitSpeed;
         float readyWeight;
         int squadSlot;
@@ -114,7 +121,9 @@ namespace ResidualSignal
             Label = Names[slot % Names.Length];
             agent = GetComponent<NavMeshAgent>();
             squadSlot = slot;
-            if (slot > 0 && slot <= alternateCoats.Length && slot <= alternateHelmets.Length)
+            if (survivorModels != null && slot < survivorModels.Length && survivorModels[slot] != null)
+                SwapModel(survivorModels[slot]);
+            else if (slot > 0 && slot <= alternateCoats.Length && slot <= alternateHelmets.Length)
                 ApplyUniform(alternateCoats[slot - 1], alternateHelmets[slot - 1]);
             formationOffset = FormationOffset(slot);
             scanPhase = slot * 1.8f;
@@ -143,6 +152,15 @@ namespace ResidualSignal
                     case "Bip01 R Hand": rightHand = bone; break;
                     case "Bip01 L Finger2": leftKnuckle = bone; break;
                     case "Bip01 R Finger2": rightKnuckle = bone; break;
+                    // Mixamo rig equivalents.
+                    case "mixamorig:LeftArm": leftArm = bone; break;
+                    case "mixamorig:RightArm": rightArm = bone; break;
+                    case "mixamorig:LeftForeArm": leftFore = bone; break;
+                    case "mixamorig:RightForeArm": rightFore = bone; break;
+                    case "mixamorig:LeftHand": leftHand = bone; break;
+                    case "mixamorig:RightHand": rightHand = bone; break;
+                    case "mixamorig:LeftHandMiddle1": leftKnuckle = bone; break;
+                    case "mixamorig:RightHandMiddle1": rightKnuckle = bone; break;
                 }
             }
             armBones = new[] { rightArm, rightFore, rightHand, leftArm, leftFore, leftHand };
@@ -156,7 +174,7 @@ namespace ResidualSignal
             {
                 body = transform,
                 hurt = Hurt,
-                knock = (push, amount) => { agent.Move(push * 0.25f); Hurt(amount); },
+                knock = TakeImpact,
                 warn = _ => { },
                 pin = Grab,
                 drag = Grab,
@@ -164,11 +182,27 @@ namespace ResidualSignal
                 blind = _ => Say("앞이 안 보여!"),
             };
             SquadMember.All.Add(member);
+            SquadCollision.Register(GetComponent<Collider>());
             All.Add(this);
             nextRoam = Time.time + slot * 0.25f;
         }
 
-        void ApplyUniform(Material coat, Material helmet)
+        /// <summary>Replaces the default rescuer body with a Mixamo survivor carrying rifle locomotion clips.</summary>
+        void SwapModel(GameObject model)
+        {
+            Transform old = rig.transform;
+            while (old.parent != transform)
+                old = old.parent;
+            var body = Instantiate(model, transform);
+            body.transform.SetLocalPositionAndRotation(old.localPosition, Quaternion.identity);
+            Destroy(old.gameObject);
+            rig = body.GetComponent<Animation>();
+            if (rifleIdle != null) idleClip = rifleIdle;
+            if (rifleWalk != null) walkClip = rifleWalk;
+            if (rifleRun != null) runClip = rifleRun;
+        }
+
+                void ApplyUniform(Material coat, Material helmet)
         {
             foreach (var renderer in rig.GetComponentsInChildren<Renderer>())
             {
@@ -190,15 +224,25 @@ namespace ResidualSignal
         {
             ReleaseLoot();
             SquadMember.All.Remove(member);
+            SquadCollision.Unregister(GetComponent<Collider>());
             All.Remove(this);
         }
 
         bool Grab(StationInfected source)
         {
             heldBy = source;
-            heldSince = Time.time;
             Say(source.Kind == InfectedKind.Leaper ? "덮쳤어! 도와줘!" : "끌려간다!", true);
             return true;
+        }
+
+        void TakeImpact(Vector3 push, int amount)
+        {
+            if (Down)
+                return;
+            impactVelocity = push;
+            impactHeight = 0f;
+            impactUntil = Time.time + Mathf.Max(0.46f, 2f * push.y / 18f + 0.15f);
+            Hurt(amount);
         }
 
         void Hurt(int amount)
@@ -210,6 +254,8 @@ namespace ResidualSignal
                 return;
             Down = true;
             member.down = true;
+            if (heldBy != null)
+                heldBy.ReleaseHold();
             ReleaseLoot();
             if (agent.isOnNavMesh)
                 agent.ResetPath();
@@ -250,6 +296,20 @@ namespace ResidualSignal
             TrackLeaderMovement();
             muzzle.enabled = Time.time < flashUntil;
             rig.transform.localRotation = Quaternion.Euler(Down ? -80f : 0f, 0f, 0f) * restRotation;
+            if (Time.time < impactUntil)
+            {
+                agent.isStopped = true;
+                float delta = Time.deltaTime;
+                Vector3 slide = Vector3.ProjectOnPlane(impactVelocity, Vector3.up);
+                agent.Move(slide * delta);
+                impactHeight = Mathf.Max(0f, impactHeight + impactVelocity.y * delta);
+                impactVelocity = Vector3.MoveTowards(slide, Vector3.zero, delta * 12f) +
+                    Vector3.up * (impactVelocity.y - 18f * delta);
+                rig.transform.localRotation = Quaternion.Euler(Down ? -80f : -38f, 0f, 11f) * restRotation;
+                Play("idle");
+                return;
+            }
+            impactHeight = 0f;
             if (Down)
             {
                 agent.isStopped = true;
@@ -257,12 +317,20 @@ namespace ResidualSignal
                 return;
             }
             agent.isStopped = false;
-            if (heldBy != null && (heldBy.Dead || Time.time > heldSince + 1.6f))
-            {
-                var holder = heldBy;
+            if (heldBy != null && heldBy.Dead)
                 heldBy = null;
-                if (!holder.Dead)
-                    holder.Shove(holder.transform.position - transform.position); // fights its way free
+            if (heldBy != null)
+            {
+                agent.ResetPath();
+                if (heldBy.Kind == InfectedKind.Dragger)
+                {
+                    Vector3 pull = Vector3.ProjectOnPlane(heldBy.transform.position - transform.position, Vector3.up);
+                    if (pull.sqrMagnitude > 1f)
+                        agent.Move(pull.normalized * (2.8f * Time.deltaTime));
+                }
+                rig.transform.localRotation = Quaternion.Euler(-28f, 0f, 0f) * restRotation;
+                Play("idle");
+                return;
             }
 
             if (Time.time > nextLook)
@@ -569,7 +637,7 @@ namespace ResidualSignal
         {
             if (leader == null)
                 return;
-            rig.transform.localPosition = restRigPosition;
+            rig.transform.localPosition = restRigPosition + Vector3.up * impactHeight;
             if (!Down && hips != null)
             {
                 Vector3 drift = Vector3.ProjectOnPlane(hips.position - transform.position, Vector3.up);
@@ -586,7 +654,7 @@ namespace ResidualSignal
             for (int i = 0; i < armBones.Length; i++)
                 animatedArmPose[i] = armBones[i].localRotation;
             armPoseApplied = true;
-            bool aiming = aim != null && !aim.Dead && Time.time >= reloadUntil;
+            bool aiming = aim != null && !aim.Dead && Time.time >= reloadUntil && Time.time >= impactUntil;
             readyWeight = Mathf.MoveTowards(readyWeight, aiming ? 1f : 0f, Time.deltaTime * 5f);
             Vector3 outward = transform.right, up = transform.up, forward = transform.forward;
             Vector3 shoulder = rightArm.position + outward * Mathf.Lerp(-0.065f, 0.012f, readyWeight)
@@ -653,17 +721,22 @@ namespace ResidualSignal
         {
             StationInfected best = null;
             float bestScore = float.MaxValue;
-            foreach (var infected in FindObjectsByType<StationInfected>(FindObjectsSortMode.None))
+            foreach (var infected in leader.Threats)
             {
+                if (infected == null || infected.Dead)
+                    continue;
                 // Leave unaware wanderers to the player; react to what is coming for the squad.
                 bool focused = infected == leader.FocusTarget;
-                if (infected.Dead || (!infected.Alerted && !leader.IsHeldBy(infected) && !focused))
+                bool captor = leader.IsHeldBy(infected);
+                foreach (var ally in All)
+                    captor |= ally.heldBy == infected;
+                if (!infected.Alerted && !captor && !focused)
                     continue;
                 float fromMe = Vector3.Distance(infected.transform.position, transform.position);
-                if (fromMe > (focused ? range + 4f : range) || !Visible(infected.transform.position + Vector3.up * 1.2f, infected.transform))
+                if (fromMe > (focused || captor ? range + 4f : range) || !Visible(infected.transform.position + Vector3.up * 1.2f, infected.transform))
                     continue;
                 float toLeader = Vector3.Distance(infected.transform.position, leader.transform.position);
-                float score = Mathf.Min(fromMe, toLeader) - (leader.IsHeldBy(infected) ? 100f : 0f) -
+                float score = Mathf.Min(fromMe, toLeader) - (captor ? 100f : 0f) -
                     (infected.Kind != InfectedKind.Common ? 4f : 0f) - (focused ? 25f : 0f);
                 if (score < bestScore)
                 {
@@ -697,7 +770,8 @@ namespace ResidualSignal
             if (Random.value > Mathf.Lerp(accuracy, 0.87f, effectiveness))
                 return;
             Vector3 point = aim.transform.position + Vector3.up * Random.Range(1.0f, 1.6f);
-            aim.Hit(Mathf.RoundToInt(damage * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
+            float damageScale = aim.Kind == InfectedKind.Brute ? 0.45f : 1f;
+            aim.Hit(Mathf.RoundToInt(damage * damageScale * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
                 point - (transform.position + Vector3.up * 1.5f));
         }
 

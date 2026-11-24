@@ -42,7 +42,7 @@ namespace ResidualSignal
         [SerializeField] AudioClip shoveSound;
         [SerializeField] AudioClip fleshSound;
         [SerializeField] AudioClip hordeSound;
-        [SerializeField] int maxInfected = 26;
+        [SerializeField] int maxInfected = 48;
         [Tooltip("Solo play: AI teammates that follow, fight and revive.")]
         [SerializeField] SurvivorBot botPrefab;
         [SerializeField] AudioSource weaponAudio;
@@ -57,7 +57,7 @@ namespace ResidualSignal
         [SerializeField] bool spawnSpecials = true;
         [SerializeField] int escapePresses = 6;
 
-        enum Phase { ReceiveSignal, ReadRoster, SelectRoute, FindTerminal, Opening, FindWitness, Evacuate, Complete, Failed, Maintenance, TransferDefense, LoadingEscort }
+        enum Phase { ReceiveSignal, ReadRoster, SelectRoute, FindTerminal, Opening, FindWitness, Evacuate, Complete, Failed, Maintenance, TransferDefense, LoadingEscort, FreightPower, FreightRelease, FreightEscape }
         Phase phase;
         Vector3 closedPosition;
         Transform activeGate;
@@ -65,6 +65,26 @@ namespace ResidualSignal
         bool drainSelected;
         bool routeEncounterStarted;
         float hitUntil;
+        float headUntil;
+        float killUntil;
+        float killRecoilHoldUntil;
+        // Camera recoil: a snap that springs back, plus a small shake. The permanent climb goes straight into pitch.
+        float recoilPitch;
+        float recoilYaw;
+        float shake;
+        float fovPunch;
+        float baseFov;
+        float aimBlend;
+        bool aimHeld;
+        float ActiveFov => Mathf.Lerp(baseFov, baseFov * 0.77f, aimBlend) + fovPunch;
+        /// <summary>Guns are drawn as if through this narrower lens, so they keep their shape and size at any camera FOV.</summary>
+        const float ViewmodelFov = 50f;
+        Transform viewLens;
+        float kickRoll;
+        public bool Aiming => aimBlend > 0.94f;
+
+        public void SetHeldAim(bool held) => aimHeld = held;
+        float hitSoundReadyAt;
         int kills;
         GUIStyle smallLabel;
         GUIStyle titleLabel;
@@ -107,10 +127,17 @@ namespace ResidualSignal
         float holdDamage;
         float blindUntil;
         Vector3 knock;
+        float knockLandingAt;
+        bool launchedByImpact;
+        float impactRoll;
+        float impactPitch;
         int specialTurn;
         float specialAttackAvailableAt;
         bool workshopEntered;
         bool loadingReinforcements;
+        bool extractionSurge;
+        float nextPumpPush;
+        float nextYardPush;
         Vector3 closedServiceShutter;
         public IReadOnlyList<StationInfected> Threats => threats;
         public int Rounds => Current.rounds;
@@ -135,6 +162,7 @@ namespace ResidualSignal
         public StationWitness Witness => witness;
         SquadMember self;
         float reviveProgress;
+        const float ShoveDuration = 0.4f;
         float shoveReadyAt;
         float shoveStarted = -10f;
         bool ambientSpawned;
@@ -238,11 +266,33 @@ namespace ResidualSignal
         {
             closedPosition = shutter.position;
             closedServiceShutter = serviceShutter.position;
+            PrepareFreightPassage();
             foreach (var gun in arsenal)
             {
                 gun.Prepare();
                 gun.view.gameObject.SetActive(false);
+                ShotFeedback.ShapeMuzzleFlash(gun.muzzle);
+                // The baked muzzle lamp barely lit the room; make each shot light up the surroundings.
+                if (gun.muzzle.TryGetComponent(out Light lamp))
+                {
+                    lamp.intensity *= 3f;
+                    lamp.range = 8f;
+                    // Full-strength fog scattering turns a point-blank shot into a white-out.
+                    if (lamp.TryGetComponent(out UnityEngine.Rendering.HighDefinition.HDAdditionalLightData hd))
+                        hd.volumetricDimmer = 0.15f;
+                }
             }
+            baseFov = eyes.fieldOfView;
+            // Scaling camera-space x/y by tan(fov/2)/tan(vmFov/2) renders exactly like a second, narrower camera.
+            viewLens = new GameObject("Viewmodel lens").transform;
+            viewLens.SetParent(eyes.transform, false);
+            foreach (var gun in arsenal)
+                gun.view.SetParent(viewLens, false);
+            flashlight.transform.localPosition = new Vector3(0.10f, -0.12f, 0.57f);
+            flashlight.spotAngle = 44f;
+            flashlight.innerSpotAngle = 16f;
+            flashlight.range = 22f;
+            flashlight.intensity = 650f;
             arsenal[0].owned = true;
             Equip(0);
             health = 100;
@@ -259,6 +309,7 @@ namespace ResidualSignal
                 blind = Blind,
             };
             SquadMember.All.Add(self);
+            SquadCollision.Register(player);
         }
 
         void Update()
@@ -273,14 +324,17 @@ namespace ResidualSignal
             if (Authority)
             {
                 if (spawnSpecials)
+                {
                     RunDirector();
+                    RunPacing();
+                }
                 DeliverReinforcements();
             }
             if (Authority && phase == Phase.FindTerminal && !routeEncounterStarted && SquadFurthestZ() > 9.4f)
             {
                 routeEncounterStarted = true;
-                QueueReinforcements(1 + HumanPlayerCount(), new Vector3(drainSelected ? -3.5f : 3.5f, 0, 15f), true,
-                    spawnSpecials ? InfectedKind.Leaper : InfectedKind.Common);
+                QueueReinforcements((spawnSpecials ? 3 : 1) + HumanPlayerCount(), new Vector3(drainSelected ? -3.5f : 3.5f, 0, 15f), true,
+                    spawnSpecials ? (drainSelected ? InfectedKind.Dragger : InfectedKind.Leaper) : InfectedKind.Common);
                 crossingPressureAt = Time.time + crossingPressureDelay;
             }
 
@@ -304,6 +358,7 @@ namespace ResidualSignal
                     SetPhase(Phase.Maintenance);
             }
             UpdateServiceYard();
+            UpdateFreightPassage();
         }
 
         void UpdateServiceYard()
@@ -317,6 +372,12 @@ namespace ResidualSignal
             if (phase == Phase.TransferDefense && Authority)
             {
                 countdown -= Time.deltaTime;
+                if (spawnSpecials && nextPumpPush > 0f && Time.time >= nextPumpPush && countdown > 2f &&
+                    NearbyPressure() < 6 && !SquadUnderPressure())
+                {
+                    nextPumpPush = 0f;
+                    QueueReinforcements(8 + 2 * HumanPlayerCount(), new Vector3(4.3f, 0f, 50.7f), true, InfectedKind.Bloater);
+                }
                 if (countdown <= 0f)
                     SetPhase(Phase.LoadingEscort);
             }
@@ -331,13 +392,28 @@ namespace ResidualSignal
                 loadingReinforcements = true;
                 if (yardBoss != null && !yardBoss.Dead)
                 {
-                    yardBoss.BeginStagedEncounter();
+                    yardBoss.RevealFrom(new Vector3(-1.45f, 0.03f, 63.10f));
                     Signal("서이경: 거대체다! 적재장 기둥 뒤로!", 4f);
                 }
-                QueueReinforcements(3 + HumanPlayerCount(), new Vector3(4.5f, 0, 60f), true);
+                QueueReinforcements((spawnSpecials ? 8 : 3) + HumanPlayerCount(), new Vector3(4.5f, 0, 60f), true);
+                nextYardPush = Time.time + 7f;
+            }
+            if (spawnSpecials && loadingReinforcements && Time.time >= nextYardPush && routes.Count == 0 &&
+                NearbyPressure() < 4 && !SquadUnderPressure())
+            {
+                if (yardBoss != null && !yardBoss.Dead)
+                {
+                    QueueReinforcements(3 + HumanPlayerCount(), new Vector3(-5.3f, 0f, 57.2f), true);
+                    nextYardPush = Time.time + 11f;
+                }
+                else if (!extractionSurge)
+                {
+                    extractionSurge = true;
+                    QueueReinforcements(5 + HumanPlayerCount(), new Vector3(4.5f, 0f, 58.7f), true);
+                }
             }
             if (witness.HasArrived && (yardBoss == null || yardBoss.Dead) && SquadAt(loadingExtraction))
-                SetPhase(Phase.Complete);
+                SetPhase(freightDoor != null ? Phase.FreightPower : Phase.Complete);
         }
 
         public bool TryReserveSpecial(SquadMember target)
@@ -376,7 +452,7 @@ namespace ResidualSignal
             }
             if (SessionMenu.Blocking)
                 return;
-            if (!ambientSpawned)
+            if (!ambientSpawned && phase == Phase.ReceiveSignal)
             {
                 ambientSpawned = true;
                 if (!Networked && botPrefab != null)
@@ -424,7 +500,7 @@ namespace ResidualSignal
             return arrived > 0;
         }
 
-        static int HumanPlayerCount()
+        internal static int HumanPlayerCount()
         {
             int count = 0;
             foreach (var member in SquadMember.All)
@@ -479,27 +555,26 @@ namespace ResidualSignal
             return true;
         }
 
-        /// <summary>Right click: shove nearby infected and release teammates they are holding.</summary>
+        /// <summary>V or wheel click: rifle-butt shove nearby infected and release teammates they are holding.</summary>
         public bool TryShove()
         {
-            if (pinnedBy != null || Downed || Time.time < shoveReadyAt || phase is Phase.Complete or Phase.Failed)
+            if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt || Time.time < shoveReadyAt || phase is Phase.Complete or Phase.Failed)
                 return false;
-            shoveReadyAt = Time.time + 0.7f;
+            shoveReadyAt = Time.time + 0.57f;
             shoveStarted = Time.time;
             weaponAudio.pitch = 1f;
             weaponAudio.PlayOneShot(shoveSound, 0.7f);
             Vector3 forward = Vector3.ProjectOnPlane(eyes.transform.forward, Vector3.up).normalized;
             bool connected = false;
-            var shoved = new HashSet<StationInfected>();
-            foreach (var hit in Physics.OverlapSphere(transform.position + forward * 0.9f + Vector3.up, 1.15f,
-                         Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            Vector3 origin = transform.position + Vector3.up;
+            foreach (var infected in StationInfected.ActiveInfected)
             {
-                var infected = hit.GetComponentInParent<StationInfected>();
-                if (infected == null || infected.Dead || !shoved.Add(infected))
+                if (infected == null || infected.Dead || infected.Kind == InfectedKind.Brute)
                     continue;
                 Vector3 to = infected.transform.position - transform.position;
                 to.y = 0;
-                if (Vector3.Angle(forward, to) > 80f)
+                if (to.sqrMagnitude > 5.29f || Vector3.Dot(forward, to.normalized) < 0.34f ||
+                    CoveredByMap(origin, infected.transform.position + Vector3.up))
                     continue;
                 infected.Shove(to.normalized);
                 connected = true;
@@ -529,8 +604,14 @@ namespace ResidualSignal
         bool ProcessLocalInput()
         {
             if (SessionMenu.Blocking)
+            {
+                SetHeldAim(false);
                 return true;
+            }
             bool ended = phase is Phase.Complete or Phase.Failed;
+            // Right mouse aims down sights (Alt kept as an alternative); shove lives on V / mouse wheel click.
+            SetHeldAim(!ended && Cursor.lockState == CursorLockMode.Locked &&
+                (Input.GetMouseButton(1) || Input.GetKey(KeyCode.LeftAlt)));
             if (ended && Input.GetKeyDown(KeyCode.Return))
             {
                 SceneManager.LoadScene(gameObject.scene.buildIndex);
@@ -564,7 +645,7 @@ namespace ResidualSignal
                     Move();
                 if (Input.GetKeyDown(KeyCode.E))
                     TryInteract();
-                if (Input.GetMouseButtonDown(1))
+                if (Input.GetKeyDown(KeyCode.V) || Input.GetMouseButtonDown(2))
                     TryShove();
                 if (Input.GetKeyDown(KeyCode.Q))
                     TryFocusFire();
@@ -586,20 +667,44 @@ namespace ResidualSignal
 
         void Look()
         {
-            player.transform.Rotate(Vector3.up, Input.GetAxisRaw("Mouse X") * mouseSensitivity);
-            pitch = Mathf.Clamp(pitch - Input.GetAxisRaw("Mouse Y") * mouseSensitivity, -83f, 83f);
-            eyes.transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            float sensitivity = mouseSensitivity * Mathf.Lerp(1f, 0.72f, aimBlend);
+            player.transform.Rotate(Vector3.up, Input.GetAxisRaw("Mouse X") * sensitivity);
+            pitch = Mathf.Clamp(pitch - Input.GetAxisRaw("Mouse Y") * sensitivity, -83f, 83f);
+            ApplyEyes();
+        }
+
+        void ApplyEyes()
+        {
+            float t = Time.time * 31f;
+            float shakePitch = (Mathf.PerlinNoise(t, 0.3f) - 0.5f) * shake;
+            float shakeYaw = (Mathf.PerlinNoise(0.7f, t) - 0.5f) * shake;
+            eyes.transform.localRotation = Quaternion.Euler(pitch + impactPitch - recoilPitch + shakePitch,
+                recoilYaw + shakeYaw, impactRoll + shakeYaw * 0.6f);
+            eyes.fieldOfView = ActiveFov;
+        }
+
+        /// <summary>Snap the view up on a shot. Only the local camera moves; nothing here is networked.</summary>
+        void KickCamera(Firearm gun)
+        {
+            pitch = Mathf.Clamp(pitch - gun.kick * 0.35f, -83f, 83f);
+            recoilPitch = Mathf.Min(recoilPitch + gun.kick * 1.5f, 9f);
+            recoilYaw += Random.Range(-0.6f, 0.6f) * gun.kick;
+            shake = Mathf.Max(shake, 0.6f + gun.kick * 0.9f);
+            fovPunch = Mathf.Min(fovPunch + gun.kick * 0.9f, 3f);
+            eyes.fieldOfView = ActiveFov;
         }
 
         void Move()
         {
+            if (launchedByImpact || Time.time < knockLandingAt)
+                return;
             Vector2 input = Vector2.ClampMagnitude(new Vector2(
                 Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")), 1f);
             Vector3 horizontal = player.transform.right * input.x + player.transform.forward * input.y;
             verticalSpeed = player.isGrounded ? -2f : verticalSpeed - gravity * Time.deltaTime;
             bool wading = drainSelected && transform.position.x < -1.1f &&
                 transform.position.z >= 8.9f && transform.position.z <= 13.95f;
-            float pace = wading ? 0.72f : 1f;
+            float pace = (wading ? 0.72f : 1f) * Mathf.Lerp(1f, 0.78f, aimBlend);
             Vector3 before = transform.position;
             player.Move((horizontal * (movementSpeed * pace) + Vector3.up * verticalSpeed) * Time.deltaTime);
             Vector3 travel = transform.position - before;
@@ -654,6 +759,8 @@ namespace ResidualSignal
                 Phase.FindTerminal when Near(at, terminal.position) => Phase.Opening,
                 Phase.FindWitness when Near(at, witness.transform.position) => Phase.Evacuate,
                 Phase.Maintenance when Near(at, servicePump.position) => Phase.TransferDefense,
+                Phase.FreightPower when Near(at, freightPower.position, 2f) => Phase.FreightRelease,
+                Phase.FreightRelease when Near(at, freightRelease.position, 2f) => Phase.FreightEscape,
                 _ => phase
             };
             if (next == phase)
@@ -680,7 +787,7 @@ namespace ResidualSignal
         {
             drainSelected = drain;
             var next = (Phase)value;
-            if (next is Phase.Opening or Phase.FindWitness or Phase.Evacuate or Phase.Maintenance or Phase.TransferDefense or Phase.LoadingEscort && activeGate == null)
+            if (next is Phase.Opening or Phase.FindWitness or Phase.Evacuate or Phase.Maintenance or Phase.TransferDefense or Phase.LoadingEscort or Phase.FreightPower or Phase.FreightRelease or Phase.FreightEscape && activeGate == null)
                 ChooseRoute(drainSelected ? drainGate : staffGate, drainSelected);
             ApplyPhase(next);
         }
@@ -720,8 +827,9 @@ namespace ResidualSignal
                     {
                         witness.EvacuateWith(this, evacuationPoint);
                         routes.Clear();
-                        int pursuit = 2 + HumanPlayerCount();
-                        QueueReinforcements(pursuit, new Vector3(0, 0, 24f), true);
+                        int pursuit = (spawnSpecials ? 5 : 2) + HumanPlayerCount();
+                        QueueReinforcements(pursuit, new Vector3(-3.7f, 0, 27.2f), true,
+                            spawnSpecials ? InfectedKind.Bloater : InfectedKind.Common);
                     }
                     break;
                 case Phase.Maintenance:
@@ -734,16 +842,17 @@ namespace ResidualSignal
                     break;
                 case Phase.TransferDefense:
                     countdown = serviceTransferSeconds;
+                    nextPumpPush = Time.time + Mathf.Min(6f, serviceTransferSeconds * 0.5f);
                     Signal("유압 펌프 가동. 셔터가 열릴 때까지 버텨요.");
                     if (Authority)
                     {
                         routes.Clear();
                         if (spawnSpecials && yardBoss == null)
                         {
-                            yardBoss = SpawnInfected(3.25f, 64.25f, false, InfectedKind.Brute, calm: true);
+                            yardBoss = SpawnInfected(1.9f, 63.45f, false, InfectedKind.Brute, calm: true);
                             yardBoss.StageEncounter();
                         }
-                        QueueReinforcements(3 + HumanPlayerCount(), new Vector3(-4.3f, 0, 42.8f),
+                        QueueReinforcements((spawnSpecials ? 9 : 3) + HumanPlayerCount(), new Vector3(-4.3f, 0, 42.8f),
                             true, spawnSpecials && !SquadUnderPressure() ? InfectedKind.Dragger : InfectedKind.Common);
                     }
                     break;
@@ -754,6 +863,11 @@ namespace ResidualSignal
                         routes.Clear();
                         witness.EvacuateWith(this, loadingExtraction);
                     }
+                    break;
+                case Phase.FreightPower:
+                case Phase.FreightRelease:
+                case Phase.FreightEscape:
+                    StartFreightBeat(next);
                     break;
                 case Phase.Complete:
                     Signal("구조 완료 · 다음 신호: 7번 환기구", 12f);
@@ -788,35 +902,64 @@ namespace ResidualSignal
         public bool TryFire()
         {
             var gun = Current;
-            if (pinnedBy != null || phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
+            if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt ||
+                phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
                 Time.time < nextShotAt)
                 return false;
             gun.rounds--;
             nextShotAt = Time.time + gun.fireInterval;
-            flashUntil = Time.time + 0.048f;
+            flashUntil = Time.time + 0.06f;
+            gun.muzzle.transform.localRotation = Quaternion.Euler(0, 0, Random.Range(0f, 360f));
+            gun.muzzle.transform.localScale = Vector3.one * Random.Range(0.55f, 0.9f);
+            gun.muzzle.SetActive(true);
             weaponKick = gun.kick;
+            kickRoll = Random.Range(-1f, 1f);
+            KickCamera(gun);
+            if (gun.pellets == 1)
+                ShotFeedback.EjectShell(viewLens, Vector3.Lerp(gun.view.position, gun.muzzle.transform.position, 0.3f));
             weaponAudio.pitch = gun.pitch * Random.Range(0.96f, 1.04f);
             weaponAudio.PlayOneShot(gun.shot);
             if (Authority)
                 StationInfected.Noise(transform.position, 24f);
             if (gun.pellets == 1 && !gun.pierces)
             {
+                Vector3 traceEnd = eyes.transform.position + eyes.transform.forward * range;
                 if (FindAimTarget(out StationInfected infected, out Vector3 hitPoint))
+                {
                     Damage(infected, hitPoint, gun.damage);
+                    traceEnd = hitPoint;
+                }
+                else if (Physics.Raycast(eyes.transform.position, eyes.transform.forward, out RaycastHit wall, range,
+                             Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                {
+                    traceEnd = wall.point;
+                    if (IsImpactSurface(wall.collider))
+                        ShotFeedback.Impact(wall.point, wall.normal);
+                }
+                if (!gun.automatic || gun.rounds % 3 == 0)
+                    ShotFeedback.Trace(gun.muzzle.transform.position, traceEnd);
                 return true;
             }
             for (int pellet = 0; pellet < gun.pellets; pellet++)
             {
-                Vector2 cone = Random.insideUnitCircle * Mathf.Tan(gun.spread * Mathf.Deg2Rad);
+                Vector2 cone = Random.insideUnitCircle * Mathf.Tan(gun.spread * Mathf.Lerp(1f, 0.82f, aimBlend) * Mathf.Deg2Rad);
                 Vector3 aim = (eyes.transform.forward + eyes.transform.right * cone.x + eyes.transform.up * cone.y).normalized;
                 int count = Physics.RaycastNonAlloc(eyes.transform.position, aim, aimHits, range,
                     Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
                 System.Array.Sort(aimHits, 0, count, HitDistance);
+                if (pellet == 0)
+                    ShotFeedback.Trace(gun.muzzle.transform.position,
+                        count > 0 ? aimHits[0].point : eyes.transform.position + aim * range);
                 for (int index = 0; index < count; index++)
                 {
                     var infected = aimHits[index].collider.GetComponent<StationInfected>();
                     if (infected == null)
-                        break; // wall or prop stops the round
+                    {
+                        // Wall or prop stops the round. Only bare geometry gets a hole; corpses and limbs don't.
+                        if (IsImpactSurface(aimHits[index].collider))
+                            ShotFeedback.Impact(aimHits[index].point, aimHits[index].normal);
+                        break;
+                    }
                     if (infected.Dead)
                         continue;
                     Damage(infected, aimHits[index].point, gun.damage);
@@ -827,17 +970,41 @@ namespace ResidualSignal
             return true;
         }
 
+        static bool IsImpactSurface(Collider collider) => collider is not CharacterController &&
+            collider.attachedRigidbody == null && collider.GetComponentInParent<StationInfected>() == null &&
+            collider.GetComponentInParent<SurvivorAvatar>() == null && collider.GetComponentInParent<SurvivorBot>() == null &&
+            collider.GetComponentInParent<StationWitness>() == null;
+
         static readonly IComparer<RaycastHit> HitDistance = Comparer<RaycastHit>.Create((a, b) => a.distance.CompareTo(b.distance));
 
         void Damage(StationInfected infected, Vector3 point, int damage)
         {
             bool head = point.y - infected.transform.position.y >= 1.49f;
-            if (fleshSound != null)
+            bool playHitSound = Time.time >= hitSoundReadyAt;
+            if (playHitSound && fleshSound != null)
                 AudioSource.PlayClipAtPoint(fleshSound, point, head ? 0.9f : 0.6f);
+            bool wasAlive = !infected.Dead;
             infected.Hit(head ? damage * 2 : damage, point, point - eyes.transform.position);
             hitUntil = Time.time + 0.23f;
-            if (infected.Dead)
+            if (head)
+                headUntil = hitUntil;
+            AudioClip tick = head ? ShotFeedback.HeadTick : ShotFeedback.HitTick;
+            if (wasAlive && infected.Dead)
+            {
                 kills++;
+                killUntil = Time.time + 0.45f;
+                if ((point - transform.position).sqrMagnitude < 25f)
+                    AddPacingStress(0.1f);
+                killRecoilHoldUntil = Time.time + 0.045f;
+                tick = ShotFeedback.KillTick;
+                shake = Mathf.Max(shake, 1.4f);
+            }
+            if (playHitSound || infected.Dead)
+            {
+                hitSoundReadyAt = Time.time + 0.045f;
+                if (!Application.isBatchMode)
+                    weaponAudio.PlayOneShot(tick, 0.6f);
+            }
         }
 
         /// <summary>Switch to an owned gun by arsenal index (0 = pistol).</summary>
@@ -963,7 +1130,15 @@ namespace ResidualSignal
 
         public void Knockback(Vector3 push, int damage)
         {
-            knock = push + Vector3.up * 2.5f;
+            if (!InCombat || Downed)
+                return;
+            Vector3 horizontal = Vector3.ProjectOnPlane(push, Vector3.up);
+            knock = horizontal + Vector3.up * push.y;
+            launchedByImpact = true;
+            isWalking = false;
+            float side = Vector3.Dot(horizontal, transform.right);
+            impactRoll = Mathf.Clamp(-side * 1.8f, -24f, 24f);
+            impactPitch = -10f;
             TakeHit(damage);
         }
 
@@ -1010,11 +1185,42 @@ namespace ResidualSignal
             Vector3 eye = eyes.transform.localPosition;
             eye.y = Mathf.MoveTowards(eye.y, pinnedBy != null || Downed ? 0.55f : 1.65f, Time.deltaTime * 4f);
             eyes.transform.localPosition = eye;
-            if (knock.sqrMagnitude > 0.01f)
+            if (launchedByImpact)
             {
-                player.Move(knock * Time.deltaTime);
-                knock = Vector3.MoveTowards(knock, Vector3.zero, Time.deltaTime * 16f);
+                float delta = Time.deltaTime;
+                CollisionFlags contact = player.Move(knock * delta);
+                Vector3 horizontal = Vector3.ProjectOnPlane(knock, Vector3.up);
+                horizontal = Vector3.MoveTowards(horizontal, Vector3.zero, delta * 6f);
+                if ((contact & CollisionFlags.Sides) != 0)
+                    horizontal *= 0.25f;
+                float rise = (contact & CollisionFlags.Above) != 0 ? Mathf.Min(0f, knock.y) : knock.y;
+                if ((contact & CollisionFlags.Below) != 0 && rise <= 0f)
+                {
+                    launchedByImpact = false;
+                    knockLandingAt = Time.time + 0.23f;
+                    verticalSpeed = -2f;
+                }
+                knock = horizontal + Vector3.up * (rise - gravity * delta);
             }
+            if (impactPitch != 0f || impactRoll != 0f)
+            {
+                float settle = launchedByImpact ? 19f : 42f;
+                impactRoll = Mathf.MoveTowards(impactRoll, 0f, settle * Time.deltaTime);
+                impactPitch = Mathf.MoveTowards(impactPitch, 0f, settle * Time.deltaTime);
+                if (acceptLocalInput && !Application.isBatchMode)
+                    ApplyEyes();
+            }
+        }
+
+        internal bool EscortPathThreatened(Vector3 witnessPosition)
+        {
+            Vector3 eyesAt = witnessPosition + Vector3.up * 1.25f;
+            foreach (var threat in threats)
+                if (threat != null && !threat.Dead && threat.Alerted &&
+                    (threat.transform.position - witnessPosition).sqrMagnitude <= 11.56f &&
+                    !CoveredByMap(eyesAt, threat.transform.position + Vector3.up * 1.25f))
+                    return true;
+            return false;
         }
 
         public void WarnOfAttack(Vector3 position)
@@ -1036,7 +1242,20 @@ namespace ResidualSignal
         void UpdateWeapon()
         {
             var gun = Current;
-            weaponKick = Mathf.MoveTowards(weaponKick, 0, Time.deltaTime * 7.5f);
+            ShotFeedback.UpdateTrace();
+            float recoveryDelta = Time.time < killRecoilHoldUntil ? 0f : Time.deltaTime;
+            weaponKick = Mathf.MoveTowards(weaponKick, 0, recoveryDelta * 7.5f);
+            float settle = 1f - Mathf.Exp(-recoveryDelta * 11f);
+            recoilPitch = Mathf.Lerp(recoilPitch, 0f, settle);
+            recoilYaw = Mathf.Lerp(recoilYaw, 0f, settle);
+            fovPunch = Mathf.Lerp(fovPunch, 0f, settle * 1.4f);
+            bool canAim = aimHeld && reloadUntil <= 0f && raise < 0.15f && !Held && !Downed &&
+                !launchedByImpact && Time.time >= knockLandingAt && Time.time > shoveStarted + 0.32f;
+            aimBlend = Mathf.MoveTowards(aimBlend, canAim ? 1f : 0f, Time.deltaTime * (canAim ? 5.5f : 8f));
+            eyes.fieldOfView = ActiveFov;
+            float lens = Mathf.Tan(eyes.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(ViewmodelFov * 0.5f * Mathf.Deg2Rad);
+            viewLens.localScale = new Vector3(lens, lens, 1f);
+            shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 9f);
             raise = Mathf.MoveTowards(raise, 0, Time.deltaTime * 3.2f);
             gun.muzzle.SetActive(Time.time < flashUntil);
             float drop = 0;
@@ -1056,15 +1275,24 @@ namespace ResidualSignal
                 }
             }
             strideWeight = Mathf.MoveTowards(strideWeight, isWalking ? 1 : 0, Time.deltaTime * 6f);
-            float bob = Mathf.Sin(stride) * 0.012f * strideWeight;
-            float sway = Mathf.Sin(stride * 0.5f) * 0.011f * strideWeight;
+            float steady = strideWeight * Mathf.Lerp(1f, 0.24f, aimBlend);
+            float bob = Mathf.Sin(stride) * 0.012f * steady;
+            float sway = Mathf.Sin(stride * 0.5f) * 0.011f * steady;
             drop = Mathf.Max(drop, raise);
-            float shove = Mathf.Clamp01(1f - (Time.time - shoveStarted) / 0.35f);
-            shove = Mathf.Sin(shove * Mathf.PI) * (shove > 0 ? 1 : 0);
-            gun.view.localPosition = gun.rest + new Vector3(sway - drop * 0.08f - shove * 0.1f, bob - drop * 0.15f + shove * 0.03f,
-                -weaponKick * 0.06f + shove * 0.16f);
-            gun.view.localRotation = gun.restRotation * Quaternion.Euler(-weaponKick * 5.5f + drop * 17f, -shove * 25f,
-                drop * -18f + shove * 35f);
+            // Shove: a short wind-up (gun pulled back and canted) then a hard butt-strike across the screen.
+            float shoveT = (Time.time - shoveStarted) / ShoveDuration;
+            bool shoving = shoveT >= 0f && shoveT <= 1f;
+            float windup = !shoving ? 0f : shoveT < 0.22f ? Mathf.SmoothStep(0f, 1f, shoveT / 0.22f) : Mathf.SmoothStep(1f, 0f, (shoveT - 0.22f) / 0.12f);
+            float strike = !shoving || shoveT < 0.22f ? 0f : shoveT < 0.36f ? Mathf.SmoothStep(0f, 1f, (shoveT - 0.22f) / 0.14f)
+                : Mathf.SmoothStep(1f, 0f, (shoveT - 0.36f) / 0.64f);
+            // Lens space: x/y are multiplied by the lens scale (~1.4 at hip), so these sit closer in than they look.
+            Vector3 hip = equipped == 0 ? new Vector3(0.095f, -0.118f, 0.40f) : new Vector3(0.118f, -0.118f, 0.29f);
+            Vector3 sight = new Vector3(0f, equipped == 0 ? -0.018f : -0.014f, equipped == 0 ? 0.37f : 0.24f);
+            gun.view.localPosition = Vector3.Lerp(hip, sight, aimBlend) + new Vector3(sway - drop * 0.08f + windup * 0.06f - strike * 0.13f,
+                bob - drop * 0.15f - windup * 0.02f + strike * 0.05f, -weaponKick * 0.09f - windup * 0.08f + strike * 0.21f);
+            Quaternion hipRotation = Quaternion.Euler(1.2f, equipped == 0 ? -5f : -3f, 2.2f);
+            gun.view.localRotation = Quaternion.Slerp(hipRotation, Quaternion.identity, aimBlend) * Quaternion.Euler(-weaponKick * 8f + drop * 17f + windup * 10f - strike * 8f,
+                windup * 20f - strike * 42f + weaponKick * kickRoll * 1.5f, drop * -18f - windup * 15f + strike * 32f + weaponKick * kickRoll * 4f);
             if (gun.magazine != null)
                 gun.magazine.localPosition = gun.magazineRest + Vector3.down * drop * 0.105f;
             if (gun.slide != null)
@@ -1077,35 +1305,71 @@ namespace ResidualSignal
         void SpawnWave()
         {
             bool underPressure = SquadUnderPressure();
-            if (wave > 0 && (routes.Count > 0 || NearbyPressure() >= (underPressure ? 2 : 4)))
+            if (wave > 0 && (routes.Exists(route => route.Remaining > 1 || route.Special == InfectedKind.Common) || NearbyPressure() >= (underPressure ? 4 : 12)))
             {
                 nextWave = underPressure ? 3f : 1.5f;
                 return;
             }
 
-            int count = Mathf.Clamp(3 + HumanPlayerCount() + wave - (underPressure ? 2 : 0), 2, 10);
+            int humans = HumanPlayerCount();
+            int count = spawnSpecials
+                ? Mathf.Clamp(16 + 4 * humans + wave * 2 - (underPressure ? 10 : 0), 10, 36)
+                : 3 + humans + wave;
             nextWave = waveInterval + (underPressure ? 3f : 0f);
-            bool fromFarSide = wave % 2 == 0;
-            var special = spawnSpecials && !underPressure && wave >= 1
-                ? (InfectedKind)(1 + specialTurn++ % 3)
+            bool fromFarSide = wave % 2 != 0;
+            var special = spawnSpecials && !underPressure
+                ? (specialTurn++ % 4) switch
+                {
+                    0 => InfectedKind.Leaper,
+                    1 => InfectedKind.Dragger,
+                    2 => InfectedKind.Caller,
+                    _ => InfectedKind.Bloater
+                }
                 : InfectedKind.Common;
             wave++;
-            QueueReinforcements(count, new Vector3(0, 0, fromFarSide ? 28f : 13f), true, special);
+            int flank = spawnSpecials && !underPressure ? count / 2 : 0;
+            QueueReinforcements(count - flank, new Vector3(-3.4f, 0, fromFarSide ? 27.2f : 12.2f), true, special);
+            if (flank > 0)
+                QueueReinforcements(flank, new Vector3(3.4f, 0, fromFarSide ? 15.8f : 12.2f), true);
         }
 
         /// <summary>Spawn one infected; public so tests can stage a specific special.</summary>
         public StationInfected SpawnInfected(float x, float z, bool runner, InfectedKind kind = InfectedKind.Common,
-            bool calm = false)
+            bool calm = false, float height = 0.03f)
         {
-            var prefab = kind == InfectedKind.Brute && bossPrefab != null ? bossPrefab :
-                kind == InfectedKind.Common && commonPrefabs != null && commonPrefabs.Length > 0
-                    ? commonPrefabs[Random.Range(0, commonPrefabs.Length)] : infectedPrefab;
-            var infected = Instantiate(prefab, new Vector3(x, 0.03f, z), Quaternion.Euler(0, Random.Range(0, 360f), 0));
+            var prefab = InfectedModel(kind);
+            var infected = Instantiate(prefab, new Vector3(x, height, z), Quaternion.Euler(0, Random.Range(0, 360f), 0));
             infected.Follow(this, runner, kind, calm);
             if (Networked)
                 infected.NetworkObject.Spawn(true);
             threats.Add(infected);
             return infected;
+        }
+
+        StationInfected InfectedModel(InfectedKind kind)
+        {
+            if (kind is InfectedKind.Leaper or InfectedKind.Dragger or InfectedKind.Bloater or InfectedKind.Caller)
+            {
+                var alternate = Resources.Load<GameObject>($"ResidualSignal/Infected/{kind}");
+                if (alternate != null)
+                    return alternate.GetComponent<StationInfected>();
+            }
+            if (kind == InfectedKind.Brute)
+                return bossPrefab != null ? bossPrefab : infectedPrefab;
+            if (commonPrefabs == null || commonPrefabs.Length == 0)
+                return infectedPrefab;
+
+            // Distinct civilian meshes for the taller, broader and suited variants.
+            int index = kind switch
+            {
+                InfectedKind.Common => Random.Range(0, commonPrefabs.Length),
+                InfectedKind.Dragger => 3,
+                InfectedKind.Bloater => 5,
+                InfectedKind.Caller => 0,
+                _ => -1,
+            };
+            return index >= 0 && index < commonPrefabs.Length && commonPrefabs[index] != null
+                ? commonPrefabs[index] : infectedPrefab;
         }
 
         public void TakeHit(int damage)
@@ -1116,6 +1380,7 @@ namespace ResidualSignal
                 return;
             health = Mathf.Max(0, health - damage);
             damageFlash = 0.38f;
+            AddPacingStress(damage / 40f);
             if (health > 0)
                 return;
             if (!Networked && SurvivorBot.All.Count == 0)
@@ -1175,6 +1440,7 @@ namespace ResidualSignal
         {
             SetCapture(false);
             SquadMember.All.Remove(self);
+            SquadCollision.Unregister(player);
         }
 
         /// <summary>The E action available right here, if any.</summary>
@@ -1192,6 +1458,8 @@ namespace ResidualSignal
                 Phase.FindTerminal when Nearby(terminal) => "E · 비상 전력 켜기",
                 Phase.FindWitness when Nearby(witness.transform) => "E · 서이경 구조",
                 Phase.Maintenance when Nearby(servicePump) => "E · 유압 펌프 가동",
+                Phase.FreightPower when Nearby(freightPower, 2f) => "E · 화물 차단문 전원 복구",
+                Phase.FreightRelease when Nearby(freightRelease, 2f) => "E · 서비스문 잠금 해제",
                 _ => null
             };
             if (mission != null) return mission;
@@ -1395,19 +1663,29 @@ namespace ResidualSignal
             bool hit = Time.time < hitUntil;
             Color ink = aimedAtInfected ? new Color(1f, 0.7f, 0.6f, 0.95f) : new Color(1f, 1f, 1f, 0.85f);
             float gap = 5f + weaponKick * 6f;
-            Panel(new Rect(x - gap - 7, y - 1, 7, 2), ink);
-            Panel(new Rect(x + gap, y - 1, 7, 2), ink);
-            Panel(new Rect(x - 1, y - gap - 7, 2, 7), ink);
-            Panel(new Rect(x - 1, y + gap, 2, 7), ink);
-            if (!hit)
+            if (!Aiming)
+            {
+                Panel(new Rect(x - gap - 7, y - 1, 7, 2), ink);
+                Panel(new Rect(x + gap, y - 1, 7, 2), ink);
+                Panel(new Rect(x - 1, y - gap - 7, 2, 7), ink);
+                Panel(new Rect(x - 1, y + gap, 2, 7), ink);
+            }
+            bool kill = Time.time < killUntil;
+            if (!hit && !kill)
                 return;
-            // Hit marker: four short diagonal ticks.
-            var tick = new Color(1f, 0.35f, 0.25f, 0.95f);
+            // Hit marker: diagonal ticks. Headshot = gold and wider, kill = big red X that fades.
+            bool head = Time.time < headUntil;
+            float fade = kill ? Mathf.Clamp01((killUntil - Time.time) / 0.45f) : 1f;
+            var tick = kill ? new Color(0.95f, 0.12f, 0.08f, fade) :
+                head ? new Color(1f, 0.85f, 0.3f, 0.95f) : new Color(1f, 1f, 1f, 0.9f);
+            int steps = kill ? 7 : head ? 5 : 4;
+            float start = kill ? 8f : 9f;
+            int thick = kill ? 3 : 2;
             for (int corner = 0; corner < 4; corner++)
             {
                 float dx = corner % 2 == 0 ? -1 : 1, dy = corner < 2 ? -1 : 1;
-                for (int step = 0; step < 4; step++)
-                    Panel(new Rect(x + dx * (9 + step * 2) - 1, y + dy * (9 + step * 2) - 1, 2, 2), tick);
+                for (int step = 0; step < steps; step++)
+                    Panel(new Rect(x + dx * (start + step * 2) - 1, y + dy * (start + step * 2) - 1, thick, thick), tick);
             }
         }
 

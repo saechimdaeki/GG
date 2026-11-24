@@ -23,9 +23,16 @@ namespace ResidualSignal
         float flinchUntil;
         static ParticleSystem blood;
         Transform leftArm, rightArm;
-        float swingStart, swingLength;
+        float swingStart, swingLength, swingSide = 1f;
         float frenzy;
         float frenzyPhase;
+        InfectedKind posture;
+        float poseOffset;
+        float poseTension;
+
+        public void SetPoseTension(float tension) => poseTension = tension;
+
+        public void SetPosture(InfectedKind kind) => posture = kind;
 
         /// <summary>0..1: how feral the sprint looks (hunched, head low, arms reaching and flailing).</summary>
         public void SetFrenzy(float target) => frenzy = Mathf.MoveTowards(frenzy, target, Time.deltaTime * 4f);
@@ -58,7 +65,8 @@ namespace ResidualSignal
                 Find("Bip01 L UpperArm"), Find("Bip01 L Forearm"), Find("Bip01 R UpperArm"), Find("Bip01 R Forearm"),
                 Find("Bip01 L Thigh"), Find("Bip01 L Calf"), Find("Bip01 R Thigh"), Find("Bip01 R Calf"),
             };
-            poseBones = new[] { pelvis, chest, head, leftArm, rightArm, limbs[4], limbs[6] };
+            poseOffset = Mathf.Repeat(transform.position.x * 2.71f + transform.position.z * 0.79f, 6.28f);
+            poseBones = new[] { pelvis, chest, head, leftArm, rightArm, limbs[4], limbs[6], limbs[1], limbs[3] };
             animatedPose = new Quaternion[poseBones.Length];
         }
 
@@ -90,7 +98,7 @@ namespace ResidualSignal
                 _ => bone
             };
             foreach (var node in GetComponentsInChildren<Transform>())
-                if (node.name == bone || node.name == mixamo)
+                if (node.name == bone || node.name.Replace(":", "") == mixamo)
                     return node;
             return null;
         }
@@ -126,6 +134,7 @@ namespace ResidualSignal
         {
             swingStart = Time.time;
             swingLength = windup + 0.25f;
+            swingSide = -swingSide;
         }
 
         void ApplyFrenzy()
@@ -152,11 +161,46 @@ namespace ResidualSignal
             // Raise forward to above the shoulders, hold, then strike down and recover.
             float raise = t < 0.6f ? Mathf.SmoothStep(0, 1, t / 0.6f) : 1f - Mathf.SmoothStep(0, 1, (t - 0.6f) / 0.4f);
             float angle = -105f * raise - (t > 0.6f ? 35f * Mathf.Sin((t - 0.6f) / 0.4f * Mathf.PI) : 0f);
-            var lift = Quaternion.AngleAxis(angle, transform.right);
-            leftArm.rotation = lift * leftArm.rotation;
-            rightArm.rotation = Quaternion.AngleAxis(angle * 0.92f, transform.right) * rightArm.rotation;
+            float leading = swingSide < 0f ? 1f : 0.55f;
+            float following = swingSide > 0f ? 1f : 0.55f;
             if (chest != null)
-                chest.rotation = Quaternion.AngleAxis(raise * 10f + (t > 0.6f ? 18f : 0f), transform.right) * chest.rotation;
+                chest.rotation = Quaternion.AngleAxis(swingSide * raise * 17f, transform.up) *
+                    Quaternion.AngleAxis(raise * 18f, transform.right) * chest.rotation;
+            leftArm.rotation = Quaternion.AngleAxis(angle * leading, transform.right) * leftArm.rotation;
+            rightArm.rotation = Quaternion.AngleAxis(angle * following, transform.right) * rightArm.rotation;
+        }
+
+        void ApplyCharacterPosture()
+        {
+            if (chest == null || posture == InfectedKind.Brute)
+                return;
+            float breath = Mathf.Sin(Time.time * 2.4f + poseOffset);
+            (float lean, float twist, float reach, float tilt) = posture switch
+            {
+                InfectedKind.Leaper => (22f, -8f, 21f, -11f),
+                InfectedKind.Dragger => (15f, 19f, 25f + poseTension * 18f, -7f),
+                InfectedKind.Bloater => (12f, -6f, 12f, 5f),
+                InfectedKind.Caller => (-5f - poseTension * 21f, 9f, 9f, 8f - poseTension * 12f),
+                _ => (4f, 3f * Mathf.Cos(poseOffset), 6f, 3f * Mathf.Sin(poseOffset))
+            };
+            float locomotionWeight = 1f - frenzy * 0.65f;
+            chest.rotation = Quaternion.AngleAxis((twist + breath * 1.4f) * locomotionWeight, transform.up) *
+                Quaternion.AngleAxis((lean + breath * 2f) * locomotionWeight, transform.right) * chest.rotation;
+            if (head != null)
+                head.rotation = Quaternion.AngleAxis(tilt * locomotionWeight, transform.forward) *
+                    Quaternion.AngleAxis(-lean * 0.42f * locomotionWeight, transform.right) * head.rotation;
+
+            bool favorLeft = posture == InfectedKind.Dragger || Mathf.Sin(poseOffset) > 0f;
+            BendArm(leftArm, limbs[1], -reach * (favorLeft ? 1f : 0.30f) * locomotionWeight);
+            BendArm(rightArm, limbs[3], -reach * (favorLeft ? 0.30f : 1f) * locomotionWeight);
+        }
+
+        void BendArm(Transform upper, Transform lower, float reach)
+        {
+            if (upper != null)
+                upper.rotation = Quaternion.AngleAxis(reach, transform.right) * upper.rotation;
+            if (lower != null)
+                lower.rotation = Quaternion.AngleAxis(reach * 0.42f, transform.right) * lower.rotation;
         }
 
         /// <summary>Runs after the animation pose (called from the infected's LateUpdate).</summary>
@@ -173,6 +217,7 @@ namespace ResidualSignal
 
             if (!IsFlinching)
             {
+                ApplyCharacterPosture();
                 ApplyFrenzy();
                 ApplySwing();
                 return;
@@ -273,9 +318,10 @@ namespace ResidualSignal
             if (blood == null)
                 blood = CreateBlood();
             blood.transform.SetPositionAndRotation(point, Quaternion.LookRotation(-direction.normalized + Random.insideUnitSphere * 0.3f));
-            blood.Emit(Mathf.Clamp(damage / 6, 5, 20));
+            blood.Emit(Mathf.Clamp(damage / 3, 14, 40));
             blood.transform.rotation = Quaternion.LookRotation(direction.normalized);
-            blood.Emit(Mathf.Clamp(damage / 12, 2, 9));
+            blood.Emit(Mathf.Clamp(damage / 6, 6, 20));
+            ShotFeedback.BloodMist(point, direction, damage);
         }
 
         static Texture2D DropletMask()
@@ -304,13 +350,13 @@ namespace ResidualSignal
             var main = system.main;
             main.playOnAwake = false;
             main.loop = false;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.16f, 0.38f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 4.5f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.034f);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.22f, 0.55f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 6f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.035f, 0.09f);
             main.gravityModifier = 1.4f;
             main.maxParticles = 600;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.33f, 0.015f, 0.01f), new Color(0.55f, 0.03f, 0.02f));
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.5f, 0.06f, 0.05f), new Color(1f, 0.25f, 0.22f));
             var emission = system.emission;
             emission.enabled = false;
             var shape = system.shape;
@@ -318,7 +364,8 @@ namespace ResidualSignal
             shape.angle = 24f;
             shape.radius = 0.02f;
             var material = new Material(Shader.Find("HDRP/Unlit"));
-            material.SetColor("_UnlitColor", new Color(0.32f, 0.023f, 0.016f));
+            // Unlit, so keep it dark: bright red reads as a glowing sticker in a dim station.
+            material.SetColor("_UnlitColor", new Color(0.26f, 0.012f, 0.01f));
             material.SetTexture("_UnlitColorMap", DropletMask());
             material.SetFloat("_AlphaCutoffEnable", 1f);
             material.SetFloat("_AlphaCutoff", 0.45f);

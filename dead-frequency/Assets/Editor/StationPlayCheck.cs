@@ -14,9 +14,15 @@ namespace ResidualSignal
         const string CaptureArgument = "-stationCapture";
         static double startedAt;
         static int step;
+        static int tourIndex;
+        static int shotsFired;
+        static bool sawShotKick;
+        static bool sawShotTrace;
+        static float hipFieldOfView;
         static float stepTime;
         static StationInfected target;
         static int startingRounds;
+        static float burstSeenAt;
         static bool useDrain;
         static bool specialsMode;
         static bool netMode;
@@ -34,12 +40,29 @@ namespace ResidualSignal
         static bool squadFollowedFocus;
         static SurvivorBot posedRescuer;
         static bool campaignMode;
+        static bool liveDefenseMode;
         static int preparationThreats;
         static Vector3 approachStart;
         static string demoFrameFolder;
+        static bool freightDemo;
         static int demoFrame;
         static float nextDemoFrame;
         static bool demoBossWalked;
+        static bool bossThrowCheck;
+        static bool bossDodgeCheck;
+        static bool yardBossCheck;
+        static bool yardBotEngaged;
+        static float nextSquadBurst;
+        static readonly StationInfected[] ShoveTargets = new StationInfected[3];
+        static readonly Vector3[] ShoveOrigins = new Vector3[3];
+        static bool yardSawDebris;
+        static int yardShots;
+        static float impactPeak;
+        static Vector3 impactStart;
+        static bool bossCoverCheck;
+        static bool capturedBossLift;
+        static bool sawBossChunk;
+        static bool bossDodged;
 
 
         static StationPlayCheck()
@@ -93,6 +116,8 @@ namespace ResidualSignal
                 Application.runInBackground = true;
                 startedAt = EditorApplication.timeSinceStartup;
                 demoFrameFolder = SessionState.GetString(RunningKey + ".demo", "");
+                freightDemo = !string.IsNullOrEmpty(demoFrameFolder) &&
+                    Array.IndexOf(Environment.GetCommandLineArgs(), "-freightDemo") >= 0;
                 // Scripted checks need a quiet station: no director until a mode turns it on.
                 var quiet = UnityEngine.Object.FindFirstObjectByType<StationTrial>();
                 if (quiet != null && Array.IndexOf(Environment.GetCommandLineArgs(), "-botCheck") < 0)
@@ -110,7 +135,7 @@ namespace ResidualSignal
                 Finish(false, "Player controller did not load.");
                 return;
             }
-            if (sinceStart > (netMode ? 240 : 75))
+            if (sinceStart > (netMode ? 240 : 130))
             {
                 var shutter = GameObject.Find("Security shutter");
                 Finish(false, $"Station check timed out at step {step}, player {controller.transform.position}, shutter {shutter.transform.position.y:F2}, health {trial.Health}, clock {Time.time:F2}/{stepTime:F2}.");
@@ -118,12 +143,39 @@ namespace ResidualSignal
             }
             switch (step)
             {
+                case 300:
+                {
+                    var view = StationSceneBuilder.DetailViews[tourIndex];
+                    Camera.main.transform.SetPositionAndRotation(view.eye, Quaternion.Euler(view.angles));
+                    if (Time.time - stepTime < 0.8f)
+                        break;
+                    string tourPath = SessionState.GetString(RunningKey + ".path", "");
+                    Capture(Camera.main, tourPath.Replace(".png", $".{tourIndex}.png"));
+                    stepTime = Time.time;
+                    if (++tourIndex == StationSceneBuilder.DetailViews.Length)
+                    {
+                        Finish(true, "PLATFORM03 DETAIL TOUR READY");
+                        return;
+                    }
+                    break;
+                }
                 case 0 when sinceStart >= 2:
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-openingPlate") >= 0)
                     {
                         CaptureOpeningPlate(Camera.main, SessionState.GetString(RunningKey + ".path", ""));
                         Finish(true, "PLATFORM03 OPENING PLATE READY");
                         return;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-detailTour") >= 0)
+                    {
+                        // Play-mode views of the architecture pass (decals only resolve while frames run).
+                        trial.enabled = false;
+                        foreach (Transform child in Camera.main.transform)
+                            child.gameObject.SetActive(false);
+                        tourIndex = 0;
+                        stepTime = Time.time;
+                        step = 300;
+                        break;
                     }
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-gripCheck") >= 0)
                     {
@@ -143,7 +195,8 @@ namespace ResidualSignal
                     }
                     var settings = new SerializedObject(trial);
                     settings.FindProperty("acceptLocalInput").boolValue = false;
-                    campaignMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-campaignCheck") >= 0;
+                    liveDefenseMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-liveDefenseCheck") >= 0;
+                    campaignMode = liveDefenseMode || Array.IndexOf(Environment.GetCommandLineArgs(), "-campaignCheck") >= 0;
                     if (!campaignMode)
                     {
                         settings.FindProperty("shutterDelay").floatValue = 5.8f;
@@ -152,15 +205,175 @@ namespace ResidualSignal
                     settings.FindProperty("spawnSpecials").boolValue = false;
                     specialsMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-specialsCheck") >= 0;
                     netMode = Array.IndexOf(Environment.GetCommandLineArgs(), "-netHost") >= 0;
-                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-bossModelCheck") >= 0)
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-bossImpactCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.3f, 0.09f, 57.2f);
+                        controller.enabled = true;
+                        impactStart = controller.transform.position;
+                        healthBefore = trial.Health;
+                        target = trial.SpawnInfected(-2.3f, 59.7f, false, InfectedKind.Brute);
+                        stepTime = Time.time;
+                        step = 100;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-escortCoverCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.3f, 0.09f, 57.2f);
+                        controller.enabled = true;
+                        impactStart = new Vector3(-2.3f, 0.03f, 58.2f);
+                        trial.Witness.transform.position = impactStart;
+                        trial.Witness.EvacuateWith(trial, impactStart + Vector3.forward * 3f);
+                        target = trial.SpawnInfected(-2.3f, 60.4f, false);
+                        target.enabled = false;
+                        stepTime = Time.time;
+                        step = 101;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-squadCollisionCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.4f, 0.08f, 56f);
+                        controller.enabled = true;
+                        var botPrefab = (SurvivorBot)settings.FindProperty("botPrefab").objectReferenceValue;
+                        var position = controller.transform.position;
+                        var first = UnityEngine.Object.Instantiate(botPrefab, position + Vector3.forward * 1.4f, Quaternion.identity);
+                        var second = UnityEngine.Object.Instantiate(botPrefab, position + Vector3.forward * 2.3f, Quaternion.identity);
+                        first.Join(trial, 0);
+                        second.Join(trial, 1);
+                        bool ignored = Physics.GetIgnoreCollision(controller, first.GetComponent<Collider>()) &&
+                            Physics.GetIgnoreCollision(first.GetComponent<Collider>(), second.GetComponent<Collider>());
+                        var hostile = trial.SpawnInfected(-1.1f, 60.4f, false);
+                        bool blocksHostile = !Physics.GetIgnoreCollision(controller, hostile.GetComponent<Collider>());
+                        Physics.SyncTransforms();
+                        controller.Move(Vector3.forward * 3.2f);
+                        float walked = controller.transform.position.z - position.z;
+                        Finish(ignored && blocksHostile && walked > 3f,
+                            $"PLATFORM03 SQUAD COLLISION CHECK (allies ignored {ignored}, infected still solid {blocksHostile}, crossed {walked:F2}m)");
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-motionCheck") >= 0)
+                    {
+                        // A calm crowd ahead: some lie on the floor, a few crawl; walking in alerts them.
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.4f, 0.08f, 54.5f);
+                        controller.enabled = true;
+                        for (int i = 0; i < 12; i++)
+                            trial.SpawnInfected(-5.2f + (i % 6) * 1.1f, 60f + (i / 6) * 1.6f, false, InfectedKind.Common, calm: true);
+                        AimAtPoint(new Vector3(-2.4f, 0.9f, 61f));
+                        stepTime = Time.time;
+                        step = 140;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-characterModelCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-3.15f, 0.03f, 54.85f);
+                        controller.enabled = true;
+                        var kinds = new[] { InfectedKind.Leaper, InfectedKind.Dragger, InfectedKind.Bloater, InfectedKind.Caller, InfectedKind.Brute };
+                        var meshes = new System.Collections.Generic.HashSet<Mesh>();
+                        for (int index = 0; index < kinds.Length; index++)
+                        {
+                            var actor = trial.SpawnInfected(-5.35f + index * 1.18f, 59.0f, false, kinds[index]);
+                            actor.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                            actor.StageEncounter();
+                            meshes.Add(actor.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh);
+                        }
+                        if (meshes.Count != kinds.Length)
+                        {
+                            Finish(false, $"Only {meshes.Count} distinct meshes for {kinds.Length} special infected.");
+                            break;
+                        }
+                        AimAtPoint(new Vector3(-3.12f, 1.28f, 59.0f));
+                        stepTime = Time.time;
+                        step = 126;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-aimPoseCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.32f, 0.03f, 58.8f);
+                        controller.enabled = true;
+                        AimAtPoint(new Vector3(-2.32f, 1.4f, 67f));
+                        hipFieldOfView = Camera.main.fieldOfView;
+                        Capture(Camera.main, Shot(".hip.png"));
+                        trial.SetHeldAim(true);
+                        stepTime = Time.time;
+                        step = 124;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-shotFeelCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.4f, 0.08f, 57f);
+                        controller.enabled = true;
+                        Physics.SyncTransforms();
+                        shotsFired = 0;
+                        stepTime = Time.time;
+                        step = 120;
+                        break;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-shoveCheck") >= 0)
+                    {
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.4f, 0.08f, 57f);
+                        controller.enabled = true;
+                        for (int i = 0; i < ShoveTargets.Length; i++)
+                        {
+                            var at = controller.transform.position + new Vector3((i - 1) * 0.88f, 0f, 1.40f);
+                            ShoveTargets[i] = trial.SpawnInfected(at.x, at.z, false);
+                            ShoveOrigins[i] = ShoveTargets[i].transform.position;
+                        }
+                        Physics.SyncTransforms();
+                        AimAtPoint(controller.transform.position + new Vector3(0f, 1.45f, 6f));
+                        if (!trial.TryShove())
+                        {
+                            Finish(false, "Right-click shove was not accepted.");
+                            return;
+                        }
+                        stepTime = Time.time;
+                        step = 99;
+                        break;
+                    }
+                    bossThrowCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossThrowCheck") >= 0;
+                    yardBossCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-yardBossCheck") >= 0;
+                    bossDodgeCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossDodgeCheck") >= 0;
+                    bossCoverCheck = Array.IndexOf(Environment.GetCommandLineArgs(), "-bossCoverCheck") >= 0;
+                    if (bossThrowCheck || bossDodgeCheck || bossCoverCheck || Array.IndexOf(Environment.GetCommandLineArgs(), "-bossModelCheck") >= 0)
                     {
                         settings.ApplyModifiedPropertiesWithoutUndo();
                         controller.enabled = false;
                         controller.transform.position = new Vector3(-1.6f, 0.08f, 59.0f);
                         controller.enabled = true;
-                        target = trial.SpawnInfected(-1.6f, 65.8f, false, InfectedKind.Brute);
+                        bool rangedBossTest = bossThrowCheck || bossDodgeCheck || bossCoverCheck ||
+                            !string.IsNullOrEmpty(demoFrameFolder);
+                        target = trial.SpawnInfected(-1.6f, rangedBossTest ? 65.8f : 62.65f, false, InfectedKind.Brute);
+                        approachStart = target.transform.position;
                         stepTime = Time.time;
                         step = 96;
+                        if (bossThrowCheck || bossDodgeCheck || bossCoverCheck)
+                        {
+                            target.StageEncounter();
+                            target.Hit(9999);
+                            if (target.Dead)
+                            {
+                                Finish(false, "The staged boss can be killed before the arena opens.");
+                                return;
+                            }
+                            target.BeginStagedEncounter();
+                            target.Hit(900);
+                            healthBefore = trial.Health;
+                            step = 97;
+                        }
                         break;
                     }
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-callerCheck") >= 0)
@@ -208,7 +421,7 @@ namespace ResidualSignal
                     controller.Move(new Vector3(2.4f, 0, 1.6f));
                     if (!trial.TryInteract() || trial.Equipped != "산탄총")
                     {
-                        Finish(false, $"Gun rack pickup failed (holding {trial.Equipped}).");
+                        Finish(false, $"Gun rack pickup failed (holding {trial.Equipped}, player at {controller.transform.position}).");
                         return;
                     }
                     Capture(Camera.main, Path.ChangeExtension(launchCapture, ".shotgun.png"));
@@ -456,11 +669,20 @@ namespace ResidualSignal
                 case 23:
                     if (special.Dead)
                     {
-                        Capture(Camera.main, Shot(".bloater.png"));
-                        if (trial.Threats.Count < 4)
+                        if (burstSeenAt == 0f)
                         {
-                            Finish(false, "Bloater burst did not call a crowd.");
-                            return;
+                            burstSeenAt = Time.time;
+                            Capture(Camera.main, Shot(".bloater.png"));
+                        }
+                        int approaching = 0;
+                        foreach (var threat in trial.Threats)
+                            if (threat != null && !threat.Dead)
+                                approaching++;
+                        if (approaching < 3)
+                        {
+                            if (Time.time >= burstSeenAt + 7f)
+                                Finish(false, $"Only {approaching} infected approached from cover after the bloater burst.");
+                            break;
                         }
                         foreach (var threat in trial.Threats)
                             if (threat != null && !threat.Dead)
@@ -526,6 +748,12 @@ namespace ResidualSignal
                     if (useDrain)
                         controller.Move(Vector3.right * (2.3f - controller.transform.position.x));
                     controller.Move(Vector3.forward * 0.38f);
+                    if (liveDefenseMode)
+                    {
+                        var liveSettings = new SerializedObject(trial);
+                        liveSettings.FindProperty("spawnSpecials").boolValue = true;
+                        liveSettings.ApplyModifiedPropertiesWithoutUndo();
+                    }
                     if (!trial.TryInteract() || trial.Countdown <= 0)
                     {
                         Finish(false, $"Power and holdout failed after the route encounter at {controller.transform.position}.");
@@ -559,6 +787,11 @@ namespace ResidualSignal
                         target = trial.SpawnInfected(approachStart.x, approachStart.z + 6.5f, false);
                         stepTime = Time.time;
                         step = 86;
+                        break;
+                    }
+                    if (freightDemo)
+                    {
+                        step = 3;
                         break;
                     }
                     // Stage a deterministic hit/reload target independently of the live director.
@@ -601,14 +834,36 @@ namespace ResidualSignal
                     step = 83;
                     break;
                 case 83:
-                    if (!trial.PreparingDefense && trial.Threats.Count > preparationThreats)
+                    if (liveDefenseMode && !trial.PreparingDefense && !string.IsNullOrEmpty(demoFrameFolder))
                     {
+                        AimAtPoint(controller.transform.position + new Vector3(0f, 1.25f, 8f));
+                        RecordDemoFrame();
+                    }
+                    int arrivals = trial.Threats.Count - preparationThreats;
+                    bool specialistArrived = false;
+                    if (liveDefenseMode)
+                        foreach (var infected in trial.Threats)
+                            specialistArrived |= infected != null && !infected.Dead && infected.Kind != InfectedKind.Common;
+                    if (!trial.PreparingDefense && arrivals >= (liveDefenseMode ? 14 : 1) && (!liveDefenseMode || specialistArrived))
+                    {
+                        if (liveDefenseMode)
+                            AimAtPoint(trial.Threats[trial.Threats.Count - 1].transform.position + Vector3.up * 1.25f);
                         Capture(Camera.main, Shot(".defense.png"));
-                        Finish(true, "PLATFORM03 CAMPAIGN PACING CHECK PASS (quiet preparation, then covered reinforcements)");
+                        string result = $"PLATFORM03 CAMPAIGN PACING CHECK PASS (quiet preparation, then {arrivals} covered reinforcements, specialist {specialistArrived})";
+                        if (!liveDefenseMode || string.IsNullOrEmpty(demoFrameFolder))
+                        {
+                            Finish(true, result);
+                            return;
+                        }
+                        Debug.Log(result);
+                        trial.Equip(4);
+                        trial.GiveAmmo();
+                        stepTime = Time.time;
+                        step = 134;
                         return;
                     }
                     if (Time.time > stepTime + 13f)
-                        Finish(false, "No opening defense wave arrived after preparation.");
+                        Finish(false, $"Only {arrivals} opening defense reinforcements arrived after preparation.");
                     break;
                 case 86:
                     float approachDistance = Vector3.Distance(approachStart, target.transform.position);
@@ -671,12 +926,15 @@ namespace ResidualSignal
                     step++;
                     break;
                 case 3 when Time.time >= stepTime + 1.4f:
-                    AimAt(target);
-                    Capture(Camera.main, Shot(".corpse.png"));
-                    if (trial.Rounds != startingRounds)
+                    if (!freightDemo)
                     {
-                        Finish(false, "Reload did not refill the magazine.");
-                        return;
+                        AimAt(target);
+                        Capture(Camera.main, Shot(".corpse.png"));
+                        if (trial.Rounds != startingRounds)
+                        {
+                            Finish(false, "Reload did not refill the magazine.");
+                            return;
+                        }
                     }
                     controller.Move(Vector3.right * 2.8f);
                     controller.Move(Vector3.forward * Mathf.Max(0f, 27f - controller.transform.position.z));
@@ -743,6 +1001,12 @@ namespace ResidualSignal
                         break;
                     AimAtPoint(new Vector3(3.15f, 0.95f, 48.4f));
                     Capture(Camera.main, Shot(".workshop.png"));
+                    if (yardBossCheck)
+                    {
+                        var yardSettings = new SerializedObject(trial);
+                        yardSettings.FindProperty("spawnSpecials").boolValue = true;
+                        yardSettings.ApplyModifiedPropertiesWithoutUndo();
+                    }
                     if (!trial.TryInteract() || trial.Countdown <= 0)
                     {
                         Finish(false, "Annex pump did not start transfer defense.");
@@ -805,30 +1069,370 @@ namespace ResidualSignal
                         if (elapsed > 0.6f && elapsed < 2.55f && !target.Dead)
                             trial.TryFire();
                         if (elapsed > 2.55f && !target.Dead)
-                            target.Hit(1800);
+                            target.Hit(9999);
                         if (elapsed > 3.8f)
                             Finish(demoBossWalked && target.Dead, "PLATFORM03 BOSS GAMEPLAY CAPTURE READY");
                         break;
                     }
-                    if (bossMove.normalizedTime <= 0.02f && Time.time < stepTime + 2.2f)
+                    if (bossMove.normalizedTime <= 0.02f && Time.time < stepTime + 5f)
                         break;
                     AimAtPoint(target.transform.position + Vector3.up * 1.36f);
                     Capture(Camera.main, Shot(".boss.png"));
-                    float bossTravel = Mathf.Abs(65.8f - target.transform.position.z);
+                    float bossTravel = Mathf.Abs(approachStart.z - target.transform.position.z);
                     bool animate = bossMove.normalizedTime > 0.02f && bossTravel > 0.12f;
                     Debug.Log($"Loading boss motion: {bossMove.clip.name} at {bossMove.normalizedTime:F2}, travel {bossTravel:F2}m, {bossCharge.clip.name}.");
-                    target.Hit(1800);
+                    target.Hit(9999);
                     Finish(animate && target.Dead && target.GetComponent<InfectedBody>().Ragdolled,
                         "PLATFORM03 BOSS MODEL, ANIMATION AND RAGDOLL CHECK");
                     break;
+                case 97:
+                    if (target.Dead)
+                    {
+                        Finish(false, "The boss fell to 900 damage before throwing.");
+                        return;
+                    }
+                    AimAtPoint(target.transform.position + Vector3.up * 2.2f);
+                    var chunk = GameObject.Find("Concrete chunk");
+                    if (chunk != null && !sawBossChunk)
+                    {
+                        sawBossChunk = true;
+                        stepTime = Time.time;
+                    }
+                    if (chunk != null && !capturedBossLift && Time.time > stepTime + 0.86f)
+                    {
+                        Capture(Camera.main, Shot(".lift.png"));
+                        capturedBossLift = true;
+                        if (bossDodgeCheck)
+                        {
+                            controller.Move(Vector3.left * 2.8f);
+                            bossDodged = true;
+                        }
+                        if (bossCoverCheck)
+                        {
+                            var cover = new GameObject("Temporary throw test cover");
+                            cover.transform.position = controller.transform.position + Vector3.forward * 1.1f + Vector3.up * 1.5f;
+                            cover.AddComponent<BoxCollider>().size = new Vector3(2.4f, 3f, 0.3f);
+                            Physics.SyncTransforms();
+                        }
+                    }
+                    if (chunk == null && sawBossChunk)
+                    {
+                        int damage = healthBefore - trial.Health;
+                        Capture(Camera.main, Shot(".throw.png"));
+                        bool protectedPlayer = bossDodgeCheck ? bossDodged : bossCoverCheck;
+                        Finish(protectedPlayer ? damage == 0 : damage >= 25,
+                            $"PLATFORM03 BOSS THROW CHECK (dodge {bossDodgeCheck}, cover {bossCoverCheck}, damage {damage})");
+                    }
+                    else if (Time.time > stepTime + 6f)
+                        Finish(false, "The concrete throw did not complete.");
+                    break;
+                case 100:
+                    Vector3 impactTravel = controller.transform.position - impactStart;
+                    impactPeak = Mathf.Max(impactPeak, impactTravel.y);
+                    float horizontalThrow = Vector3.ProjectOnPlane(impactTravel, Vector3.up).magnitude;
+                    if (trial.Health < healthBefore && impactPeak > 0.43f && horizontalThrow >= 2.5f &&
+                        impactTravel.y < 0.12f && trial.TryFire())
+                        Finish(true, $"PLATFORM03 BOSS IMPACT CHECK (damage {healthBefore - trial.Health}, flight {horizontalThrow:F2}m, height {impactPeak:F2}m, recovered)");
+                    else if (Time.time > stepTime + 5f)
+                        Finish(false, $"Boss impact did not launch and recover: height {impactPeak:F2}, travel {horizontalThrow:F2}, health {trial.Health}.");
+                    break;
+                case 101 when Time.time >= stepTime + 0.65f:
+                    if (Vector3.Distance(trial.Witness.transform.position, impactStart) > 0.15f)
+                    {
+                        Finish(false, "The witness walked into an alerted infected.");
+                        break;
+                    }
+                    target.Hit(9999);
+                    stepTime = Time.time;
+                    step = 102;
+                    break;
+                case 102 when Time.time >= stepTime + 0.65f:
+                    Finish(trial.Witness.Walking && trial.Witness.transform.position.z > impactStart.z + 0.7f,
+                        "PLATFORM03 ESCORT COVER CHECK (stopped near threat and resumed when cleared)");
+                    break;
+                case 124 when Time.time >= stepTime + 0.35f:
+                    var sightView = GameObject.Find("Service pistol viewmodel").transform;
+                    if (!trial.Aiming || Camera.main.fieldOfView > hipFieldOfView * 0.81f ||
+                        Mathf.Abs(sightView.localPosition.x) > 0.02f)
+                    {
+                        Finish(false, "Held aim did not center the pistol and narrow the FOV.");
+                        break;
+                    }
+                    Capture(Camera.main, Shot(".ads.png"));
+                    trial.SetHeldAim(false);
+                    stepTime = Time.time;
+                    step = 125;
+                    break;
+                case 140 when Time.time >= stepTime + 1.2f:
+                    Capture(Camera.main, Shot(".calm.png"));
+                    controller.enabled = false;
+                    controller.transform.position = new Vector3(-2.4f, 0.08f, 57.5f);
+                    controller.enabled = true;
+                    stepTime = Time.time;
+                    step = 141;
+                    break;
+                case 141 when Time.time >= stepTime + 1.0f:
+                    Capture(Camera.main, Shot(".rising.png"));
+                    stepTime = Time.time;
+                    step = 142;
+                    break;
+                case 142 when Time.time >= stepTime + 2.2f:
+                    Capture(Camera.main, Shot(".charge.png"));
+                    Finish(true, "PLATFORM03 MOTION CHECK (calm crowd captured lying, rising and charging)");
+                    break;
+                case 126 when Time.time >= stepTime + 0.35f:
+                    Capture(Camera.main, Shot(".models.png"));
+                    Finish(true, "PLATFORM03 CHARACTER MODEL CHECK (five distinct special infected meshes)");
+                    break;
+                case 125 when Time.time >= stepTime + 0.3f:
+                    Finish(!trial.Aiming && Mathf.Abs(Camera.main.fieldOfView - hipFieldOfView) < 0.35f,
+                        "PLATFORM03 AIM POSE CHECK (centered pistol, narrower FOV, released aim)");
+                    break;
+                case 120 when Time.time >= stepTime + 0.3f:
+                {
+                    // Wall to the left of the infected: six rounds leave a cluster of holes.
+                    Transform view = Camera.main.transform;
+                    AimAtPoint(view.position + new Vector3(-3f, -0.1f + (shotsFired % 3) * 0.1f, 1.2f + shotsFired * 0.07f));
+                    float originalFov = Camera.main.fieldOfView;
+                    if (!trial.TryFire())
+                        break;
+                    sawShotKick |= Camera.main.fieldOfView > originalFov + 0.1f;
+                    var trace = GameObject.Find("Shot trace");
+                    sawShotTrace |= trace != null && trace.GetComponent<LineRenderer>().enabled;
+                    stepTime = Time.time;
+                    if (++shotsFired >= 7)
+                        step = 121;
+                    break;
+                }
+                case 121 when Time.time >= stepTime + 0.02f:
+                    Capture(Camera.main, Shot("-wall.png"));
+                    ShoveTargets[0] = trial.SpawnInfected(-2.4f, 61f, false);
+                    stepTime = Time.time;
+                    step = 123;
+                    break;
+                case 123 when Time.time >= stepTime + 0.25f:
+                    AimAt(ShoveTargets[0]);
+                    healthBefore = ShoveTargets[0].RemainingHealth;
+                    if (!trial.TryFire())
+                    {
+                        Finish(false, "Shot at the infected was not accepted.");
+                        return;
+                    }
+                    stepTime = Time.time;
+                    step = 122;
+                    break;
+                case 122 when Time.time >= stepTime + 0.05f:
+                {
+                    Capture(Camera.main, Shot("-blood.png"));
+                    var holes = GameObject.Find("Bullet holes");
+                    int placed = 0;
+                    if (holes != null)
+                        foreach (Transform hole in holes.transform)
+                            if (hole.gameObject.activeSelf)
+                                placed++;
+                    bool injured = ShoveTargets[0].RemainingHealth < healthBefore;
+                    Finish(placed == 7 && injured && sawShotKick && sawShotTrace,
+                        $"PLATFORM03 SHOT FEEL CHECK (bullet holes {placed}, infected damaged {injured}, camera kick {sawShotKick}, trace {sawShotTrace})");
+                    break;
+                }
+                case 99 when Time.time >= stepTime + 0.35f:
+                    int pushed = 0;
+                    for (int i = 0; i < ShoveTargets.Length; i++)
+                        if (Vector3.Distance(ShoveTargets[i].transform.position, ShoveOrigins[i]) >= 0.6f &&
+                            ShoveTargets[i].transform.position.z > ShoveOrigins[i].z)
+                            pushed++;
+                    bool followup = trial.TryFire();
+                    string moves = string.Join(" ", System.Linq.Enumerable.Select(ShoveTargets, (t, i) => $"{(t.transform.position - ShoveOrigins[i]):F2}"));
+                    Finish(pushed == 3 && followup, $"PLATFORM03 SHOVE CHECK (pushed {pushed}/3, follow-up shot {followup}, moves {moves})");
+                    break;
+                case 98:
+                    ClearAnnexTestThreats(trial, controller);
+                    if (target == null || target.Dead)
+                    {
+                        int attacks = target != null ? target.BossAttacksCommitted : 0;
+                        bool success = attacks >= 2 && yardBotEngaged && yardSawDebris && yardShots >= 10 &&
+                            Time.time - stepTime >= 30f;
+                        Finish(success, $"PLATFORM03 LOADING BOSS CHECK (attacks {attacks}, threw debris {yardSawDebris}, bots engaged {yardBotEngaged}, shots {yardShots}, lasted {Time.time - stepTime:F1}s)");
+                        break;
+                    }
+                    if (Time.time > stepTime + 42f)
+                    {
+                        Finish(false, $"Loading boss alive after 42s, {target.BossAttacksCommitted} attacks, {yardShots} shots, {target.RemainingHealth} boss HP at {target.transform.position}, player at {controller.transform.position}");
+                        break;
+                    }
+                    foreach (var ally in SurvivorBot.All)
+                        yardBotEngaged |= ally.AimedTarget == target;
+                    if (target.BossDebrisInFlight && !yardSawDebris)
+                    {
+                        yardSawDebris = true;
+                        Capture(Camera.main, Shot(".yard-throw.png"));
+                    }
+                    // Batch play skips the input-driven local gravity and movement.
+                    controller.Move(Vector3.down * (9f * Time.deltaTime));
+                    float lane = -2.45f + Mathf.Sin((Time.time - stepTime) * 1.45f) * 0.95f;
+                    MoveToward(controller, new Vector3(lane, 0, 57.25f));
+                    AimAtPoint(target.transform.position + Vector3.up * 1.6f);
+                    RecordDemoFrame();
+                    if (trial.TryFire())
+                        yardShots++;
+                    else if (trial.Rounds == 0)
+                        trial.TryReload();
+                    // Four headshot AK streams at full cyclic rate, without reload gaps.
+                    if (Time.time >= nextSquadBurst)
+                    {
+                        nextSquadBurst = Time.time + 0.105f;
+                        for (int gun = 0; gun < 4; gun++)
+                            target.Hit(68);
+                    }
+                    if (trial.Health < 75 && !trial.Downed)
+                        trial.Heal(60);
+                    break;
                 case 93:
+                    if (yardBossCheck)
+                    {
+                        MoveToward(controller, new Vector3(-1.6f, 0, 55.6f));
+                        if (controller.transform.position.z < 55.5f)
+                            break;
+                        foreach (var infected in trial.Threats)
+                            if (infected != null && infected.Kind == InfectedKind.Brute)
+                                target = infected;
+                        if (target == null || target.Dead)
+                        {
+                            Finish(false, "Production loading bay did not spawn a live boss.");
+                            return;
+                        }
+                        var arenaSettings = new SerializedObject(trial);
+                        var prefab = (SurvivorBot)arenaSettings.FindProperty("botPrefab").objectReferenceValue;
+                        for (int slot = 0; slot < 3; slot++)
+                        {
+                            var position = controller.transform.position + SurvivorBot.OpeningOffset(slot);
+                            if (UnityEngine.AI.NavMesh.SamplePosition(position, out var landing, 2f, UnityEngine.AI.NavMesh.AllAreas))
+                                position = landing.position;
+                            var ally = UnityEngine.Object.Instantiate(prefab, position, Quaternion.identity);
+                            ally.Join(trial, slot);
+                        }
+                        trial.Equip(4);
+                        trial.GiveAmmo();
+                        stepTime = Time.time;
+                        step = 98;
+                        break;
+                    }
                     ClearAnnexTestThreats(trial, controller);
                     MoveToward(controller, new Vector3(-1.6f, 0, 66.8f));
-                    if (controller.transform.position.z < 66.45f || !trial.Complete)
+                    if (controller.transform.position.z < 66.45f || trial.PhaseIndex < 12)
                         break;
                     AimAtPoint(new Vector3(-1.6f, 1.8f, 68.3f));
                     Capture(Camera.main, Shot(".loading.png"));
-                    Finish(true, "PLATFORM03 MISSION PLAY CHECK PASS (annex pump, loading bay escort and extraction)");
+                    if (trial.Complete)
+                    {
+                        Finish(false, "Mission ended at the old loading bay exit.");
+                        return;
+                    }
+                    step = 127;
+                    break;
+                case 127:
+                    ClearAnnexTestThreats(trial, controller);
+                    MoveToward(controller, new Vector3(-1.6f, 0f, 84.5f));
+                    if (controller.transform.position.z >= 84.35f)
+                        step = 128;
+                    break;
+                case 128:
+                    ClearAnnexTestThreats(trial, controller);
+                    MoveToward(controller, new Vector3(1.4f, 0f, 84.5f));
+                    if (controller.transform.position.x < 1.3f)
+                        break;
+                    if (!trial.TryInteract() || trial.PhaseIndex != 13)
+                    {
+                        Finish(false, "Freight power did not open the isolation shutter.");
+                        return;
+                    }
+                    AimAtPoint(new Vector3(-1.6f, 1.6f, 94f));
+                    Capture(Camera.main, Shot(".freight.png"));
+                    step = 129;
+                    break;
+                case 129:
+                    ClearAnnexTestThreats(trial, controller);
+                    MoveToward(controller, new Vector3(-1.6f, 0f, 84.5f));
+                    if (controller.transform.position.x <= -1.5f)
+                        step = 130;
+                    break;
+                case 130:
+                    ClearAnnexTestThreats(trial, controller);
+                    MoveToward(controller, new Vector3(-1.6f, 0f, 103.15f));
+                    if (controller.transform.position.z >= 103f)
+                        step = 131;
+                    break;
+                case 131:
+                    ClearAnnexTestThreats(trial, controller);
+                    MoveToward(controller, new Vector3(-3.5f, 0f, 103.15f));
+                    if (controller.transform.position.x > -3.4f)
+                        break;
+                    if (!trial.TryInteract() || trial.PhaseIndex != 14)
+                    {
+                        Finish(false, "Freight exit release did not start the escape.");
+                        return;
+                    }
+                    step = 132;
+                    break;
+                case 132:
+                    ClearAnnexTestThreats(trial, controller);
+                    MoveToward(controller, new Vector3(-1.6f, 0f, 103.15f));
+                    if (freightDemo)
+                    {
+                        AimAtPoint(trial.Witness.transform.position + Vector3.up * 1.35f);
+                        RecordDemoFrame();
+                    }
+                    if (controller.transform.position.x >= -1.7f)
+                        step = 133;
+                    break;
+                case 133:
+                    ClearAnnexTestThreats(trial, controller);
+                    float witnessZ = trial.Witness.transform.position.z;
+                    MoveToward(controller, new Vector3(-1.6f, 0f, Mathf.Min(121.1f, witnessZ + 3.8f)));
+                    if (freightDemo)
+                    {
+                        AimAtPoint(trial.Witness.transform.position + Vector3.up * 1.35f);
+                        RecordDemoFrame();
+                    }
+                    if (!trial.Complete)
+                        break;
+                    AimAtPoint(new Vector3(-1.6f, 2.2f, 122.6f));
+                    Capture(Camera.main, Shot(".freight-exit.png"));
+                    Finish(true, "PLATFORM03 MISSION PLAY CHECK PASS (annex, freight power, exit release and escort escape)");
+                    break;
+                case 134:
+                    if (Time.time >= stepTime + 5f)
+                    {
+                        Finish(true, "PLATFORM03 DEFENSE GAMEPLAY CAPTURE READY");
+                        return;
+                    }
+                    StationInfected nearest = null;
+                    float nearestDistance = float.PositiveInfinity;
+                    foreach (var infected in trial.Threats)
+                    {
+                        if (infected == null || infected.Dead)
+                            continue;
+                        float distance = (infected.transform.position - controller.transform.position).sqrMagnitude;
+                        if (distance >= nearestDistance)
+                            continue;
+                        if (Physics.Linecast(Camera.main.transform.position, infected.transform.position + Vector3.up * 1.25f,
+                                out var obstruction, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+                            obstruction.collider.GetComponentInParent<StationInfected>() != infected)
+                            continue;
+                        nearest = infected;
+                        nearestDistance = distance;
+                    }
+                    if (nearest != null)
+                    {
+                        AimAt(nearest);
+                        if (nearestDistance < 9f)
+                            trial.TryShove();
+                        if (!trial.TryFire() && trial.Rounds == 0)
+                            trial.TryReload();
+                    }
+                    if (trial.Health < 75 && !trial.Downed)
+                        trial.Heal(60);
+                    RecordDemoFrame();
                     break;
             }
         }
@@ -836,7 +1440,7 @@ namespace ResidualSignal
         static void ClearAnnexTestThreats(StationTrial trial, CharacterController controller)
         {
             foreach (var infected in trial.Threats)
-                if (infected != null && !infected.Dead &&
+                if (infected != null && !infected.Dead && (!yardBossCheck || infected.Kind != InfectedKind.Brute) &&
                     Vector3.Distance(infected.transform.position, controller.transform.position) < 5f)
                     infected.Hit(1800);
         }
@@ -872,8 +1476,8 @@ namespace ResidualSignal
             {
                 switch (joint.name)
                 {
-                    case "Bip01 R Hand": right = joint; break;
-                    case "Bip01 L Hand": left = joint; break;
+                    case "Bip01 R Hand" or "mixamorig:RightHand": right = joint; break;
+                    case "Bip01 L Hand" or "mixamorig:LeftHand": left = joint; break;
                     case "Trigger hand contact": trigger = joint; break;
                     case "Support hand under fore-end": fore = joint; break;
                 }

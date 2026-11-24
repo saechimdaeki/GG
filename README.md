@@ -6,7 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
-| <img src="dead-frequency/docs/media/approach.gif" width="260" alt="해림역 광장 진입과 분대 교전"> | **[잔류신호](dead-frequency/)** | 폐역을 수색하고 구조 대상과 함께 탈출하는 1인칭 협동 FPS (Unity HDRP) | 1차 개발판 · macOS 로컬 빌드 가능 |
+| <img src="dead-frequency/docs/media/approach.gif" width="260" alt="밤의 해림역 광장에서 대합실로 진입"> | **[잔류신호](dead-frequency/)** | AI 분대와 폐역 진입, 승강장 방어, 적재장 보스전과 화물 연결로 호송 (1인칭 협동 FPS, Unity HDRP) | 첫 임무 플레이 가능 · macOS 로컬 빌드 |
 | <img src="last-train/docs/media/gameplay.gif" width="260" alt="시장 관리동 출입과 수색"> | **[막차까지](last-train/)** | 봉쇄 도시 수색과 다층 건물 탐색, 세 가지 탈출로 (3D 탑다운, Unity) | macOS 로컬 빌드 플레이 가능 |
 | <img src="reel-dungeon/docs/media/combat.gif" width="260"> | **[슬롯 던전](reel-dungeon/)** | 슬롯머신 턴제 던전 로그라이크 — 동료 한 명이 슬롯 한 줄, 11명 중 골라 3장 돌파 (2D 픽셀, Unity) | 플레이 가능 (이어하기·어려움 0~5·도감), 사람 플레이테스트 전 |
 | <img src="haunted-movers/docs/media/run.gif" width="260"> | **[유령집 이삿짐센터](haunted-movers/)** | 2~4인 온라인 협동 호러 — 귀신 들린 저택에서 고물 건지기 (1인칭 3D) | 플레이 가능, 플레이테스트 중 |

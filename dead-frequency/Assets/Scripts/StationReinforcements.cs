@@ -14,11 +14,16 @@ namespace ResidualSignal
             new(-4.2f, 0, 7.0f), new(4.2f, 0, 7.0f),
             new(-3.4f, 0, 12.2f), new(3.4f, 0, 12.2f),
             new(-3.4f, 0, 15.8f), new(3.4f, 0, 15.8f),
+            new(-3.6f, 0, 10.6f), new(3.6f, 0, 10.6f),
+            new(-4.1f, 0, 18.8f), new(4.1f, 0, 18.8f),
             new(-3.7f, 0, 27.2f), new(3.7f, 0, 27.2f),
             new(-1.7f, 0, 34.2f), new(1.7f, 0, 34.2f),
             new(-4.4f, 0, 39.7f), new(4.4f, 0, 42.5f), new(3.7f, 0, 46.0f),
             new(-4.4f, 0, 48.7f), new(4.3f, 0, 50.7f), new(4.5f, 0, 58.7f),
             new(-5.3f, 0, 57.2f), new(4.8f, 0, 65.1f),
+            new(-5.55f, 0, 77.5f), new(5.55f, 0, 82.5f),
+            new(-5.55f, 0, 85f), new(-5.55f, 0, 89f), new(5.55f, 0, 96f),
+            new(5.55f, 0, 103f), new(-5.55f, 0, 112f), new(5.55f, 0, 116f),
         };
         static readonly Vector3[] CoverSamples =
         {
@@ -35,6 +40,9 @@ namespace ResidualSignal
             public float Expires;
             public bool Alert;
             public bool Calm;
+            public bool NeedsWarning;
+            public float ReadyAt;
+            public Vector3 LastEntry;
             public InfectedKind Special;
         }
 
@@ -49,7 +57,8 @@ namespace ResidualSignal
             routes.Add(new Reinforcements
             {
                 Remaining = count, Near = near, Alert = alert, Calm = calm, Special = special,
-                Expires = Time.time + (phase == Phase.Opening ? 16f : 10f)
+                NeedsWarning = alert, ReadyAt = Time.time,
+                Expires = Time.time + (special != InfectedKind.Common ? 24f : phase == Phase.Opening ? 18f : 13f)
             });
         }
 
@@ -63,57 +72,97 @@ namespace ResidualSignal
             if (routes.Count == 0 || Time.time < nextDelivery)
                 return;
 
-            nextDelivery = Time.time + 0.45f;
-            var group = routes[0];
-            if (Time.time >= group.Expires)
-            {
-                routes.RemoveAt(0);
+            nextDelivery = Time.time + 0.22f;
+            routes.RemoveAll(group => Time.time >= group.Expires);
+            if (routes.Count == 0)
                 return;
-            }
 
             threats.RemoveAll(threat => threat == null || threat.Dead);
-            if (threats.Count >= maxInfected || !TryFindCoveredEntry(group.Near, out Vector3 entry))
+            if (threats.Count >= maxInfected)
                 return;
 
-            InfectedKind kind = group.Special;
-            if (kind != InfectedKind.Common)
-                foreach (var active in threats)
-                    if (active.Kind != InfectedKind.Common && active.Alerted &&
-                        SquadNear(active.transform.position, 16f))
-                    {
-                        kind = InfectedKind.Common;
-                        break;
-                    }
-            group.Special = InfectedKind.Common;
-            bool alerted = !group.Calm;
-            SpawnInfected(entry.x, entry.z, alerted && group.Remaining % 3 == 0, kind, calm: group.Calm);
-            if (group.Alert)
+            // Try both fronts. A blocked entrance cannot starve the opposite side of the fight.
+            for (int index = routes.Count - 1; index >= 0 && threats.Count < maxInfected; index--)
             {
-                group.Alert = false;
-                PlayHorde(entry);
-                if (MissionSync.Instance != null)
-                    MissionSync.Instance.HordeRpc(entry);
+                var group = routes[index];
+                if (Time.time < group.ReadyAt || !TryFindCoveredEntry(group, out Vector3 entry))
+                    continue;
+                if (group.NeedsWarning)
+                {
+                    group.NeedsWarning = false;
+                    group.LastEntry = entry;
+                    group.ReadyAt = Time.time + 0.55f;
+                    PlayHorde(entry);
+                    if (MissionSync.Instance != null)
+                        MissionSync.Instance.HordeRpc(entry);
+                    continue;
+                }
+
+                int batch = spawnSpecials && !group.Calm ? 5 : 1;
+                for (int delivered = 0; delivered < batch && group.Remaining > 0 && threats.Count < maxInfected; delivered++)
+                {
+                    if (delivered > 0 && !TryFindCoveredEntry(group, out entry))
+                        break;
+                    var kind = InfectedKind.Common;
+                    if (group.Special != InfectedKind.Common)
+                    {
+                        if (!SquadUnderPressure() && !NearbySpecial())
+                        {
+                            kind = group.Special;
+                            group.Special = InfectedKind.Common;
+                        }
+                        else if (group.Remaining == 1)
+                        {
+                            // Keep this slot until the previous specialist is out of the fight.
+                            break;
+                        }
+                    }
+                    var arrival = SpawnInfected(entry.x, entry.z,
+                        !group.Calm && group.Remaining % 3 != 1, kind, calm: group.Calm, height: entry.y);
+                    arrival.WaitInEntryCover();
+                    group.Remaining--;
+                }
+                if (group.Remaining == 0)
+                    routes.RemoveAt(index);
+                else
+                    group.ReadyAt = Time.time + (spawnSpecials && !group.Calm ? 0.6f : 0.22f);
             }
-            if (--group.Remaining == 0)
-                routes.RemoveAt(0);
         }
 
-        bool TryFindCoveredEntry(Vector3 near, out Vector3 entry)
+        bool NearbySpecial()
+        {
+            foreach (var active in threats)
+                if (active.Kind is not (InfectedKind.Common or InfectedKind.Brute) && active.Alerted &&
+                    SquadNear(active.transform.position, 18f))
+                    return true;
+            return false;
+        }
+
+        bool TryFindCoveredEntry(Reinforcements group, out Vector3 entry)
         {
             entry = default;
             float best = float.PositiveInfinity;
             entryPath ??= new NavMeshPath();
+            Vector3 anchor = group.Alert && !group.NeedsWarning ? group.LastEntry : group.Near;
             foreach (var pocket in EntryPockets)
             {
-                for (int offset = -1; offset <= 1; offset++)
+                if ((pocket - anchor).sqrMagnitude > 190f)
+                    continue;
+                for (int offset = 0; offset < 5; offset++)
                 {
-                    Vector3 sample = pocket + new Vector3(offset * 0.9f, 0, offset * 0.48f);
+                    Vector3 offsetVector = offset switch
+                    {
+                        1 => new Vector3(-0.82f, 0f, -0.35f),
+                        2 => new Vector3(0.82f, 0f, 0.35f),
+                        3 => new Vector3(0.15f, 0f, -0.85f),
+                        4 => new Vector3(-0.15f, 0f, 0.85f),
+                        _ => Vector3.zero,
+                    };
+                    Vector3 sample = pocket + offsetVector;
                     if (!NavMesh.SamplePosition(sample, out var origin, 0.6f, NavMesh.AllAreas))
                         continue;
-                    float score = (origin.position - near).sqrMagnitude;
-                    if (score >= best || !IsConcealedEntry(origin.position))
-                        continue;
-                    if (!HasApproach(origin.position))
+                    float score = (origin.position - anchor).sqrMagnitude;
+                    if (score >= best || !IsConcealedEntry(origin.position) || !HasApproach(origin.position))
                         continue;
                     best = score;
                     entry = origin.position;
@@ -125,11 +174,24 @@ namespace ResidualSignal
         bool HasApproach(Vector3 entry)
         {
             foreach (var member in SquadMember.All)
-                if (member.Available &&
-                    NavMesh.SamplePosition(member.body.position, out var destination, 1.5f, NavMesh.AllAreas) &&
-                    NavMesh.CalculatePath(entry, destination.position, NavMesh.AllAreas, entryPath) &&
-                    entryPath.status == NavMeshPathStatus.PathComplete)
+            {
+                if (!member.Available || member.body.GetComponent<SurvivorBot>() != null ||
+                    (member.body.position - entry).sqrMagnitude > 784f ||
+                    !NavMesh.SamplePosition(member.body.position, out var destination, 1.5f, NavMesh.AllAreas) ||
+                    !NavMesh.CalculatePath(entry, destination.position, NavMesh.AllAreas, entryPath) ||
+                    entryPath.status != NavMeshPathStatus.PathComplete)
+                    continue;
+                float length = 0f;
+                var corners = entryPath.corners;
+                for (int i = 1; i < corners.Length; i++)
+                    length += Vector3.Distance(corners[i - 1], corners[i]);
+                if (length > 32f || corners.Length < 2)
+                    continue;
+                // Reserve a little hidden runway. The first step must also be behind solid cover.
+                Vector3 next = Vector3.MoveTowards(entry, corners[1], 0.65f);
+                if (IsHiddenFromSquad(next))
                     return true;
+            }
             return false;
         }
 
@@ -138,8 +200,13 @@ namespace ResidualSignal
         public bool IsConcealedEntry(Vector3 entry)
         {
             foreach (var threat in threats)
-                if (threat != null && !threat.Dead && (threat.transform.position - entry).sqrMagnitude < 1.15f)
+                if (threat != null && !threat.Dead && (threat.transform.position - entry).sqrMagnitude < 0.68f)
                     return false;
+            return IsHiddenFromSquad(entry);
+        }
+
+        bool IsHiddenFromSquad(Vector3 entry)
+        {
             foreach (var member in SquadMember.All)
             {
                 if (member.body == null)
@@ -151,13 +218,13 @@ namespace ResidualSignal
                 Vector3 view = member.body == transform ? eyes.transform.position :
                     member.body.position + Vector3.up * (member.down ? 0.55f : 1.65f);
                 foreach (var sample in CoverSamples)
-                    if (!CoveredByMap(view, entry + sample))
+                    if (!CoveredByMap(view, entry + sample, requirePermanentCover: true))
                         return false;
             }
             return true;
         }
 
-        bool CoveredByMap(Vector3 view, Vector3 sample)
+        bool CoveredByMap(Vector3 view, Vector3 sample, bool requirePermanentCover = false)
         {
             Vector3 ray = sample - view;
             int hits = Physics.RaycastNonAlloc(view, ray.normalized, coverHits, ray.magnitude - 0.08f,
@@ -169,9 +236,13 @@ namespace ResidualSignal
                     (collider.attachedRigidbody != null || collider.GetComponentInParent<SurvivorAvatar>() != null ||
                      collider.GetComponentInParent<SurvivorBot>() != null))
                     continue;
-                if (collider.TryGetComponent<Renderer>(out var surface) && surface.enabled &&
-                    surface.sharedMaterial != null && surface.sharedMaterial.renderQueue < 3000)
-                    return true;
+                if (!collider.TryGetComponent<Renderer>(out var surface) || !surface.enabled ||
+                    surface.sharedMaterial == null || surface.sharedMaterial.renderQueue >= 3000)
+                    continue;
+                if (requirePermanentCover && (collider.attachedRigidbody != null ||
+                    collider.bounds.size.y < 1.5f || collider.GetComponentInParent<StationInfected>() != null))
+                    continue;
+                return true;
             }
             return false;
         }

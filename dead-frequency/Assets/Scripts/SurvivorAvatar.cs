@@ -25,6 +25,7 @@ namespace ResidualSignal
 
         public override void OnNetworkSpawn()
         {
+            SquadCollision.Register(GetComponent<Collider>());
             restRotation = rig.transform.localRotation;
             rig.AddClip(idleClip, "idle");
             rig.AddClip(runClip, "run");
@@ -57,6 +58,7 @@ namespace ResidualSignal
 
         public override void OnNetworkDespawn()
         {
+            SquadCollision.Unregister(GetComponent<Collider>());
             if (member != null)
                 SquadMember.All.Remove(member);
             if (Mine == this)

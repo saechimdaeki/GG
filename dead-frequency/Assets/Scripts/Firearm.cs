@@ -31,16 +31,12 @@ namespace ResidualSignal
         [NonSerialized] public bool owned;
         [NonSerialized] public int rounds;
         [NonSerialized] public int reserve;
-        [NonSerialized] public Vector3 rest;
-        [NonSerialized] public Quaternion restRotation;
         [NonSerialized] public Vector3 magazineRest;
         [NonSerialized] public Vector3 slideRest;
         [NonSerialized] public Vector3 supportRest;
 
         public void Prepare()
         {
-            rest = view.localPosition;
-            restRotation = view.localRotation;
             if (magazine != null) magazineRest = magazine.localPosition;
             if (slide != null) slideRest = slide.localPosition;
             if (supportHand != null) supportRest = supportHand.localPosition;

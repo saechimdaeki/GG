@@ -8,14 +8,47 @@ namespace ResidualSignal
     /// <summary>Photographic night look: volumetric haze, AO, grading, moonlight and practical light spill.</summary>
     public static partial class StationSceneBuilder
     {
+        /// <summary>Batch entry: re-grade the global volume only, without rebuilding or touching the scene.</summary>
+        public static void ApplyLook()
+        {
+            var global = AssetDatabase.LoadAssetAtPath<VolumeProfile>($"{SettingsFolder}/StationVolume.asset");
+            ApplyCinematicLook(global);
+            EditorUtility.SetDirty(global);
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>Batch entry, run after Build: recolor the green-white fluorescents in the saved scene to warm white,
+        /// every third to amber, so interiors get warm pools against the cold grade. Idempotent: warm lights no longer match.</summary>
+        public static void WarmInteriorLights()
+        {
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/Scenes/Platform03.unity");
+            var lamps = new System.Collections.Generic.List<Light>();
+            foreach (var light in Object.FindObjectsByType<Light>(FindObjectsInactive.Include))
+            {
+                Color c = light.color;
+                // ponytail: "greenish" = green channel leads; exterior moonlight/street blue (b > g) stays cold.
+                if (light.type != LightType.Directional && c.g >= c.r && c.g >= c.b &&
+                    light.GetComponentInParent<StationTrial>() == null)
+                    lamps.Add(light);
+            }
+            lamps.Sort((a, b) => a.transform.position.z.CompareTo(b.transform.position.z));
+            for (int index = 0; index < lamps.Count; index++)
+            {
+                lamps[index].color = index % 3 == 2 ? new Color(1f, 0.66f, 0.38f) : new Color(1f, 0.9f, 0.76f);
+                EditorUtility.SetDirty(lamps[index]);
+            }
+            Debug.Log($"Warmed {lamps.Count} interior lights.");
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene);
+        }
+
         static void ApplyCinematicLook(VolumeProfile profile)
         {
             var fog = StationVolumeSetting<Fog>(profile);
             fog.enabled.Override(true);
-            fog.meanFreePath.Override(68f);
+            fog.meanFreePath.Override(105f);
             fog.baseHeight.Override(0f);
             fog.maximumHeight.Override(14f);
-            fog.albedo.Override(new Color(0.62f, 0.72f, 0.78f));
+            fog.albedo.Override(new Color(0.63f, 0.74f, 0.81f));
             fog.enableVolumetricFog.Override(true);
             fog.colorMode.Override(FogColorMode.SkyColor);
             fog.mipFogMaxMip.Override(0.6f);
@@ -23,7 +56,7 @@ namespace ResidualSignal
             EditorUtility.SetDirty(fog);
 
             var bloom = StationVolumeSetting<Bloom>(profile);
-            bloom.intensity.Override(0.32f);
+            bloom.intensity.Override(0.24f);
             bloom.scatter.Override(0.78f);
             bloom.threshold.Override(0.9f);
             EditorUtility.SetDirty(bloom);
@@ -39,10 +72,16 @@ namespace ResidualSignal
             contact.length.Override(0.18f);
             EditorUtility.SetDirty(contact);
 
+            // Warm practicals against cold shadows. The tint pulls the fluorescent green cast toward neutral.
+            var balance = StationVolumeSetting<WhiteBalance>(profile);
+            balance.temperature.Override(9f);
+            balance.tint.Override(9f);
+            EditorUtility.SetDirty(balance);
+
             var split = StationVolumeSetting<SplitToning>(profile);
-            split.shadows.Override(new Color(0.43f, 0.49f, 0.51f));
-            split.highlights.Override(new Color(0.72f, 0.58f, 0.42f));
-            split.balance.Override(-18f);
+            split.shadows.Override(new Color(0.34f, 0.44f, 0.64f));
+            split.highlights.Override(new Color(0.78f, 0.56f, 0.34f));
+            split.balance.Override(-8f);
             EditorUtility.SetDirty(split);
 
             // Lift shadows toward the reference's mid-grey night (median ~48/255) without clipping the signs.
@@ -52,11 +91,13 @@ namespace ResidualSignal
             EditorUtility.SetDirty(lgg);
             var adjust = StationVolumeSetting<ColorAdjustments>(profile);
             adjust.postExposure.Override(PostExposure);
-            adjust.contrast.Override(0f);
+            adjust.contrast.Override(22f);
+            adjust.saturation.Override(2f);
+            adjust.colorFilter.Override(new Color(1f, 0.985f, 0.97f));
             EditorUtility.SetDirty(adjust);
 
             var vignette = StationVolumeSetting<Vignette>(profile);
-            vignette.intensity.Override(0.10f);
+            vignette.intensity.Override(0.26f);
             vignette.smoothness.Override(0.45f);
             EditorUtility.SetDirty(vignette);
 
@@ -67,7 +108,7 @@ namespace ResidualSignal
             EditorUtility.SetDirty(grain);
 
             var lens = StationVolumeSetting<ChromaticAberration>(profile);
-            lens.intensity.Override(0.06f);
+            lens.intensity.Override(0.025f);
             EditorUtility.SetDirty(lens);
         }
 

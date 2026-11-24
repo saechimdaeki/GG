@@ -31,3 +31,17 @@
 - 해림역 동료의 남색·적갈색 작업복은 Rocketbox 구조대 원본의 직물 색을 바꾸고 반사띠와 소매 패치를 보존한 파생 텍스처다. 투명 면창을 적용했다.
 
 Microsoft Rocketbox 원본의 저작권 및 라이선스 전문은 [MIT 라이선스](licenses/rocketbox-mit.txt)를 참고하세요.
+
+- 1인칭 장갑과 거대체 피부의 미세 노멀에는 Rob Tuytel의 [Fabric Leather 01](https://polyhaven.com/a/fabric_leather_01)을 사용했다. 구조대 작업복과 일반 감염체 의복은 Rico Cilliers·colormass의 [Rough Linen](https://polyhaven.com/a/rough_linen) 노멀을 HDRP 디테일 맵으로 재패킹했다. 둘 다 Poly Haven CC0다. 손목 마감과 구조대 무전기 메시를 프로젝트에서 제작했다.
+
+- 덮치개, 부풀이, 끌개, 울음꾼은 각각 vinish.dev의 Zombie Runner, Bloated Zombie, Rotten Zombie, Zombie Office Worker를 사용한다. 출처 [Free Zombie 3D Models](https://vinish.dev/free-3d-models/zombies), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Unity GLB 임포트 호환을 위해 메시를 재질 단위로 나눴고, 키와 자세를 게임에 맞췄다.
+
+- 일반 감염체 4종(Zombiegirl, Copzombie, Warzombie, Parasite)과 좀비 모션 36개(Scary Zombie Pack, Not So Scary Zombie Pack)는 Adobe [Mixamo](https://www.mixamo.com) 에셋이다. 게임에 넣어 배포하는 것은 무료로 허용되지만, 원본 FBX를 따로 재배포하는 것은 허용되지 않는다. 저장소를 공개로 바꾸기 전에 `Assets/Art/Models/Mixamo/`를 빼야 한다. FBX의 내장 텍스처를 추출해 HDRP 재질로 다시 만들었다.
+- 벽 주변 잡동사니는 Poly Haven CC0 모델이다: barrel_03, barrel_stove, cardboard_box_01, cement_bag, metal_trash_can, plastic_crate_01, plastic_crate_03, metal_jerrycan, old_military_crate, wooden_crate_02, compost_bags, modular_industrial_pipes_01, can_rusted, plastic_monobloc_chair_01, tool_cart, utility_box_02 (1K FBX, https://polyhaven.com/models). 벽 그을음 데칼 텍스처는 프로젝트에서 노이즈로 생성했다.
+- 역 표면 재질은 Poly Haven CC0 2K 텍스처로 교체했다: dirty_tiles(역 벽), concrete_wall_006(천장), concrete_floor_worn_001(정비동), dirty_concrete(광장 외벽), worn_tile_floor(실내 바닥), metal_plate_02(기둥·철골), rusty_metal_02(외부 철재). 월드 좌표 트라이플래너로 매핑했다 (https://polyhaven.com/textures).
+- 천장 보, 배관(녹슨 본관·노란 가스관·빨간 스프링클러관), 케이블 트레이는 프로젝트에서 기본 도형과 위 Poly Haven 철재 텍스처로 만들었다. 매단 안내판(비상구·승강장·2번 출구), 생존자 낙서 5종, 실종자·대피 포스터 2종의 텍스처는 프로젝트에서 생성했다. 글자는 Kil Hyung-jin의 [Pretendard](https://github.com/orioncactus/pretendard) (SIL Open Font License 1.1)로 그렸다. 폰트 파일은 저장소에 넣지 않았다.
+- 벽 설비(배전함·환기구·화재벨·배관 드롭), 철망 벽등, 피 얼룩·손자국·혈흔·끌린 자국, 종이 쓰레기, 물웅덩이, 먼지 입자 텍스처는 모두 프로젝트에서 절차적으로 생성했다.
+- 동료 3명(민호·수아·태식)은 Adobe Mixamo 캐릭터 Leonard, Megan, Swat Guy이고, 걷기·달리기·대기 모션은 Mixamo Pro Rifle Pack이다. 원본 FBX는 저장소에 넣지 않았다. 메시는 Unity .asset으로, 텍스처는 PNG로 추출해서 넣었다. 소총 클립은 뼈 이름 접두사를 `mixamorig:`로 맞춘 .anim 사본이다.
+- 동료 소총의 주황색 목재 텍스처는 같은 원본에서 색만 어두운 호두나무색으로 바꾼 파생 텍스처다.
+- 역 안의 책상·총기 탁자·창구·상자 더미는 Poly Haven CC0 모델로 교체했다: metal_office_desk, wooden_table_02, drawer_cabinet, wooden_military_crate, wooden_crate_01, portable_generator (1K FBX).
+- 특수 감염체와 보스도 Adobe Mixamo 캐릭터로 바꿨다: 덮치개 Prisoner B Styperek, 끌개 Skeletonzombie T Avelange, 부풀이 Pumpkinhulk L Shaw, 울음꾼 Girlscout T Masuyama, 적재장 거대체 Mutant. 보스 모션은 Mixamo Creature Pack이다. 원본 FBX는 저장소에 넣지 않았고, 메시 .asset과 추출한 텍스처만 넣었다.

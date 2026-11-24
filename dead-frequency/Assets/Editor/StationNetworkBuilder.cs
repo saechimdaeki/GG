@@ -31,6 +31,12 @@ namespace ResidualSignal
             list.Add(new NetworkPrefab { Prefab = avatar });
             foreach (var path in Directory.GetFiles("Assets/Prefabs", "InfectedCivilian*.prefab"))
                 list.Add(new NetworkPrefab { Prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path) });
+            foreach (string kind in new[] { "Leaper", "Dragger", "Bloater", "Caller" })
+            {
+                var alternate = Resources.Load<GameObject>($"ResidualSignal/Infected/{kind}");
+                if (alternate != null)
+                    list.Add(new NetworkPrefab { Prefab = alternate });
+            }
             AssetDatabase.CreateAsset(list, listPath);
 
             var node = new GameObject("Network", typeof(NetworkManager), typeof(UnityTransport), typeof(SessionMenu));
@@ -90,6 +96,7 @@ namespace ResidualSignal
             player.playAutomatically = false;
             player.cullingType = AnimationCullingType.AlwaysAnimate;
             var walk = ImportLegacyClip(RescuerFolder + "walk.fbx");
+            AddRescuerKit(root.transform);
             botPrefab = RescuerBot(root, player, idle, walk, run);
             root.AddComponent<NetworkObject>();
             var survivor = new SerializedObject(root.AddComponent<SurvivorAvatar>());
@@ -112,7 +119,7 @@ namespace ResidualSignal
             var agent = copy.AddComponent<UnityEngine.AI.NavMeshAgent>();
             agent.height = 1.8f;
             agent.radius = 0.3f;
-            // Infected and the player can still bump into a bot.
+            // Keep physical contact with infected; allied pairs are ignored at runtime.
             var bump = copy.AddComponent<CapsuleCollider>();
             bump.height = 1.8f;
             bump.radius = 0.28f;
