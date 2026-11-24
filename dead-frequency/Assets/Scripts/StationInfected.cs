@@ -20,6 +20,8 @@ namespace ResidualSignal
         [Tooltip("Optional swing; without it the arms are swung procedurally.")]
         [SerializeField] AnimationClip attackClip;
         [SerializeField] AnimationClip bossSlamClip;
+        /// <summary>Optional stagger played over locomotion when a round lands (Mixamo bodies).</summary>
+        [SerializeField] AnimationClip hitClip;
         [SerializeField] bool bespokeBoss;
         [SerializeField] float speed = 2.6f;
         [Tooltip("Alerted commons sprint at this speed (m/s).")]
@@ -134,6 +136,12 @@ namespace ResidualSignal
             {
                 rig.AddClip(bossSlamClip, "slam");
                 rig["slam"].wrapMode = WrapMode.Once;
+            }
+            if (hitClip != null)
+            {
+                rig.AddClip(hitClip, "hit");
+                rig["hit"].wrapMode = WrapMode.Once;
+                rig["hit"].speed = 1.6f;
             }
             nextGroan = Time.time + Random.Range(1f, 6f);
         }
@@ -306,7 +314,8 @@ namespace ResidualSignal
 
         void Locomotion(float pace)
         {
-            if ((attackClip != null && rig.IsPlaying("attack")) || (bossSlamClip != null && rig.IsPlaying("slam")))
+            if ((attackClip != null && rig.IsPlaying("attack")) || (bossSlamClip != null && rig.IsPlaying("slam")) ||
+                (hitClip != null && rig.IsPlaying("hit")))
                 return;
             string clip = pace < 0.25f && idleClip != null ? "idle" :
                 runClip != null && pace > 2.1f && Alerted ? "run" : "walk";
@@ -800,6 +809,8 @@ namespace ResidualSignal
             if (IsSpawned)
                 ReactRpc(point, direction, damage);
             stagger = kind == InfectedKind.Brute ? 0f : damage >= 60 ? 0.33f : 0.2f;
+            if (!Dead && hitClip != null && damage >= 20)
+                rig.CrossFade("hit", 0.05f);
             if (!Dead && kind != InfectedKind.Brute)
                 hitRecoil = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * Mathf.Clamp(damage * 0.056f, 1.3f, 4.1f);
             if (kind != InfectedKind.Brute)

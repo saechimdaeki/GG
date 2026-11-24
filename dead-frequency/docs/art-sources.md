@@ -35,3 +35,5 @@ Microsoft Rocketbox 원본의 저작권 및 라이선스 전문은 [MIT 라이�
 - 1인칭 장갑과 거대체 피부의 미세 노멀에는 Rob Tuytel의 [Fabric Leather 01](https://polyhaven.com/a/fabric_leather_01)을 사용했다. 구조대 작업복과 일반 감염체 의복은 Rico Cilliers·colormass의 [Rough Linen](https://polyhaven.com/a/rough_linen) 노멀을 HDRP 디테일 맵으로 재패킹했다. 둘 다 Poly Haven CC0다. 손목 마감과 구조대 무전기 메시를 프로젝트에서 제작했다.
 
 - 덮치개, 부풀이, 끌개, 울음꾼은 각각 vinish.dev의 Zombie Runner, Bloated Zombie, Rotten Zombie, Zombie Office Worker를 사용한다. 출처 [Free Zombie 3D Models](https://vinish.dev/free-3d-models/zombies), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Unity GLB 임포트 호환을 위해 메시를 재질 단위로 나눴고, 키와 자세를 게임에 맞췄다.
+
+- 일반 감염체 4종(Zombiegirl, Copzombie, Warzombie, Parasite)과 좀비 모션 36개(Scary Zombie Pack, Not So Scary Zombie Pack)는 Adobe [Mixamo](https://www.mixamo.com) 에셋이다. 게임에 넣어 배포하는 것은 무료로 허용되지만, 원본 FBX를 따로 재배포하는 것은 허용되지 않는다. 저장소를 공개로 바꾸기 전에 `Assets/Art/Models/Mixamo/`를 빼야 한다. FBX의 내장 텍스처를 추출해 HDRP 재질로 다시 만들었다.

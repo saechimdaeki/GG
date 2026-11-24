@@ -323,7 +323,10 @@ namespace ResidualSignal
             if (Authority)
             {
                 if (spawnSpecials)
+                {
                     RunDirector();
+                    RunPacing();
+                }
                 DeliverReinforcements();
             }
             if (Authority && phase == Phase.FindTerminal && !routeEncounterStarted && SquadFurthestZ() > 9.4f)
@@ -988,6 +991,8 @@ namespace ResidualSignal
             {
                 kills++;
                 killUntil = Time.time + 0.45f;
+                if ((point - transform.position).sqrMagnitude < 25f)
+                    AddPacingStress(0.1f);
                 killRecoilHoldUntil = Time.time + 0.045f;
                 tick = ShotFeedback.KillTick;
                 shake = Mathf.Max(shake, 1.4f);
@@ -1369,6 +1374,7 @@ namespace ResidualSignal
                 return;
             health = Mathf.Max(0, health - damage);
             damageFlash = 0.38f;
+            AddPacingStress(damage / 40f);
             if (health > 0)
                 return;
             if (!Networked && SurvivorBot.All.Count == 0)

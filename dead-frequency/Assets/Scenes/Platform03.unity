@@ -133276,6 +133276,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f015a937d86084d8bb3cf1d5945bb603, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ResidualSignal.StationTrial
+  mobIntervalMin: 40
+  mobIntervalMax: 70
+  relaxSeconds: 30
+  peakSeconds: 4
+  stressDecayPerSecond: 0.05
+  mobBaseSize: 6
   freightDoor: {fileID: 1834886124}
   freightPower: {fileID: 959366039}
   freightGate: {fileID: 838481277}
@@ -133403,12 +133409,10 @@ MonoBehaviour:
   infectedPrefab: {fileID: 1211326689261862941, guid: 6ff178b2f4dc9488e9269bbe3f901ae5, type: 3}
   bossPrefab: {fileID: 6895841785876146370, guid: 4f08e4f47627d4db0bb6a9f30199aa89, type: 3}
   commonPrefabs:
-  - {fileID: 258743897666412560, guid: 5d3b16ab0935244bbbd99adc2977c748, type: 3}
-  - {fileID: 1117506900537623905, guid: 14672a1ac684f4d0d8daa72fac6178a3, type: 3}
-  - {fileID: 8180960718605829654, guid: a6593e21e5cdf468aaa670bf136d94ed, type: 3}
-  - {fileID: 2327387700821238612, guid: f2acb26f08a8d4bcabff28570aadd377, type: 3}
-  - {fileID: 3272280321262848755, guid: 6cba5603f808c4479b4b5f864aea1b6f, type: 3}
-  - {fileID: 7216012246488663140, guid: 60aea36153ee94abebeabc7b2e59e2f7, type: 3}
+  - {fileID: 2533196214938284555, guid: cf786679af3124e43a91c884de50d649, type: 3}
+  - {fileID: 4066758561838228204, guid: 945874e9d80874c0ea1f0c2926d9075d, type: 3}
+  - {fileID: 523397596933336766, guid: c3412e76107554752ac3806b85aec7ed, type: 3}
+  - {fileID: 1894242044390002796, guid: 59ba32d4d700e440b88f4aedef935ce4, type: 3}
   shoveSound: {fileID: 8300000, guid: 728699b3778d245579bfac65556e1c03, type: 3}
   fleshSound: {fileID: 8300000, guid: af04e1713cd894a038913322a6d9c960, type: 3}
   hordeSound: {fileID: 8300000, guid: 9f9f68aac92e34a6f86a48380c341f24, type: 3}
