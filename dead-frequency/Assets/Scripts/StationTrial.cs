@@ -160,6 +160,15 @@ namespace ResidualSignal
         public int PhaseIndex => (int)phase;
         public bool DrainRoute => drainSelected;
         public StationWitness Witness => witness;
+        public Transform Eyes => eyes.transform;
+        public bool FlashlightOn => flashlight.enabled;
+
+        /// <summary>Hand an infected spawned outside the director (the weeper, once startled) to the squad's target list.</summary>
+        public void TrackThreat(StationInfected infected)
+        {
+            if (!threats.Contains(infected))
+                threats.Add(infected);
+        }
         SquadMember self;
         float reviveProgress;
         const float ShoveDuration = 0.4f;
@@ -237,6 +246,7 @@ namespace ResidualSignal
             if (item.kind == LootItem.Kind.Medkit)
             {
                 Heal(60);
+                OnMedkit();
                 Signal("구급상자를 썼다", 2.5f);
             }
             else
@@ -282,6 +292,7 @@ namespace ResidualSignal
                         hd.volumetricDimmer = 0.15f;
                 }
             }
+            EnableRenderScale();
             baseFov = eyes.fieldOfView;
             // Scaling camera-space x/y by tan(fov/2)/tan(vmFov/2) renders exactly like a second, narrower camera.
             viewLens = new GameObject("Viewmodel lens").transform;
@@ -293,6 +304,8 @@ namespace ResidualSignal
             flashlight.innerSpotAngle = 16f;
             flashlight.range = 22f;
             flashlight.intensity = 650f;
+            // Left 4 Dead's flashlight throws moving shadows of every infected across the walls.
+            flashlight.shadows = LightShadows.Soft;
             arsenal[0].owned = true;
             Equip(0);
             health = 100;
@@ -318,6 +331,9 @@ namespace ResidualSignal
                 return;
             UpdateWeapon();
             UpdateHolds();
+            UpdateBlackAndWhite();
+            UpdateWeeperHint();
+            UpdatePerfLog();
             aimedAtInfected = InCombat && FindAimTarget(out _, out _);
             if (activeGate != null)
                 activeGate.position = Vector3.MoveTowards(activeGate.position, raisedGatePosition, shutterSpeed * Time.deltaTime);
@@ -344,7 +360,11 @@ namespace ResidualSignal
                 nextWave -= Time.deltaTime;
                 if (nextWave <= 0 && countdown > 5f)
                     SpawnWave();
-                if (countdown <= 0)
+                if (Surviving)
+                    UpdateSurvival();
+                else if (Scavenging)
+                    UpdateScavenge();
+                else if (countdown <= 0)
                 {
                     routes.Clear();
                     SetPhase(Phase.FindWitness);
@@ -423,7 +443,7 @@ namespace ResidualSignal
             foreach (var member in SquadMember.All)
                 if (member.held && member.body != null)
                     return false;
-            specialAttackAvailableAt = Time.time + (SquadUnderPressure() ? 4.5f : 2.8f);
+            specialAttackAvailableAt = Time.time + (SquadUnderPressure() ? 4.5f : 2.8f) * Difficulty.SpecialCooldown;
             return true;
         }
 
@@ -455,6 +475,8 @@ namespace ResidualSignal
             if (!ambientSpawned && phase == Phase.ReceiveSignal)
             {
                 ambientSpawned = true;
+                // Chapter and survival starts move the squad before the bots spawn beside the player.
+                PlaceForMission();
                 if (!Networked && botPrefab != null)
                     for (int slot = 0; slot < 3; slot++)
                     {
@@ -469,6 +491,7 @@ namespace ResidualSignal
                     }
                 if (!initialPopulationPrepared)
                     QueueReinforcements(5, transform.position, false, calm: true);
+                BeginMission();
             }
             if (!cordonDisturbed && phase == Phase.ReceiveSignal && SquadFurthestZ() > -7.3f)
             {
@@ -533,7 +556,7 @@ namespace ResidualSignal
         }
 
         float PreparationTime => Mathf.Min(preparationSeconds, shutterDelay * 0.25f);
-        public bool PreparingDefense => phase == Phase.Opening && countdown > shutterDelay - PreparationTime;
+        public bool PreparingDefense => phase == Phase.Opening && !Surviving && !Scavenging && countdown > shutterDelay - PreparationTime;
 
 
         /// <summary>The scream that tells you a horde is coming.</summary>
@@ -704,7 +727,7 @@ namespace ResidualSignal
             verticalSpeed = player.isGrounded ? -2f : verticalSpeed - gravity * Time.deltaTime;
             bool wading = drainSelected && transform.position.x < -1.1f &&
                 transform.position.z >= 8.9f && transform.position.z <= 13.95f;
-            float pace = (wading ? 0.72f : 1f) * Mathf.Lerp(1f, 0.78f, aimBlend);
+            float pace = (wading ? 0.72f : 1f) * (carrying != null ? 0.8f : 1f) * Mathf.Lerp(1f, 0.78f, aimBlend);
             Vector3 before = transform.position;
             player.Move((horizontal * (movementSpeed * pace) + Vector3.up * verticalSpeed) * Time.deltaTime);
             Vector3 travel = transform.position - before;
@@ -735,17 +758,9 @@ namespace ResidualSignal
                     MissionSync.Instance?.RequestInteractRpc(transform.position);
                 return true;
             }
-            if (TryRevive() || TryLoot() || TryPickUp())
+            if (TryScavenge() || TryRevive() || TryLoot() || TryPickUp())
                 return true;
-            if (tookSupply || !Nearby(supply))
-                return false;
-            tookSupply = true;
-            foreach (var gun in arsenal)
-                gun.reserve += gun.capacity * 2;
-            health = Mathf.Min(100, health + 30);
-            supply.gameObject.SetActive(false);
-            Signal("보급함 · 탄약 보충, 응급처치", 4f);
-            return true;
+            return TrySupply();
         }
 
         /// <summary>Checks (and with <paramref name="apply"/>, performs on the authority) the shared mission step for a survivor at <paramref name="at"/>.</summary>
@@ -870,10 +885,12 @@ namespace ResidualSignal
                     StartFreightBeat(next);
                     break;
                 case Phase.Complete:
-                    Signal("구조 완료 · 다음 신호: 7번 환기구", 12f);
+                    if (!Scavenging)
+                        Signal("구조 완료 · 다음 신호: 7번 환기구", 12f);
                     SetCapture(false);
                     break;
                 case Phase.Failed:
+                    EndSurvival();
                     SetCapture(false);
                     break;
             }
@@ -902,7 +919,7 @@ namespace ResidualSignal
         public bool TryFire()
         {
             var gun = Current;
-            if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt ||
+            if (pinnedBy != null || Downed || carrying != null || launchedByImpact || Time.time < knockLandingAt ||
                 phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
                 Time.time < nextShotAt)
                 return false;
@@ -924,6 +941,11 @@ namespace ResidualSignal
             if (gun.pellets == 1 && !gun.pierces)
             {
                 Vector3 traceEnd = eyes.transform.position + eyes.transform.forward * range;
+                if (TryFriendlyFire(eyes.transform.position, eyes.transform.forward, gun.damage, out Vector3 friendly))
+                {
+                    ShotFeedback.Trace(gun.muzzle.transform.position, friendly);
+                    return true;
+                }
                 if (FindAimTarget(out StationInfected infected, out Vector3 hitPoint))
                 {
                     Damage(infected, hitPoint, gun.damage);
@@ -955,6 +977,12 @@ namespace ResidualSignal
                     var infected = aimHits[index].collider.GetComponent<StationInfected>();
                     if (infected == null)
                     {
+                        var mate = Difficulty.FriendlyFire > 0f ? aimHits[index].collider.GetComponentInParent<SurvivorBot>() : null;
+                        if (mate != null && !mate.Down)
+                        {
+                            mate.TakeFriendlyFire(Mathf.Max(1, Mathf.RoundToInt(gun.damage * Difficulty.FriendlyFire)));
+                            break;
+                        }
                         // Wall or prop stops the round. Only bare geometry gets a hole; corpses and limbs don't.
                         if (IsImpactSurface(aimHits[index].collider))
                             ShotFeedback.Impact(aimHits[index].point, aimHits[index].normal);
@@ -1338,6 +1366,8 @@ namespace ResidualSignal
             bool calm = false, float height = 0.03f)
         {
             var prefab = InfectedModel(kind);
+            lastSpawnKind = $"{kind}/{prefab.name}";
+            lastSpawnAt = Time.time;
             var infected = Instantiate(prefab, new Vector3(x, height, z), Quaternion.Euler(0, Random.Range(0, 360f), 0));
             infected.Follow(this, runner, kind, calm);
             if (Networked)
@@ -1378,11 +1408,21 @@ namespace ResidualSignal
                 return;
             if (Downed)
                 return;
+            damage = Difficulty.Hurt(damage);
+            // ponytail: -perfLog runs are unattended frame-time soaks; the player must outlive them.
+            if (PerfLog)
+                damage = 0;
             health = Mathf.Max(0, health - damage);
             damageFlash = 0.38f;
             AddPacingStress(damage / 40f);
             if (health > 0)
                 return;
+            if (FallIsFatal())
+            {
+                Signal("흑백 상태에서 쓰러졌다 · 사망", 6f);
+                SetPhase(Phase.Failed);
+                return;
+            }
             if (!Networked && SurvivorBot.All.Count == 0)
             {
                 SetPhase(Phase.Failed);
@@ -1403,7 +1443,8 @@ namespace ResidualSignal
             if (!Downed)
                 return;
             Downed = false;
-            health = 40;
+            health = Difficulty.ReviveTo;
+            OnRevived();
             Signal("다시 일어났다", 3f);
             SurvivorAvatar.Mine?.ReportDowned(false);
         }
@@ -1463,11 +1504,13 @@ namespace ResidualSignal
                 _ => null
             };
             if (mission != null) return mission;
+            string fuel = ScavengePrompt();
+            if (fuel != null) return fuel;
             var loot = NearbyLoot();
             if (loot != null) return $"E · {loot.Label}";
             var pickup = NearbyPickup();
             if (pickup != null) return $"E · {arsenal[pickup.arsenalIndex].label} 줍기";
-            if (!tookSupply && Nearby(supply)) return "E · 보급함 열기";
+            if (SupplyReady && Nearby(supply)) return tookSupply ? "E · 탄약 보충" : "E · 보급함 열기";
             if (InCombat && reloadUntil <= 0 && Current.rounds == 0 && Current.reserve > 0) return "R · 재장전";
             if (aimedAtInfected && !Networked && SurvivorBot.All.Count > 0 && FocusTarget == null)
                 return "Q · 분대 집중 사격";
@@ -1529,9 +1572,14 @@ namespace ResidualSignal
                 Panel(new Rect(0, 0, width, height), new Color(0, 0.02f, 0.025f, 0.73f));
                 Panel(new Rect(center - 218, top, 436, 204), HudSurface);
                 Panel(new Rect(center - 218, top, 436, 3), HudAccent);
-                Text(new Rect(center - 194, top + 18, 388, 28), "열한 번째 이름  /  3번 승강장", smallLabel);
-                Text(new Rect(center - 194, top + 53, 388, 54), phase == Phase.Complete ? "구조 완료" : "구조 실패", new GUIStyle(caption) { fontSize = 42, fontStyle = FontStyle.Bold });
-                Text(new Rect(center - 194, top + 115, 388, 26), phase == Phase.Complete ? $"서이경 이송 완료   ·   내 처치 {kills}" : $"구조팀 통신 두절   ·   내 처치 {kills}", smallLabel);
+                Text(new Rect(center - 194, top + 18, 388, 28), $"{Difficulty.MissionTitle}  /  {Difficulty.LevelName}", smallLabel);
+                string verdict = Surviving ? Difficulty.Medal(SurvivalSeconds) : phase == Phase.Complete ? "구조 완료" : "구조 실패";
+                if (Scavenging)
+                    verdict = phase == Phase.Complete ? "발전기 가동" : "연료 부족";
+                string detail = Scavenging ? $"연료 {poured}/{cansNeeded}   ·   내 처치 {kills}" : Surviving ? $"버틴 시간 {SurvivalClock}   ·   내 처치 {kills}" :
+                    phase == Phase.Complete ? $"서이경 이송 완료   ·   내 처치 {kills}" : $"구조팀 통신 두절   ·   내 처치 {kills}";
+                Text(new Rect(center - 194, top + 53, 388, 54), verdict, new GUIStyle(caption) { fontSize = 42, fontStyle = FontStyle.Bold });
+                Text(new Rect(center - 194, top + 115, 388, 26), detail, smallLabel);
                 Text(new Rect(center - 194, top + 157, 388, 27), "Enter  ·  브리핑으로", smallLabel);
                 return;
             }
@@ -1551,7 +1599,11 @@ namespace ResidualSignal
             if (prompt != null)
                 DrawPrompt(width * 0.5f, height * 0.5f + 76, prompt);
 
-            if (phase is Phase.Opening or Phase.TransferDefense)
+            if (Surviving)
+                DrawSurvivalTimer();
+            else if (Scavenging)
+                DrawScavengeTimer();
+            else if (phase is Phase.Opening or Phase.TransferDefense)
                 DrawShutterTimer();
 
             if (Time.time < radioUntil && alert == null)

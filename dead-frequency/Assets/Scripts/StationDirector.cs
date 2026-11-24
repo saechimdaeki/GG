@@ -22,7 +22,8 @@ namespace ResidualSignal
         {
             if (SessionMenu.Blocking)
                 return;
-            pacing ??= new PacingDirector(mobIntervalMin, mobIntervalMax, relaxSeconds, peakSeconds,
+            pacing ??= new PacingDirector(mobIntervalMin * Difficulty.MobInterval, mobIntervalMax * Difficulty.MobInterval,
+                relaxSeconds * Difficulty.MobInterval, peakSeconds,
                 stressDecayPerSecond, System.Environment.TickCount);
             if (SquadUnderPressure())
                 pacing.AddStress(1f);

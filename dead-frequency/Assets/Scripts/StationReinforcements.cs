@@ -54,6 +54,9 @@ namespace ResidualSignal
 
         void QueueReinforcements(int count, Vector3 near, bool alert, InfectedKind special = InfectedKind.Common, bool calm = false)
         {
+            // Calm population and scripted single specials stay as authored; hordes grow with difficulty.
+            if (!calm)
+                count = Difficulty.Horde(count);
             routes.Add(new Reinforcements
             {
                 Remaining = count, Near = near, Alert = alert, Calm = calm, Special = special,

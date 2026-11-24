@@ -245,7 +245,22 @@ namespace ResidualSignal
             Hurt(amount);
         }
 
-        void Hurt(int amount)
+        void Hurt(int amount) => Wound(Difficulty.Hurt(amount));
+
+        float nextFriendlyComplaint;
+
+        /// <summary>The player shot this bot (Advanced/Expert friendly fire); damage is already scaled.</summary>
+        public void TakeFriendlyFire(int amount)
+        {
+            if (Time.time >= nextFriendlyComplaint)
+            {
+                nextFriendlyComplaint = Time.time + 4f;
+                Say("아군이야! 조준 똑바로 해!", true);
+            }
+            Wound(amount);
+        }
+
+        void Wound(int amount)
         {
             if (Down)
                 return;
@@ -528,7 +543,7 @@ namespace ResidualSignal
                     {
                         taskTimer = 0;
                         hasMedkit = false;
-                        leader.Heal(50);
+                        leader.MedkitHeal(50);
                         Say("됐어, 붕대 감았어.", true);
                         task = Task.Roam;
                     }
@@ -641,7 +656,9 @@ namespace ResidualSignal
             if (!Down && hips != null)
             {
                 Vector3 drift = Vector3.ProjectOnPlane(hips.position - transform.position, Vector3.up);
-                rig.transform.position -= Vector3.ClampMagnitude(drift, 0.40f);
+                // The Mixamo walk and run clips travel 1.4 m and 2.4 m per loop. Pin the hips over the agent fully;
+                // a partial pull let the body slide ahead and snap back every loop, which read as teleporting.
+                rig.transform.position -= drift;
             }
             if (rifle == null || stock == null || triggerGrip == null || supportGrip == null)
                 return;
@@ -771,7 +788,7 @@ namespace ResidualSignal
                 return;
             Vector3 point = aim.transform.position + Vector3.up * Random.Range(1.0f, 1.6f);
             float damageScale = aim.Kind == InfectedKind.Brute ? 0.45f : 1f;
-            aim.Hit(Mathf.RoundToInt(damage * damageScale * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
+            aim.Hit(Mathf.RoundToInt(damage * damageScale * Difficulty.BotDamage * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
                 point - (transform.position + Vector3.up * 1.5f));
         }
 
