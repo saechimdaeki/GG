@@ -22,6 +22,38 @@ namespace ResidualSignal
         [SerializeField] AnimationClip bossSlamClip;
         /// <summary>Optional stagger played over locomotion when a round lands (Mixamo bodies).</summary>
         [SerializeField] AnimationClip hitClip;
+        [Header("Motion variety (Mixamo bodies)")]
+        [SerializeField] AnimationClip[] idleVariants;
+        [SerializeField] AnimationClip[] walkVariants;
+        [SerializeField] AnimationClip[] runVariants;
+        [SerializeField] AnimationClip[] attackVariants;
+        [SerializeField] AnimationClip[] hitVariants;
+        /// <summary>Some commons scream when they first spot the squad, rooted until it ends.</summary>
+        [SerializeField] AnimationClip screamClip;
+        /// <summary>Some calm commons lie on the floor and get up when alerted.</summary>
+        [SerializeField] AnimationClip riseClip;
+        [SerializeField] AnimationClip crawlClip;
+        [SerializeField] AnimationClip crawlRunClip;
+        [SerializeField, Range(0f, 1f)] float screamChance = 0.35f;
+        [SerializeField, Range(0f, 1f)] float lyingChance = 0.3f;
+        [SerializeField, Range(0f, 1f)] float crawlerChance = 0.1f;
+        float holdUntil;
+        bool lyingDown;
+        bool crawler;
+
+        static AnimationClip Pick(AnimationClip[] pool, AnimationClip fallback) =>
+            pool != null && pool.Length > 0 ? pool[Random.Range(0, pool.Length)] : fallback;
+
+        void SwapClip(string name, AnimationClip clip, WrapMode wrap, float speed = 1f)
+        {
+            if (clip == null)
+                return;
+            if (rig.GetClip(name) != null)
+                rig.RemoveClip(name);
+            rig.AddClip(clip, name);
+            rig[name].wrapMode = wrap;
+            rig[name].speed = speed;
+        }
         [SerializeField] bool bespokeBoss;
         [SerializeField] float speed = 2.6f;
         [Tooltip("Alerted commons sprint at this speed (m/s).")]
@@ -115,6 +147,12 @@ namespace ResidualSignal
             physique = GetComponent<InfectedBody>();
             if (physique == null)
                 physique = gameObject.AddComponent<InfectedBody>();
+            // Each body keeps one gait for its life, so a crowd shuffles, creeps and lurches differently.
+            idleClip = Pick(idleVariants, idleClip);
+            walkClip = Pick(walkVariants, walkClip);
+            runClip = Pick(runVariants, runClip);
+            SwapClip("scream", screamClip, WrapMode.Once, 1.3f);
+            SwapClip("rise", riseClip, WrapMode.ClampForever, 1.4f);
             rig.AddClip(walkClip, "walk");
             rig["walk"].wrapMode = WrapMode.Loop;
             if (runClip != null)
@@ -173,6 +211,19 @@ namespace ResidualSignal
             if (IsSpawned)
                 netAlerted.Value = true;
             Voice(screams, 0.9f);
+            if (lyingDown)
+            {
+                lyingDown = false;
+                rig["rise"].time = 0f;
+                rig["rise"].speed = 1.4f;
+                rig.Play("rise");
+                holdUntil = Time.time + rig["rise"].length / 1.4f;
+            }
+            else if (screamClip != null && kind == InfectedKind.Common && !crawler && Random.value < screamChance)
+            {
+                rig.Play("scream");
+                holdUntil = Time.time + rig["scream"].length / 1.3f;
+            }
         }
 
         void Voice(AudioClip[] pool, float volume)
@@ -220,6 +271,26 @@ namespace ResidualSignal
             netKind.Value = (byte)special;
             netRunner.Value = isRunner;
             Dress(isRunner, special);
+            // ponytail: solo only; online these would need their own synced flags.
+            if (special == InfectedKind.Common && !StationTrial.Networked)
+            {
+                if (crawlClip != null && Random.value < crawlerChance)
+                {
+                    crawler = true;
+                    SwapClip("walk", crawlClip, WrapMode.Loop);
+                    SwapClip("run", crawlRunClip != null ? crawlRunClip : crawlClip, WrapMode.Loop);
+                    body.height = 0.8f;
+                    body.center = new Vector3(0f, 0.4f, 0f);
+                    rig.Play("walk");
+                }
+                else if (calm && riseClip != null && Random.value < lyingChance)
+                {
+                    lyingDown = true;
+                    rig["rise"].time = 0f;
+                    rig["rise"].speed = 0f;
+                    rig.Play("rise");
+                }
+            }
             health = kind switch
             {
                 InfectedKind.Leaper => 220,
@@ -315,7 +386,7 @@ namespace ResidualSignal
         void Locomotion(float pace)
         {
             if ((attackClip != null && rig.IsPlaying("attack")) || (bossSlamClip != null && rig.IsPlaying("slam")) ||
-                (hitClip != null && rig.IsPlaying("hit")))
+                (hitClip != null && rig.IsPlaying("hit")) || lyingDown || Time.time < holdUntil)
                 return;
             string clip = pace < 0.25f && idleClip != null ? "idle" :
                 runClip != null && pace > 2.1f && Alerted ? "run" : "walk";
@@ -325,6 +396,8 @@ namespace ResidualSignal
 
         void PlayAttack()
         {
+            if (attackVariants != null && attackVariants.Length > 0 && !crawler)
+                SwapClip("attack", Pick(attackVariants, attackClip), WrapMode.Once);
             if (attackClip != null)
                 rig.Play("attack");
             else
@@ -412,6 +485,11 @@ namespace ResidualSignal
                     Quaternion.LookRotation(direction), delta * 9f);
             attackCooldown -= delta;
             stagger = Mathf.Max(0, stagger - delta);
+            if (Time.time < holdUntil)
+            {
+                body.Move(Vector3.down * 3f * delta);
+                return;
+            }
             if (shoveVelocity.sqrMagnitude > 0.01f)
             {
                 body.Move((shoveVelocity + Vector3.down * 3f) * delta);
@@ -425,6 +503,7 @@ namespace ResidualSignal
                 InfectedKind.Leaper => speed * 1.7f,
                 InfectedKind.Bloater => speed * 0.6f,
                 InfectedKind.Brute => speed * 1.25f,
+                _ when crawler => speed * 1.1f,
                 _ when runClip != null => runner ? sprintSpeed * 1.15f : sprintSpeed,
                 _ => runner ? speed * 1.75f : speed
             };
@@ -502,6 +581,8 @@ namespace ResidualSignal
                     return;
                 }
             }
+            if (lyingDown)
+                return;
             if (Time.time > wanderUntil)
             {
                 wanderUntil = Time.time + Random.Range(3f, 8f);
@@ -809,8 +890,14 @@ namespace ResidualSignal
             if (IsSpawned)
                 ReactRpc(point, direction, damage);
             stagger = kind == InfectedKind.Brute ? 0f : damage >= 60 ? 0.33f : 0.2f;
-            if (!Dead && hitClip != null && damage >= 20)
+            bool rising = rig.IsPlaying("rise") && Time.time < holdUntil;
+            if (!rising)
+                holdUntil = 0f;
+            if (!Dead && hitClip != null && damage >= 20 && !crawler && !rising)
+            {
+                SwapClip("hit", Pick(hitVariants, hitClip), WrapMode.Once, 1.6f);
                 rig.CrossFade("hit", 0.05f);
+            }
             if (!Dead && kind != InfectedKind.Brute)
                 hitRecoil = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * Mathf.Clamp(damage * 0.056f, 1.3f, 4.1f);
             if (kind != InfectedKind.Brute)

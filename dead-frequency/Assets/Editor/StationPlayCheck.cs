@@ -225,6 +225,20 @@ namespace ResidualSignal
                             $"PLATFORM03 SQUAD COLLISION CHECK (allies ignored {ignored}, infected still solid {blocksHostile}, crossed {walked:F2}m)");
                         break;
                     }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-motionCheck") >= 0)
+                    {
+                        // A calm crowd ahead: some lie on the floor, a few crawl; walking in alerts them.
+                        settings.ApplyModifiedPropertiesWithoutUndo();
+                        controller.enabled = false;
+                        controller.transform.position = new Vector3(-2.4f, 0.08f, 54.5f);
+                        controller.enabled = true;
+                        for (int i = 0; i < 12; i++)
+                            trial.SpawnInfected(-5.2f + (i % 6) * 1.1f, 60f + (i / 6) * 1.6f, false, InfectedKind.Common, calm: true);
+                        AimAtPoint(new Vector3(-2.4f, 0.9f, 61f));
+                        stepTime = Time.time;
+                        step = 140;
+                        break;
+                    }
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-characterModelCheck") >= 0)
                     {
                         settings.ApplyModifiedPropertiesWithoutUndo();
@@ -1094,6 +1108,23 @@ namespace ResidualSignal
                     trial.SetHeldAim(false);
                     stepTime = Time.time;
                     step = 125;
+                    break;
+                case 140 when Time.time >= stepTime + 1.2f:
+                    Capture(Camera.main, Shot(".calm.png"));
+                    controller.enabled = false;
+                    controller.transform.position = new Vector3(-2.4f, 0.08f, 57.5f);
+                    controller.enabled = true;
+                    stepTime = Time.time;
+                    step = 141;
+                    break;
+                case 141 when Time.time >= stepTime + 1.0f:
+                    Capture(Camera.main, Shot(".rising.png"));
+                    stepTime = Time.time;
+                    step = 142;
+                    break;
+                case 142 when Time.time >= stepTime + 2.2f:
+                    Capture(Camera.main, Shot(".charge.png"));
+                    Finish(true, "PLATFORM03 MOTION CHECK (calm crowd captured lying, rising and charging)");
                     break;
                 case 126 when Time.time >= stepTime + 0.35f:
                     Capture(Camera.main, Shot(".models.png"));

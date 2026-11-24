@@ -284,7 +284,7 @@ namespace ResidualSignal
             environment.skyType.Override(0);
             EditorUtility.SetDirty(environment);
             var exposure = StationVolumeSetting<Exposure>(profile);
-            exposure.fixedExposure.Override(4.85f);
+            exposure.fixedExposure.Override(UndergroundExposure);
             EditorUtility.SetDirty(exposure);
             var local = new GameObject("Underground lighting volume", typeof(BoxCollider), typeof(Volume));
             local.transform.position = new Vector3(0, 1.7f, 34f);

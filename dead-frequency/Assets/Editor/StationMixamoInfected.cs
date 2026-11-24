@@ -23,9 +23,7 @@ namespace ResidualSignal
             foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { MixamoRoot }))
                 PrepareMixamoImport(AssetDatabase.GUIDToAssetPath(guid));
 
-            AnimationClip Clip(string pack, string file) => AssetDatabase
-                .LoadAllAssetsAtPath($"{MixamoRoot}/Animations/{pack}/{file}.fbx").OfType<AnimationClip>()
-                .First(clip => !clip.name.StartsWith("__preview__"));
+            AnimationClip Clip(string pack, string file) => MixamoClip(pack, file);
             var idle = Clip("NotSoScary", "zombie idle");
             var walk = Clip("Scary", "zombie walk");
             var run = Clip("Scary", "zombie run");
@@ -81,6 +79,10 @@ namespace ResidualSignal
             System.IO.File.WriteAllBytes(path, image.EncodeToPNG());
             EditorApplication.Exit(0);
         }
+
+        static AnimationClip MixamoClip(string pack, string file) => AssetDatabase
+            .LoadAllAssetsAtPath($"{MixamoRoot}/Animations/{pack}/{file}.fbx").OfType<AnimationClip>()
+            .First(clip => !clip.name.StartsWith("__preview__"));
 
         static void PrepareMixamoImport(string path)
         {
@@ -162,6 +164,26 @@ namespace ResidualSignal
                 infected.FindProperty("runClip").objectReferenceValue = run;
                 infected.FindProperty("attackClip").objectReferenceValue = attack;
                 infected.FindProperty("hitClip").objectReferenceValue = hit;
+                void Pool(string field, params (string pack, string file)[] clips)
+                {
+                    var array = infected.FindProperty(field);
+                    array.arraySize = clips.Length;
+                    for (int i = 0; i < clips.Length; i++)
+                        array.GetArrayElementAtIndex(i).objectReferenceValue = MixamoClip(clips[i].pack, clips[i].file);
+                }
+                Pool("idleVariants", ("NotSoScary", "zombie idle"), ("NotSoScary", "zombie idle (2)"), ("NotSoScary", "zombie idle (3)"),
+                    ("NotSoScary", "zombie idle (4)"), ("Scary", "zombie idle"), ("NotSoScary", "zombie scratch idle"),
+                    ("NotSoScary", "zombie agonizing"));
+                Pool("walkVariants", ("Scary", "zombie walk"), ("NotSoScary", "walking"), ("NotSoScary", "walking (2)"));
+                Pool("runVariants", ("Scary", "zombie run"), ("NotSoScary", "zombie running"));
+                Pool("attackVariants", ("Scary", "zombie attack"), ("NotSoScary", "zombie attack"), ("NotSoScary", "zombie punching"),
+                    ("NotSoScary", "zombie punching (2)"), ("NotSoScary", "zombie headbutt"), ("NotSoScary", "zombie kicking"),
+                    ("NotSoScary", "zombie kicking (2)"));
+                Pool("hitVariants", ("NotSoScary", "zombie reaction hit"), ("NotSoScary", "zombie reaction hit (2)"));
+                infected.FindProperty("screamClip").objectReferenceValue = MixamoClip("Scary", "zombie scream");
+                infected.FindProperty("riseClip").objectReferenceValue = MixamoClip("NotSoScary", "zombie stand up");
+                infected.FindProperty("crawlClip").objectReferenceValue = MixamoClip("Scary", "zombie crawl");
+                infected.FindProperty("crawlRunClip").objectReferenceValue = MixamoClip("Scary", "running crawl");
                 infected.ApplyModifiedPropertiesWithoutUndo();
                 return PrefabUtility.SaveAsPrefabAsset(actor, $"Assets/Prefabs/Mixamo{body}.prefab");
             }

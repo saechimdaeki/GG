@@ -2377,6 +2377,39 @@ MonoBehaviour:
   attackClip: {fileID: -203655887218126122, guid: f1e2d4132f6cd455d87a4065c96d36d9, type: 3}
   bossSlamClip: {fileID: 0}
   hitClip: {fileID: -203655887218126122, guid: e06be050cf5854bd886e2ee7b28b65f8, type: 3}
+  idleVariants:
+  - {fileID: -203655887218126122, guid: b54d284c8ce024d9fac9725068828092, type: 3}
+  - {fileID: -203655887218126122, guid: 2dee1a455c5e744dc81511b638c2398f, type: 3}
+  - {fileID: -203655887218126122, guid: 7fcc240a439454e919a2216070ed09ee, type: 3}
+  - {fileID: -203655887218126122, guid: 1f726d5f9f0fc403099fa3f6180401be, type: 3}
+  - {fileID: -203655887218126122, guid: bd5eff9d93fa948a7ae0ec95aa05db48, type: 3}
+  - {fileID: -203655887218126122, guid: 8240e9e4b8d0d4e1d94d0c4c8f0173b1, type: 3}
+  - {fileID: -203655887218126122, guid: ecb1cc90c54a5498ab4d993ac8e791ea, type: 3}
+  walkVariants:
+  - {fileID: -203655887218126122, guid: 79038143e274244c08e76dc1a6d698fb, type: 3}
+  - {fileID: -203655887218126122, guid: d7414d48d6d8f44cbb36e3de7fed2c46, type: 3}
+  - {fileID: -203655887218126122, guid: ed270c3f65a954fd68c3d203bcb61443, type: 3}
+  runVariants:
+  - {fileID: -203655887218126122, guid: 7342a6124124244ef99bc5bb22823cb6, type: 3}
+  - {fileID: -203655887218126122, guid: f0849018b96e84c73bae8d6373ee8556, type: 3}
+  attackVariants:
+  - {fileID: -203655887218126122, guid: f1e2d4132f6cd455d87a4065c96d36d9, type: 3}
+  - {fileID: -203655887218126122, guid: 138b8e02a4093418f8f6286574b04200, type: 3}
+  - {fileID: -203655887218126122, guid: 7fdc250a3fea448b9a4bbc3186fabdc7, type: 3}
+  - {fileID: -203655887218126122, guid: 6e876b491e23e455c9297db8c67ae704, type: 3}
+  - {fileID: -203655887218126122, guid: 7f0b738dea8b6423894e9cca26949305, type: 3}
+  - {fileID: -203655887218126122, guid: 049a608af5ca14b88a8832ec5bbd9e91, type: 3}
+  - {fileID: -203655887218126122, guid: 897931ae3fba64a4b9599c653a16d23a, type: 3}
+  hitVariants:
+  - {fileID: -203655887218126122, guid: e06be050cf5854bd886e2ee7b28b65f8, type: 3}
+  - {fileID: -203655887218126122, guid: 10b772af0373349fcac8b1a6b2660735, type: 3}
+  screamClip: {fileID: -203655887218126122, guid: d2efa1c6fa5f14ebb9d4c9b99b34107f, type: 3}
+  riseClip: {fileID: -203655887218126122, guid: 9a4862514d3e84d81884785f7799d0ed, type: 3}
+  crawlClip: {fileID: -203655887218126122, guid: f3f91e290716e45b491a6102ed35a2a6, type: 3}
+  crawlRunClip: {fileID: -203655887218126122, guid: 631e21061f49d4ec592dc552b2fa733d, type: 3}
+  screamChance: 0.35
+  lyingChance: 0.3
+  crawlerChance: 0.1
   bespokeBoss: 0
   speed: 2.6
   sprintSpeed: 4.6
