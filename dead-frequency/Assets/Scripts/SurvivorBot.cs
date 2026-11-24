@@ -166,6 +166,7 @@ namespace ResidualSignal
                 blind = _ => Say("앞이 안 보여!"),
             };
             SquadMember.All.Add(member);
+            SquadCollision.Register(GetComponent<Collider>());
             All.Add(this);
             nextRoam = Time.time + slot * 0.25f;
         }
@@ -192,6 +193,7 @@ namespace ResidualSignal
         {
             ReleaseLoot();
             SquadMember.All.Remove(member);
+            SquadCollision.Unregister(GetComponent<Collider>());
             All.Remove(this);
         }
 

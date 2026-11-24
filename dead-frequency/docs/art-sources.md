@@ -31,3 +31,7 @@
 - 해림역 동료의 남색·적갈색 작업복은 Rocketbox 구조대 원본의 직물 색을 바꾸고 반사띠와 소매 패치를 보존한 파생 텍스처다. 투명 면창을 적용했다.
 
 Microsoft Rocketbox 원본의 저작권 및 라이선스 전문은 [MIT 라이선스](licenses/rocketbox-mit.txt)를 참고하세요.
+
+- 1인칭 장갑과 거대체 피부의 미세 노멀에는 Rob Tuytel의 [Fabric Leather 01](https://polyhaven.com/a/fabric_leather_01)을 사용했다. 구조대 작업복과 일반 감염체 의복은 Rico Cilliers·colormass의 [Rough Linen](https://polyhaven.com/a/rough_linen) 노멀을 HDRP 디테일 맵으로 재패킹했다. 둘 다 Poly Haven CC0다. 손목 마감과 구조대 무전기 메시를 프로젝트에서 제작했다.
+
+- 덮치개, 부풀이, 끌개, 울음꾼은 각각 vinish.dev의 Zombie Runner, Bloated Zombie, Rotten Zombie, Zombie Office Worker를 사용한다. 출처 [Free Zombie 3D Models](https://vinish.dev/free-3d-models/zombies), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Unity GLB 임포트 호환을 위해 메시를 재질 단위로 나눴고, 키와 자세를 게임에 맞췄다.

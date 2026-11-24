@@ -136,11 +136,19 @@ namespace ResidualSignal
             CreateCombatAssets(game, camera);
             CreateStory(root, game);
             BuildServiceYard(root, game, tile, concrete, steel);
+            BuildFreightPassage(root, game);
             CreateRoutes(root, game, camera);
             CreateNetwork(game);
             PlaceLoot(root);
             BakeNavMesh(root, player);
             game.ApplyModifiedPropertiesWithoutUndo();
+            BuildMaterialPass(root);
+            var trial = Object.FindFirstObjectByType<StationTrial>();
+            AdjustWeaponGrips(trial);
+            var guns = new SerializedObject(trial).FindProperty("arsenal");
+            for (int i = 0; i < guns.arraySize; i++)
+                FinishRescueArms((Transform)guns.GetArrayElementAtIndex(i).FindPropertyRelative("view").objectReferenceValue);
+            ApplyCharacterMaterials();
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             AssetDatabase.SaveAssets();

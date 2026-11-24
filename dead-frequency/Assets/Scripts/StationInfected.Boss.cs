@@ -18,12 +18,13 @@ namespace ResidualSignal
         int bossOpeningFloor;
         Vector3? bossRevealPoint;
         bool bossArenaActive;
-        float bossRevealedAt;
+        float bossEngagedTime;
+        float bossRecentDamageUntil;
         int bossArenaStartingHealth;
         const float BossArmorDuration = 30.5f;
 
         int BossArmorFloor => bossArenaActive ? Mathf.CeilToInt(bossArenaStartingHealth *
-            (1f - Mathf.Clamp01((Time.time - bossRevealedAt) / BossArmorDuration))) : 0;
+            (1f - Mathf.Clamp01(bossEngagedTime / BossArmorDuration))) : 0;
         const float BossArenaEntrance = 55.25f;
 
         public int BossAttacksCommitted { get; private set; }
@@ -33,7 +34,8 @@ namespace ResidualSignal
         {
             bossRevealPoint = exit;
             bossArenaActive = true;
-            bossRevealedAt = Time.time;
+            bossEngagedTime = 0f;
+            bossRecentDamageUntil = 0f;
             bossArenaStartingHealth = health;
             BeginStagedEncounter();
         }
@@ -63,6 +65,13 @@ namespace ResidualSignal
                 return body.Move(displacement) | CollisionFlags.Sides;
             }
             return body.Move(displacement);
+        }
+
+        void TrackBossEngagement(float delta)
+        {
+            if (bossArenaActive && BossAttacksCommitted > 0 && Time.time < bossRecentDamageUntil &&
+                target.Available && target.body.position.z >= BossArenaEntrance - 0.7f)
+                bossEngagedTime += delta;
         }
 
         SquadMember PickBossTarget()

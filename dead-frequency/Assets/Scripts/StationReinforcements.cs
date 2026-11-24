@@ -21,6 +21,9 @@ namespace ResidualSignal
             new(-4.4f, 0, 39.7f), new(4.4f, 0, 42.5f), new(3.7f, 0, 46.0f),
             new(-4.4f, 0, 48.7f), new(4.3f, 0, 50.7f), new(4.5f, 0, 58.7f),
             new(-5.3f, 0, 57.2f), new(4.8f, 0, 65.1f),
+            new(-5.55f, 0, 77.5f), new(5.55f, 0, 82.5f),
+            new(-5.55f, 0, 85f), new(-5.55f, 0, 89f), new(5.55f, 0, 96f),
+            new(5.55f, 0, 103f), new(-5.55f, 0, 112f), new(5.55f, 0, 116f),
         };
         static readonly Vector3[] CoverSamples =
         {
@@ -55,7 +58,7 @@ namespace ResidualSignal
             {
                 Remaining = count, Near = near, Alert = alert, Calm = calm, Special = special,
                 NeedsWarning = alert, ReadyAt = Time.time,
-                Expires = Time.time + (phase == Phase.Opening ? 18f : 13f)
+                Expires = Time.time + (special != InfectedKind.Common ? 24f : phase == Phase.Opening ? 18f : 13f)
             });
         }
 
@@ -101,12 +104,22 @@ namespace ResidualSignal
                     if (delivered > 0 && !TryFindCoveredEntry(group, out entry))
                         break;
                     var kind = InfectedKind.Common;
-                    if (group.Special != InfectedKind.Common && !SquadUnderPressure() && !NearbySpecial())
+                    if (group.Special != InfectedKind.Common)
                     {
-                        kind = group.Special;
-                        group.Special = InfectedKind.Common;
+                        if (!SquadUnderPressure() && !NearbySpecial())
+                        {
+                            kind = group.Special;
+                            group.Special = InfectedKind.Common;
+                        }
+                        else if (group.Remaining == 1)
+                        {
+                            // Keep this slot until the previous specialist is out of the fight.
+                            break;
+                        }
                     }
-                    SpawnInfected(entry.x, entry.z, !group.Calm && group.Remaining % 3 != 1, kind, calm: group.Calm);
+                    var arrival = SpawnInfected(entry.x, entry.z,
+                        !group.Calm && group.Remaining % 3 != 1, kind, calm: group.Calm, height: entry.y);
+                    arrival.WaitInEntryCover();
                     group.Remaining--;
                 }
                 if (group.Remaining == 0)
@@ -172,7 +185,11 @@ namespace ResidualSignal
                 var corners = entryPath.corners;
                 for (int i = 1; i < corners.Length; i++)
                     length += Vector3.Distance(corners[i - 1], corners[i]);
-                if (length <= 32f)
+                if (length > 32f || corners.Length < 2)
+                    continue;
+                // Reserve a little hidden runway. The first step must also be behind solid cover.
+                Vector3 next = Vector3.MoveTowards(entry, corners[1], 0.65f);
+                if (IsHiddenFromSquad(next))
                     return true;
             }
             return false;
@@ -185,6 +202,11 @@ namespace ResidualSignal
             foreach (var threat in threats)
                 if (threat != null && !threat.Dead && (threat.transform.position - entry).sqrMagnitude < 0.68f)
                     return false;
+            return IsHiddenFromSquad(entry);
+        }
+
+        bool IsHiddenFromSquad(Vector3 entry)
+        {
             foreach (var member in SquadMember.All)
             {
                 if (member.body == null)
@@ -196,13 +218,13 @@ namespace ResidualSignal
                 Vector3 view = member.body == transform ? eyes.transform.position :
                     member.body.position + Vector3.up * (member.down ? 0.55f : 1.65f);
                 foreach (var sample in CoverSamples)
-                    if (!CoveredByMap(view, entry + sample))
+                    if (!CoveredByMap(view, entry + sample, requirePermanentCover: true))
                         return false;
             }
             return true;
         }
 
-        bool CoveredByMap(Vector3 view, Vector3 sample)
+        bool CoveredByMap(Vector3 view, Vector3 sample, bool requirePermanentCover = false)
         {
             Vector3 ray = sample - view;
             int hits = Physics.RaycastNonAlloc(view, ray.normalized, coverHits, ray.magnitude - 0.08f,
@@ -214,9 +236,13 @@ namespace ResidualSignal
                     (collider.attachedRigidbody != null || collider.GetComponentInParent<SurvivorAvatar>() != null ||
                      collider.GetComponentInParent<SurvivorBot>() != null))
                     continue;
-                if (collider.TryGetComponent<Renderer>(out var surface) && surface.enabled &&
-                    surface.sharedMaterial != null && surface.sharedMaterial.renderQueue < 3000)
-                    return true;
+                if (!collider.TryGetComponent<Renderer>(out var surface) || !surface.enabled ||
+                    surface.sharedMaterial == null || surface.sharedMaterial.renderQueue >= 3000)
+                    continue;
+                if (requirePermanentCover && (collider.attachedRigidbody != null ||
+                    collider.bounds.size.y < 1.5f || collider.GetComponentInParent<StationInfected>() != null))
+                    continue;
+                return true;
             }
             return false;
         }

@@ -51,6 +51,7 @@ namespace ResidualSignal
         float callWindup;
         float chargeWindup;
         bool stagedEncounter;
+        float waitInCoverUntil;
         float leaping;
         Vector3 lunge;
         bool holding;
@@ -224,6 +225,8 @@ namespace ResidualSignal
 
         public void StageEncounter() => stagedEncounter = true;
 
+        internal void WaitInEntryCover() => waitInCoverUntil = Time.time + 0.3f;
+
         public void BeginStagedEncounter()
         {
             stagedEncounter = false;
@@ -325,14 +328,15 @@ namespace ResidualSignal
         {
             runner = isRunner;
             kind = special;
-            // Distinct silhouettes from the shared rig until each special gets its own model.
+            physique.SetPosture(special);
+            // Keep proportions close to the imported bodies; pose and clothing distinguish the variants.
             (Vector3 scale, Color tint) look = kind switch
             {
-                InfectedKind.Leaper => (new Vector3(0.88f, 0.84f, 0.88f), new Color(0.75f, 0.8f, 0.95f)),
-                InfectedKind.Dragger => (new Vector3(0.82f, 1.22f, 0.82f), new Color(0.85f, 0.78f, 0.7f)),
-                InfectedKind.Bloater => (new Vector3(1.55f, 1.0f, 1.45f), new Color(0.7f, 0.95f, 0.55f)),
+                InfectedKind.Leaper => (new Vector3(0.88f, 0.84f, 0.88f), new Color(0.80f, 0.81f, 0.85f)),
+                InfectedKind.Dragger => (new Vector3(0.94f, 1.09f, 0.94f), new Color(0.85f, 0.78f, 0.7f)),
+                InfectedKind.Bloater => (new Vector3(1.26f, 1.03f, 1.19f), new Color(0.85f, 0.88f, 0.70f)),
                 InfectedKind.Brute => (new Vector3(1.5f, 1.38f, 1.5f), new Color(0.95f, 0.72f, 0.66f)),
-                InfectedKind.Caller => (new Vector3(0.74f, 1.24f, 0.75f), new Color(0.94f, 0.71f, 0.38f)),
+                InfectedKind.Caller => (new Vector3(0.94f, 1.06f, 0.94f), new Color(0.92f, 0.82f, 0.71f)),
                 _ => (Vector3.one, Color.white)
             };
             // Scale the whole body (collider included): the rig pivot sits far from its mesh, so scaling it alone shifts the model.
@@ -360,7 +364,7 @@ namespace ResidualSignal
                 MirrorAnimation();
                 return;
             }
-            if (Dead || mission == null || stagedEncounter || SessionMenu.Blocking ||
+            if (Dead || mission == null || stagedEncounter || Time.time < waitInCoverUntil || SessionMenu.Blocking ||
                 (mission.OpeningStaging && transform.position.z < 4f && !alerted))
                 return;
             if (Time.time > nextGroan)
@@ -387,6 +391,8 @@ namespace ResidualSignal
                 return;
 
             float delta = Time.deltaTime;
+            if (bespokeBoss)
+                TrackBossEngagement(delta);
             if (kind != InfectedKind.Common && UpdateSpecial(delta))
                 return;
             Vector3 direction = target.body.position - transform.position;
@@ -527,6 +533,7 @@ namespace ResidualSignal
             }
             bool sprinting = runClip != null && rig.IsPlaying("run") && Alerted && windup <= 0 && !physique.IsFlinching;
             physique.SetFrenzy(sprinting ? 1f : 0f);
+            physique.SetPoseTension(holding || callWindup > 0f ? 1f : 0f);
             physique.ApplyFlinch();
             PoseBossThrowArms();
         }
@@ -559,9 +566,8 @@ namespace ResidualSignal
                         {
                             holding = true;
                             leaping = 0;
-                            // The attack clip drifts its hips sideways; the in-place walk reads as clawing at close range.
-                            rig["walk"].speed = 2.2f;
-                            rig.Play("walk");
+                            Locomotion(0f);
+                            PlayAttack();
                         }
                         return true;
                     }
@@ -784,6 +790,8 @@ namespace ResidualSignal
             }
             if (Dead || stagedEncounter)
                 return;
+            if (bossArenaActive && damage > 0)
+                bossRecentDamageUntil = Time.time + 2.6f;
             int openingFloor = bespokeBoss && BossAttacksCommitted == 0 && Time.time < bossOpeningUntil
                 ? bossOpeningFloor : 0;
             health = Mathf.Max(Mathf.Max(openingFloor, BossArmorFloor), health - damage);

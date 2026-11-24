@@ -41,7 +41,9 @@ namespace ResidualSignal
             }
             // She follows whoever of the squad is closest, not only the player who started the escort.
             var escort = SquadMember.Nearest(transform.position);
-            if (escort == null || Vector3.Distance(escort.body.position, transform.position) > 5f)
+            float escortDistance = escort != null ? Vector3.Distance(escort.body.position, transform.position) : Mathf.Infinity;
+            bool freightEscape = destination.z > 90f;
+            if (escortDistance > (freightEscape ? 8f : 5f))
             {
                 PoseLegs(0);
                 return;
@@ -67,7 +69,8 @@ namespace ResidualSignal
             }
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(direction),
                 340f * Time.deltaTime);
-            transform.position = Vector3.MoveTowards(transform.position, nextPoint, walkSpeed * Time.deltaTime);
+            float speed = freightEscape && escortDistance > 2.5f ? Mathf.Max(walkSpeed, 4.65f) : walkSpeed;
+            transform.position = Vector3.MoveTowards(transform.position, nextPoint, speed * Time.deltaTime);
             stride += Time.deltaTime * 11f;
             PoseLegs(Mathf.Sin(stride) * 25f);
         }
