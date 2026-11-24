@@ -24,6 +24,26 @@ namespace ResidualSignal
             AssetDatabase.SaveAssets();
         }
 
+        /// <summary>Batch entry: let HDRP render below native resolution and upscale with STP, so full-screen Retina
+        /// stays smooth. StationTrial picks the percentage from the screen size at runtime.</summary>
+        public static void EnableDynamicResolution()
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<HDRenderPipelineAsset>($"{SettingsFolder}/StationHDRP.asset");
+            var settings = new SerializedObject(asset);
+            const string root = "m_RenderPipelineSettings.dynamicResolutionSettings.";
+            settings.FindProperty(root + "enabled").boolValue = true;
+            settings.FindProperty(root + "minPercentage").floatValue = 50f;
+            settings.FindProperty(root + "maxPercentage").floatValue = 100f;
+            settings.FindProperty(root + "forceResolution").boolValue = false;
+            var upscalers = settings.FindProperty(root + "advancedUpscalersByPriority");
+            upscalers.arraySize = 1;
+            upscalers.GetArrayElementAtIndex(0).intValue = (int)AdvancedUpscalers.STP;
+            settings.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssets();
+            Debug.Log("DYNAMIC RESOLUTION ON (STP, 50-100%)");
+        }
+
         /// <summary>Batch entry, run after Build: recolor the green-white fluorescents in the saved scene to warm white,
         /// every third to amber, so interiors get warm pools against the cold grade. Idempotent: warm lights no longer match.</summary>
         public static void WarmInteriorLights()

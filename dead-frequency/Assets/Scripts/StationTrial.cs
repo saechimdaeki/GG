@@ -160,6 +160,15 @@ namespace ResidualSignal
         public int PhaseIndex => (int)phase;
         public bool DrainRoute => drainSelected;
         public StationWitness Witness => witness;
+        public Transform Eyes => eyes.transform;
+        public bool FlashlightOn => flashlight.enabled;
+
+        /// <summary>Hand an infected spawned outside the director (the weeper, once startled) to the squad's target list.</summary>
+        public void TrackThreat(StationInfected infected)
+        {
+            if (!threats.Contains(infected))
+                threats.Add(infected);
+        }
         SquadMember self;
         float reviveProgress;
         const float ShoveDuration = 0.4f;
@@ -283,6 +292,7 @@ namespace ResidualSignal
                         hd.volumetricDimmer = 0.15f;
                 }
             }
+            EnableRenderScale();
             baseFov = eyes.fieldOfView;
             // Scaling camera-space x/y by tan(fov/2)/tan(vmFov/2) renders exactly like a second, narrower camera.
             viewLens = new GameObject("Viewmodel lens").transform;
@@ -322,6 +332,8 @@ namespace ResidualSignal
             UpdateWeapon();
             UpdateHolds();
             UpdateBlackAndWhite();
+            UpdateWeeperHint();
+            UpdatePerfLog();
             aimedAtInfected = InCombat && FindAimTarget(out _, out _);
             if (activeGate != null)
                 activeGate.position = Vector3.MoveTowards(activeGate.position, raisedGatePosition, shutterSpeed * Time.deltaTime);
@@ -1354,6 +1366,8 @@ namespace ResidualSignal
             bool calm = false, float height = 0.03f)
         {
             var prefab = InfectedModel(kind);
+            lastSpawnKind = $"{kind}/{prefab.name}";
+            lastSpawnAt = Time.time;
             var infected = Instantiate(prefab, new Vector3(x, height, z), Quaternion.Euler(0, Random.Range(0, 360f), 0));
             infected.Follow(this, runner, kind, calm);
             if (Networked)
@@ -1395,6 +1409,9 @@ namespace ResidualSignal
             if (Downed)
                 return;
             damage = Difficulty.Hurt(damage);
+            // ponytail: -perfLog runs are unattended frame-time soaks; the player must outlive them.
+            if (PerfLog)
+                damage = 0;
             health = Mathf.Max(0, health - damage);
             damageFlash = 0.38f;
             AddPacingStress(damage / 40f);

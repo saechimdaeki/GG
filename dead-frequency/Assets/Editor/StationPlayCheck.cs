@@ -165,6 +165,50 @@ namespace ResidualSignal
                 case 400:
                     CheckMission(trial, controller);
                     break;
+                case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-gaitCheck") >= 0:
+                {
+                    var gaitSettings = new SerializedObject(trial);
+                    var prefab = (SurvivorBot)gaitSettings.FindProperty("botPrefab").objectReferenceValue;
+                    gaitBot = UnityEngine.Object.Instantiate(prefab, new Vector3(0f, 0.03f, 14f), Quaternion.identity);
+                    gaitBot.Join(trial, 0);
+                    controller.enabled = false;
+                    controller.transform.position = new Vector3(0f, 0.09f, 12.6f);
+                    controller.enabled = true;
+                    gaitHips = gaitBot.GetComponentInChildren<SkinnedMeshRenderer>().rootBone;
+                    gaitLast = gaitHips.position;
+                    gaitBotLast = gaitBot.transform.position;
+                    stepTime = Time.time;
+                    step = 410;
+                    break;
+                }
+                case 410:
+                {
+                    // Lead the bot up the platform so it walks, then runs to catch up.
+                    float t = Time.time - stepTime;
+                    controller.enabled = false;
+                    controller.transform.position = new Vector3(0f, 0.09f, 12.6f + Mathf.Min(t, 6f) * 2.4f);
+                    controller.enabled = true;
+                    // Join swaps in the Mixamo body, so look the hips up again whenever they change.
+                    var hipsBone = gaitBot.GetComponentInChildren<SkinnedMeshRenderer>().rootBone;
+                    if (hipsBone != gaitHips)
+                    {
+                        gaitHips = hipsBone;
+                        gaitLast = gaitHips.position;
+                    }
+                    Vector3 hipsNow = gaitHips.position;
+                    Vector3 agentStep = Vector3.ProjectOnPlane(gaitBot.transform.position - gaitBotLast, Vector3.up);
+                    Vector3 hipStep = Vector3.ProjectOnPlane(hipsNow - gaitLast, Vector3.up);
+                    if (t > 0.5f)
+                        gaitWorst = Mathf.Max(gaitWorst, (hipStep - agentStep).magnitude);
+                    gaitTravel += agentStep.magnitude;
+                    gaitLast = hipsNow;
+                    gaitBotLast = gaitBot.transform.position;
+                    if (t < 8f)
+                        break;
+                    Finish(gaitTravel > 6f && gaitWorst < 0.12f,
+                        $"PLATFORM03 GAIT CHECK (bot travelled {gaitTravel:F1}m, worst hip jump beyond the agent {gaitWorst:F2}m per frame)");
+                    return;
+                }
                 case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-missionCheck") >= 0:
                 {
                     // -mission survival|annex -difficulty N -missionCheck: real director, real squad, no scripted input.
@@ -1656,6 +1700,8 @@ namespace ResidualSignal
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "-keepAlive") >= 0 && !trial.Downed && trial.Health < 60)
                 trial.Heal(60);
             bool survival = Difficulty.Selected == Difficulty.Mission.Survival;
+            if (elapsed > 3f && !missionPlaced && Difficulty.Selected == Difficulty.Mission.Campaign)
+                missionPlaced = true;
             if (elapsed > 3f && !missionPlaced)
             {
                 missionPlaced = true;
@@ -1676,6 +1722,17 @@ namespace ResidualSignal
             {
                 Camera.main.transform.localRotation = Quaternion.identity;
                 Capture(Camera.main, path.Replace(".png", ".early.png"));
+            }
+            if (!string.IsNullOrEmpty(demoFrameFolder) && missionPlaced && elapsed > DemoStart())
+            {
+                RecordDemoFrame();
+                if (Array.IndexOf(Environment.GetCommandLineArgs(), "-weeperCheck") < 0 && Difficulty.Selected != Difficulty.Mission.Scavenge)
+                    DemoFight(trial);
+            }
+            if (missionPlaced && elapsed > 4f && Array.IndexOf(Environment.GetCommandLineArgs(), "-weeperCheck") >= 0)
+            {
+                CheckWeeper(trial, controller);
+                return;
             }
             if (missionPlaced && elapsed > 4f && Array.IndexOf(Environment.GetCommandLineArgs(), "-hardshipCheck") >= 0)
             {
@@ -1717,6 +1774,149 @@ namespace ResidualSignal
             bool passed = Difficulty.Selected == Difficulty.Mission.Scavenge ? trial.PhaseIndex == 7 && trial.FuelPoured == trial.FuelNeeded :
                 survival ? missionPeakThreats >= 10 && trial.SurvivalSeconds > 10f : trial.PhaseIndex >= 9;
             Finish(passed, "PLATFORM03 MISSION CHECK " + report);
+        }
+
+        static SurvivorBot gaitBot;
+        static Transform gaitHips;
+        static Vector3 gaitLast;
+        static Vector3 gaitBotLast;
+        static float gaitWorst;
+        static float gaitTravel;
+        static int weepStep;
+        static float weepAt;
+        static StationInfected weeperSeen;
+        static Vector3 weepEyeRest;
+
+        /// <summary>-mission scavenge -missionCheck -weeperCheck: she ignores gunfire, wakes to light and proximity,
+        /// joins the squad's targets and lands a heavy strike.</summary>
+        static void CheckWeeper(StationTrial trial, CharacterController controller)
+        {
+            string path = SessionState.GetString(RunningKey + ".path", "");
+            switch (weepStep)
+            {
+                case 0:
+                    foreach (var infected in UnityEngine.Object.FindObjectsByType<StationInfected>(FindObjectsSortMode.None))
+                        if (infected.IsWeeper)
+                            weeperSeen = infected;
+                    if (weeperSeen == null || !weeperSeen.Weeping || ContainsThreat(trial, weeperSeen))
+                    {
+                        Finish(false, $"No calm weeper off the director's list (found {weeperSeen != null}).");
+                        return;
+                    }
+                    // Gunfire noise right beside her must not wake her.
+                    StationInfected.Noise(weeperSeen.transform.position, 30f);
+                    // The camera is the player's eyes: frame her from 4.5 m in the dark so the shot itself stays calm.
+                    GameObject.Find("Rescue flashlight").GetComponent<Light>().enabled = false;
+                    var view = Camera.main.transform;
+                    weepEyeRest = view.localPosition;
+                    Vector3 eye = weeperSeen.transform.position + weeperSeen.transform.forward * 4.5f + Vector3.up * 1.5f;
+                    view.SetPositionAndRotation(eye, Quaternion.LookRotation(weeperSeen.transform.position + Vector3.up * 0.6f - eye));
+                    weepAt = Time.time + 0.6f;
+                    weepStep = 1;
+                    break;
+                case 1 when Time.time >= weepAt:
+                    Capture(Camera.main, path.Replace(".png", ".weeper.png"));
+                    if (!weeperSeen.Weeping)
+                    {
+                        Finish(false, "Gunfire noise woke the weeper.");
+                        return;
+                    }
+                    // Walk up with the flashlight on her face.
+                    GameObject.Find("Rescue flashlight").GetComponent<Light>().enabled = true;
+                    Camera.main.transform.localPosition = weepEyeRest;
+                    controller.enabled = false;
+                    // Approach from the middle of the room: weepers sit against walls.
+                    Vector3 her = weeperSeen.transform.position;
+                    Vector3 inward = Mathf.Abs(her.x) > 1f ? new Vector3(-Mathf.Sign(her.x), 0f, 0f) : Vector3.back;
+                    controller.transform.position = her + inward * 2.6f + Vector3.up * 0.08f;
+                    controller.transform.rotation = Quaternion.LookRotation(-inward);
+                    controller.enabled = true;
+                    healthBefore = trial.Health;
+                    weepAt = Time.time;
+                    weepStep = 2;
+                    break;
+                case 2:
+                    AimAtPoint(weeperSeen.transform.position + Vector3.up * 0.8f);
+                    if (weeperSeen.Weeping)
+                    {
+                        if (Time.time > weepAt + 4f)
+                            Finish(false, $"Light and proximity never startled her (rage {weeperSeen.Rage:F2}).");
+                        break;
+                    }
+                    if (!ContainsThreat(trial, weeperSeen))
+                    {
+                        Finish(false, "Startled weeper is not a squad target.");
+                        return;
+                    }
+                    Debug.Log($"PLATFORM03 WEEPER STARTLED after {Time.time - weepAt:F1}s");
+                    weepAt = Time.time;
+                    weepStep = 3;
+                    break;
+                case 3:
+                    if (trial.Health <= healthBefore - 50 || trial.Downed)
+                    {
+                        Finish(true, $"PLATFORM03 WEEPER CHECK PASS (struck {healthBefore}->{trial.Health}, downed {trial.Downed})");
+                        return;
+                    }
+                    if (Time.time > weepAt + 7f)
+                        {
+                        string between = "";
+                        Vector3 from = weeperSeen.transform.position + Vector3.up * 0.9f;
+                        Vector3 to = controller.transform.position + Vector3.up * 0.9f;
+                        foreach (var hit in Physics.RaycastAll(from, (to - from).normalized, (to - from).magnitude, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                            between += hit.collider.name + "(" + hit.transform.root.name + ") ";
+                        Debug.Log("WEEPER STATE " + weeperSeen.WeeperDebug);
+                        Debug.Log("WEEPER LINE " + between + " forward dot " + Vector3.Dot(weeperSeen.transform.forward, (to - from).normalized).ToString("F2"));
+                        Finish(false, $"Startled weeper never landed her strike (health {trial.Health}, her {weeperSeen.transform.position}, player {controller.transform.position}, alerted {weeperSeen.Alerted}, dead {weeperSeen.Dead}).");
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>Seconds into a mission check before GIF frames start (-demoStart N, default 6).</summary>
+        static float DemoStart()
+        {
+            int at = Array.IndexOf(Environment.GetCommandLineArgs(), "-demoStart");
+            return at >= 0 && float.TryParse(Environment.GetCommandLineArgs()[at + 1], out float start) ? start : 6f;
+        }
+
+        /// <summary>GIF runs: aim at the nearest live infected in sight and shoot, so the clip shows a fight.</summary>
+        static void DemoFight(StationTrial trial)
+        {
+            StationInfected nearest = null;
+            float best = 22f * 22f;
+            Vector3 eye = Camera.main.transform.position;
+            foreach (var infected in trial.Threats)
+            {
+                if (infected == null || infected.Dead)
+                    continue;
+                float distance = (infected.transform.position - eye).sqrMagnitude;
+                if (distance >= best)
+                    continue;
+                bool blocked = Physics.Linecast(eye, infected.transform.position + Vector3.up * 1.3f, out var wall,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+                    wall.collider.GetComponentInParent<StationInfected>() != infected;
+                if (!blocked)
+                {
+                    best = distance;
+                    nearest = infected;
+                }
+            }
+            if (nearest == null)
+                return;
+            AimAt(nearest);
+            if (trial.Rounds == 0)
+                trial.TryReload();
+            else
+                trial.TryFire();
+        }
+
+        static bool ContainsThreat(StationTrial trial, StationInfected infected)
+        {
+            foreach (var threat in trial.Threats)
+                if (threat == infected)
+                    return true;
+            return false;
         }
 
         static int hardStep;

@@ -55,22 +55,35 @@ namespace ResidualSignal
                 transform.rotation = Quaternion.Euler(0f, 180f, 0f);
         }
 
+        // Off the main walking lines, but where a careless flashlight finds her.
+        static readonly Vector3 CampaignWeeper = new(-3.8f, 0f, 24.5f);
+        static readonly Vector3 AnnexWeeper = new(-3.6f, 0f, 45.5f);
+        static readonly Vector3 ScavengeWeeper = new(0f, 0f, 3.5f);
+
+        StationInfected weeper;
+        bool weeperHinted;
+
         void BeginMission()
         {
             if (Networked)
                 return;
             switch (Difficulty.Selected)
             {
+                case Difficulty.Mission.Campaign:
+                    SpawnWeeper(CampaignWeeper);
+                    break;
                 case Difficulty.Mission.Annex:
                     // The platform is behind us: shutter open, the rescue done, the annex ahead.
                     ChooseRoute(staffGate, false);
                     SetPhase(Phase.Maintenance);
+                    SpawnWeeper(AnnexWeeper);
                     break;
                 case Difficulty.Mission.Scavenge:
                     ChooseRoute(staffGate, false);
                     activeGate.position = raisedGatePosition;
                     SetPhase(Phase.Opening);
                     BeginScavenge();
+                    SpawnWeeper(ScavengeWeeper);
                     break;
                 case Difficulty.Mission.Survival:
                     ChooseRoute(staffGate, false);
@@ -106,6 +119,67 @@ namespace ResidualSignal
             if (Surviving && survivalEndedAt < 0f)
                 survivalEndedAt = Time.time;
         }
+
+        /// <summary>One sobbing infected per mission, off the director's books until she is startled.</summary>
+        public StationInfected SpawnWeeper(Vector3 at)
+        {
+            if (NavMesh.SamplePosition(at, out var ground, 2.5f, NavMesh.AllAreas))
+                at = ground.position;
+            var prefab = commonPrefabs != null && commonPrefabs.Length > 0 ? commonPrefabs[commonPrefabs.Length - 1] : infectedPrefab;
+            weeper = Instantiate(prefab, at, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+            weeper.MarkWeeper();
+            weeper.Follow(this, false, InfectedKind.Common, calm: true);
+            weeper.BeginWeeping(Difficulty.InfectedHealth(1000));
+            weeperHinted = false;
+            return weeper;
+        }
+
+        /// <summary>A sob within earshot gets one radio warning, like hearing the Witch before you see her.</summary>
+        void UpdateWeeperHint()
+        {
+            if (weeperHinted || weeper == null || !weeper.Weeping)
+                return;
+            if ((weeper.transform.position - transform.position).sqrMagnitude > 14f * 14f)
+                return;
+            weeperHinted = true;
+            Signal("흐느끼는 소리 · 불빛을 비추지 말고 조용히 지나가라", 5f);
+        }
+
+        string lastSpawnKind = "none";
+        float lastSpawnAt;
+
+        static readonly bool PerfLog = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-perfLog") >= 0;
+        float perfWindowStart = -1f;
+        int perfFrames;
+        float perfWorst;
+
+        /// <summary>-perfLog: every 10 s write average FPS and the worst frame to the player log.</summary>
+        void UpdatePerfLog()
+        {
+            if (!PerfLog)
+                return;
+            if (perfWindowStart < 0f)
+                perfWindowStart = Time.unscaledTime;
+            perfFrames++;
+            if (Time.unscaledDeltaTime > 0.2f)
+                Debug.Log($"RS HITCH {Time.unscaledDeltaTime * 1000f:F0} ms at {Time.time:F1}s, last spawn {lastSpawnKind} {Time.time - lastSpawnAt:F2}s ago, " +
+                    $"gc {System.GC.CollectionCount(0)}, infected {threats.Count}");
+            perfWorst = Mathf.Max(perfWorst, Time.unscaledDeltaTime);
+            float window = Time.unscaledTime - perfWindowStart;
+            if (window < 10f)
+                return;
+            int alive = 0;
+            foreach (var threat in threats)
+                if (threat != null && !threat.Dead)
+                    alive++;
+            Debug.Log($"RS PERF {perfFrames / window:F1} fps, worst {perfWorst * 1000f:F0} ms, infected {alive}, phase {phase}, " +
+                $"screen {Screen.width}x{Screen.height} at {UnityEngine.Rendering.DynamicResolutionHandler.instance.GetCurrentScale() * 100f:F0}%");
+            perfWindowStart = Time.unscaledTime;
+            perfFrames = 0;
+            perfWorst = 0f;
+        }
+
+        public void WarnWeeper() => Signal("흐느끼는 자가 깼다! 쏴라!", 3f);
 
         void DrawSurvivalTimer()
         {

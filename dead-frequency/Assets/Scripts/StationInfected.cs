@@ -213,7 +213,7 @@ namespace ResidualSignal
 
         void Alert()
         {
-            if (alerted)
+            if (alerted || weeping)
                 return;
             alerted = true;
             if (IsSpawned)
@@ -289,7 +289,7 @@ namespace ResidualSignal
             // ponytail: solo only; online these would need their own synced flags.
             if (special == InfectedKind.Common && !StationTrial.Networked)
             {
-                if (crawlClip != null && Random.value < crawlerChance)
+                if (crawlClip != null && !IsWeeper && Random.value < crawlerChance)
                 {
                     crawler = true;
                     SwapClip("walk", crawlClip, WrapMode.Loop);
@@ -391,6 +391,8 @@ namespace ResidualSignal
                 var hit = sightHits[i];
                 if (hit.transform.root == member.body.root || hit.transform.IsChildOf(transform) ||
                     hit.collider.GetComponentInParent<StationInfected>() != null ||
+                    // A teammate in the crush is not cover; it stopped attackers swinging at the player behind them.
+                    hit.collider.GetComponentInParent<SurvivorBot>() != null ||
                     (bespokeBoss && hit.collider is CharacterController) || hit.distance >= closest)
                     continue;
                 closest = hit.distance;
@@ -465,6 +467,11 @@ namespace ResidualSignal
             if (Dead || mission == null || stagedEncounter || Time.time < waitInCoverUntil || SessionMenu.Blocking ||
                 (mission.OpeningStaging && transform.position.z < 4f && !alerted))
                 return;
+            if (weeping)
+            {
+                Weep(Time.deltaTime);
+                return;
+            }
             // A shove always lands, whatever the combat state or target: the body takes the push first.
             if (shoveVelocity.sqrMagnitude > 0.01f)
             {
@@ -540,7 +547,7 @@ namespace ResidualSignal
                     if (kind == InfectedKind.Brute)
                         target.knock(direction.normalized * 7.5f + Vector3.up * 4.3f, 30);
                     else
-                        target.hurt(runner ? 19 : attackDamage);
+                        target.hurt(StrikeDamage);
                 }
                 if (hasLineOfSight && distance > Scaled(closeIn) * 0.78f)
                     move = direction.normalized * (pace * 0.56f);
@@ -913,18 +920,20 @@ namespace ResidualSignal
             physique.React(point, direction, damage);
             if (IsSpawned)
                 ReactRpc(point, direction, damage);
-            stagger = kind == InfectedKind.Brute ? 0f : damage >= 60 ? 0.33f : 0.2f;
+            // The brute and a startled weeper shrug off bullets, like the Tank and the Witch.
+            bool unstoppable = kind == InfectedKind.Brute || IsWeeper;
+            stagger = unstoppable ? 0f : damage >= 60 ? 0.33f : 0.2f;
             bool rising = rig.IsPlaying("rise") && Time.time < holdUntil;
             if (!rising)
                 holdUntil = 0f;
-            if (!Dead && hitClip != null && damage >= 20 && !crawler && !rising)
+            if (!Dead && hitClip != null && damage >= 20 && !crawler && !rising && !unstoppable)
             {
                 SwapClip("hit", Pick(hitVariants, hitClip), WrapMode.Once, 1.6f);
                 rig.CrossFade("hit", 0.05f);
             }
-            if (!Dead && kind != InfectedKind.Brute)
+            if (!Dead && !unstoppable)
                 hitRecoil = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * Mathf.Clamp(damage * 0.056f, 1.3f, 4.1f);
-            if (kind != InfectedKind.Brute)
+            if (!unstoppable)
                 windup = 0;
             callWindup = 0;
             // Any hit on a holder breaks the grip (solo players can still save themselves).

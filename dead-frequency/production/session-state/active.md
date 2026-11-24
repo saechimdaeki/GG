@@ -44,3 +44,5 @@
 - 기존 스크립트 검사는 `-difficulty`가 없으면 쉬움(원래 조정값)으로 고정된다. 보통에서는 감염체 체력이 올라 `-yardBossCheck`의 첫 사격 처치 조건이 맞지 않는다.
 - 검사: 연료 수집 고급 60초 8/8 완료(감염체 최대 32), `-botCheck`·`-liveDefenseCheck`·`-yardBossCheck`(쉬움) 통과.
 - 추가: `StationHardship.cs` — 흑백 상태(쓰러짐 2회 후 회색 화면, 3회째 사망, 구급상자로 초기화), 오인사격(보통 10/고급 30/전문가 60%), 생존·연료 미션 보급함 25초 재충전. `-hardshipCheck`(survival, 전문가) 통과. 브랜치 feat/residual-signal-missions.
+- 2026-11-24 마무리: 흐느끼는 자(L4D2 위치형, `StationInfected.Weeper.cs`; 총소리 무시·근접/손전등/피격에 분노·경직 없음·강타 58), 동료 순간이동 수정(Mixamo 걸음·달리기 루프 이동 1.4/2.4m를 0.4m만 되돌리던 것 → 전부 고정, `-gaitCheck` 1.55m→0.00m; 온라인 아바타·서이경도 동일 처리), STP 동적 해상도(약 2.1M 픽셀 기준), `-perfLog`(무적 포함, 측정 전용). 앱: Builds/Residual Signal Missions.app. GIF: docs/media/survival·scavenge·weeper·approach.gif.
+- 다음: 사람 플레이로 난이도·연료 시간 조정, 4인 Relay 검증.

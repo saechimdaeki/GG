@@ -656,7 +656,9 @@ namespace ResidualSignal
             if (!Down && hips != null)
             {
                 Vector3 drift = Vector3.ProjectOnPlane(hips.position - transform.position, Vector3.up);
-                rig.transform.position -= Vector3.ClampMagnitude(drift, 0.40f);
+                // The Mixamo walk and run clips travel 1.4 m and 2.4 m per loop. Pin the hips over the agent fully;
+                // a partial pull let the body slide ahead and snap back every loop, which read as teleporting.
+                rig.transform.position -= drift;
             }
             if (rifle == null || stock == null || triggerGrip == null || supportGrip == null)
                 return;

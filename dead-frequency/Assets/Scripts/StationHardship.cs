@@ -96,6 +96,20 @@ namespace ResidualSignal
                 Time.deltaTime * 1.5f);
         }
 
+        /// <summary>
+        /// Render about 2.1 million pixels (1920x1100) whatever the window, and let STP upscale the rest.
+        /// Full-screen Retina at native resolution cost half the frame rate on an M4 Pro.
+        /// </summary>
+        void EnableRenderScale()
+        {
+            eyes.allowDynamicResolution = true;
+            if (eyes.TryGetComponent(out HDAdditionalCameraData hd))
+                hd.allowDynamicResolution = true;
+            DynamicResolutionHandler.SetDynamicResScaler(() =>
+                Mathf.Clamp(Mathf.Sqrt(2.1e6f / Mathf.Max(1f, Screen.width * Screen.height)) * 100f, 50f, 100f),
+                DynamicResScalePolicyType.ReturnsPercentage);
+        }
+
         /// <summary>Advanced/Expert: rounds stop in the first teammate they meet and hurt them.</summary>
         bool TryFriendlyFire(Vector3 origin, Vector3 aim, int damage, out Vector3 hitPoint)
         {

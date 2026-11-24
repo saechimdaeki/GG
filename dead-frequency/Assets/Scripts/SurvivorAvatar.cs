@@ -20,6 +20,9 @@ namespace ResidualSignal
         SquadMember member;
         Vector3 lastPosition;
         Quaternion restRotation;
+        Vector3 restRigPosition;
+        Transform hips;
+        float smoothedSpeed;
 
         public bool Down => down.Value;
 
@@ -27,6 +30,8 @@ namespace ResidualSignal
         {
             SquadCollision.Register(GetComponent<Collider>());
             restRotation = rig.transform.localRotation;
+            restRigPosition = rig.transform.localPosition;
+            hips = rig.GetComponentInChildren<SkinnedMeshRenderer>()?.rootBone;
             rig.AddClip(idleClip, "idle");
             rig.AddClip(runClip, "run");
             rig.wrapMode = WrapMode.Loop;
@@ -120,9 +125,21 @@ namespace ResidualSignal
             rig.transform.localRotation = Quaternion.Euler(Down ? -80f : 0f, 0f, 0f) * restRotation;
             float speed = (transform.position - lastPosition).magnitude / Mathf.Max(Time.deltaTime, 0.0001f);
             lastPosition = transform.position;
-            string clip = speed > 0.6f && !Down ? "run" : "idle";
+            // Network updates arrive in steps; smooth so the gait doesn't flicker between run and idle.
+            smoothedSpeed = Mathf.Lerp(smoothedSpeed, speed, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+            string clip = smoothedSpeed > (rig.IsPlaying("run") ? 0.4f : 0.8f) && !Down ? "run" : "idle";
             if (!rig.IsPlaying(clip))
                 rig.CrossFade(clip, 0.2f);
+        }
+
+        /// <summary>The run clip carries the hips 2.4 m per loop; keep them over the networked body.</summary>
+        void LateUpdate()
+        {
+            if (!IsSpawned || IsOwner || hips == null || Down)
+                return;
+            rig.transform.localPosition = restRigPosition;
+            Vector3 drift = Vector3.ProjectOnPlane(hips.position - transform.position, Vector3.up);
+            rig.transform.position -= drift;
         }
     }
 }

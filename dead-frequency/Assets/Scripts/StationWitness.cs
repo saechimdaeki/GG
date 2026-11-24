@@ -15,7 +15,27 @@ namespace ResidualSignal
         float nextCoverCheck;
         bool takingCover;
 
+        Vector3 restRigPosition;
+        Transform hips;
+
         public bool HasArrived { get; private set; }
+
+        void Awake()
+        {
+            if (rig == null)
+                return;
+            restRigPosition = rig.transform.localPosition;
+            hips = rig.GetComponentInChildren<SkinnedMeshRenderer>()?.rootBone;
+        }
+
+        /// <summary>Keep the walk clip's hips over her position so she doesn't slide ahead and snap back.</summary>
+        void LateUpdate()
+        {
+            if (hips == null)
+                return;
+            rig.transform.localPosition = restRigPosition;
+            rig.transform.position -= Vector3.ProjectOnPlane(hips.position - transform.position, Vector3.up);
+        }
         public bool Walking { get; private set; }
 
         /// <summary>Network clients: play what the host says she is doing.</summary>
