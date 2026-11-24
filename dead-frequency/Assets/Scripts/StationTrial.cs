@@ -293,6 +293,8 @@ namespace ResidualSignal
             flashlight.innerSpotAngle = 16f;
             flashlight.range = 22f;
             flashlight.intensity = 650f;
+            // Left 4 Dead's flashlight throws moving shadows of every infected across the walls.
+            flashlight.shadows = LightShadows.Soft;
             arsenal[0].owned = true;
             Equip(0);
             health = 100;
@@ -344,7 +346,11 @@ namespace ResidualSignal
                 nextWave -= Time.deltaTime;
                 if (nextWave <= 0 && countdown > 5f)
                     SpawnWave();
-                if (countdown <= 0)
+                if (Surviving)
+                    UpdateSurvival();
+                else if (Scavenging)
+                    UpdateScavenge();
+                else if (countdown <= 0)
                 {
                     routes.Clear();
                     SetPhase(Phase.FindWitness);
@@ -423,7 +429,7 @@ namespace ResidualSignal
             foreach (var member in SquadMember.All)
                 if (member.held && member.body != null)
                     return false;
-            specialAttackAvailableAt = Time.time + (SquadUnderPressure() ? 4.5f : 2.8f);
+            specialAttackAvailableAt = Time.time + (SquadUnderPressure() ? 4.5f : 2.8f) * Difficulty.SpecialCooldown;
             return true;
         }
 
@@ -455,6 +461,8 @@ namespace ResidualSignal
             if (!ambientSpawned && phase == Phase.ReceiveSignal)
             {
                 ambientSpawned = true;
+                // Chapter and survival starts move the squad before the bots spawn beside the player.
+                PlaceForMission();
                 if (!Networked && botPrefab != null)
                     for (int slot = 0; slot < 3; slot++)
                     {
@@ -469,6 +477,7 @@ namespace ResidualSignal
                     }
                 if (!initialPopulationPrepared)
                     QueueReinforcements(5, transform.position, false, calm: true);
+                BeginMission();
             }
             if (!cordonDisturbed && phase == Phase.ReceiveSignal && SquadFurthestZ() > -7.3f)
             {
@@ -533,7 +542,7 @@ namespace ResidualSignal
         }
 
         float PreparationTime => Mathf.Min(preparationSeconds, shutterDelay * 0.25f);
-        public bool PreparingDefense => phase == Phase.Opening && countdown > shutterDelay - PreparationTime;
+        public bool PreparingDefense => phase == Phase.Opening && !Surviving && !Scavenging && countdown > shutterDelay - PreparationTime;
 
 
         /// <summary>The scream that tells you a horde is coming.</summary>
@@ -704,7 +713,7 @@ namespace ResidualSignal
             verticalSpeed = player.isGrounded ? -2f : verticalSpeed - gravity * Time.deltaTime;
             bool wading = drainSelected && transform.position.x < -1.1f &&
                 transform.position.z >= 8.9f && transform.position.z <= 13.95f;
-            float pace = (wading ? 0.72f : 1f) * Mathf.Lerp(1f, 0.78f, aimBlend);
+            float pace = (wading ? 0.72f : 1f) * (carrying != null ? 0.8f : 1f) * Mathf.Lerp(1f, 0.78f, aimBlend);
             Vector3 before = transform.position;
             player.Move((horizontal * (movementSpeed * pace) + Vector3.up * verticalSpeed) * Time.deltaTime);
             Vector3 travel = transform.position - before;
@@ -735,7 +744,7 @@ namespace ResidualSignal
                     MissionSync.Instance?.RequestInteractRpc(transform.position);
                 return true;
             }
-            if (TryRevive() || TryLoot() || TryPickUp())
+            if (TryScavenge() || TryRevive() || TryLoot() || TryPickUp())
                 return true;
             if (tookSupply || !Nearby(supply))
                 return false;
@@ -870,10 +879,12 @@ namespace ResidualSignal
                     StartFreightBeat(next);
                     break;
                 case Phase.Complete:
-                    Signal("구조 완료 · 다음 신호: 7번 환기구", 12f);
+                    if (!Scavenging)
+                        Signal("구조 완료 · 다음 신호: 7번 환기구", 12f);
                     SetCapture(false);
                     break;
                 case Phase.Failed:
+                    EndSurvival();
                     SetCapture(false);
                     break;
             }
@@ -902,7 +913,7 @@ namespace ResidualSignal
         public bool TryFire()
         {
             var gun = Current;
-            if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt ||
+            if (pinnedBy != null || Downed || carrying != null || launchedByImpact || Time.time < knockLandingAt ||
                 phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
                 Time.time < nextShotAt)
                 return false;
@@ -1378,6 +1389,7 @@ namespace ResidualSignal
                 return;
             if (Downed)
                 return;
+            damage = Difficulty.Hurt(damage);
             health = Mathf.Max(0, health - damage);
             damageFlash = 0.38f;
             AddPacingStress(damage / 40f);
@@ -1403,7 +1415,7 @@ namespace ResidualSignal
             if (!Downed)
                 return;
             Downed = false;
-            health = 40;
+            health = Difficulty.ReviveTo;
             Signal("다시 일어났다", 3f);
             SurvivorAvatar.Mine?.ReportDowned(false);
         }
@@ -1463,6 +1475,8 @@ namespace ResidualSignal
                 _ => null
             };
             if (mission != null) return mission;
+            string fuel = ScavengePrompt();
+            if (fuel != null) return fuel;
             var loot = NearbyLoot();
             if (loot != null) return $"E · {loot.Label}";
             var pickup = NearbyPickup();
@@ -1529,9 +1543,14 @@ namespace ResidualSignal
                 Panel(new Rect(0, 0, width, height), new Color(0, 0.02f, 0.025f, 0.73f));
                 Panel(new Rect(center - 218, top, 436, 204), HudSurface);
                 Panel(new Rect(center - 218, top, 436, 3), HudAccent);
-                Text(new Rect(center - 194, top + 18, 388, 28), "열한 번째 이름  /  3번 승강장", smallLabel);
-                Text(new Rect(center - 194, top + 53, 388, 54), phase == Phase.Complete ? "구조 완료" : "구조 실패", new GUIStyle(caption) { fontSize = 42, fontStyle = FontStyle.Bold });
-                Text(new Rect(center - 194, top + 115, 388, 26), phase == Phase.Complete ? $"서이경 이송 완료   ·   내 처치 {kills}" : $"구조팀 통신 두절   ·   내 처치 {kills}", smallLabel);
+                Text(new Rect(center - 194, top + 18, 388, 28), $"{Difficulty.MissionTitle}  /  {Difficulty.LevelName}", smallLabel);
+                string verdict = Surviving ? Difficulty.Medal(SurvivalSeconds) : phase == Phase.Complete ? "구조 완료" : "구조 실패";
+                if (Scavenging)
+                    verdict = phase == Phase.Complete ? "발전기 가동" : "연료 부족";
+                string detail = Scavenging ? $"연료 {poured}/{cansNeeded}   ·   내 처치 {kills}" : Surviving ? $"버틴 시간 {SurvivalClock}   ·   내 처치 {kills}" :
+                    phase == Phase.Complete ? $"서이경 이송 완료   ·   내 처치 {kills}" : $"구조팀 통신 두절   ·   내 처치 {kills}";
+                Text(new Rect(center - 194, top + 53, 388, 54), verdict, new GUIStyle(caption) { fontSize = 42, fontStyle = FontStyle.Bold });
+                Text(new Rect(center - 194, top + 115, 388, 26), detail, smallLabel);
                 Text(new Rect(center - 194, top + 157, 388, 27), "Enter  ·  브리핑으로", smallLabel);
                 return;
             }
@@ -1551,7 +1570,11 @@ namespace ResidualSignal
             if (prompt != null)
                 DrawPrompt(width * 0.5f, height * 0.5f + 76, prompt);
 
-            if (phase is Phase.Opening or Phase.TransferDefense)
+            if (Surviving)
+                DrawSurvivalTimer();
+            else if (Scavenging)
+                DrawScavengeTimer();
+            else if (phase is Phase.Opening or Phase.TransferDefense)
                 DrawShutterTimer();
 
             if (Time.time < radioUntil && alert == null)

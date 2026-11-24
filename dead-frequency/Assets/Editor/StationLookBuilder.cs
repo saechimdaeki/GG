@@ -14,6 +14,13 @@ namespace ResidualSignal
             var global = AssetDatabase.LoadAssetAtPath<VolumeProfile>($"{SettingsFolder}/StationVolume.asset");
             ApplyCinematicLook(global);
             EditorUtility.SetDirty(global);
+            // Thicker interior haze so platform ends fade out instead of reading as walls.
+            var interior = AssetDatabase.LoadAssetAtPath<VolumeProfile>($"{SettingsFolder}/StationInteriorVolume.asset");
+            if (interior != null && interior.TryGet(out Fog haze))
+            {
+                haze.meanFreePath.Override(21f);
+                EditorUtility.SetDirty(interior);
+            }
             AssetDatabase.SaveAssets();
         }
 
@@ -45,10 +52,11 @@ namespace ResidualSignal
         {
             var fog = StationVolumeSetting<Fog>(profile);
             fog.enabled.Override(true);
-            fog.meanFreePath.Override(105f);
+            // L4D2-style night: haze swallows the far end of every space.
+            fog.meanFreePath.Override(62f);
             fog.baseHeight.Override(0f);
             fog.maximumHeight.Override(14f);
-            fog.albedo.Override(new Color(0.63f, 0.74f, 0.81f));
+            fog.albedo.Override(new Color(0.58f, 0.69f, 0.70f));
             fog.enableVolumetricFog.Override(true);
             fog.colorMode.Override(FogColorMode.SkyColor);
             fog.mipFogMaxMip.Override(0.6f);
@@ -79,9 +87,10 @@ namespace ResidualSignal
             EditorUtility.SetDirty(balance);
 
             var split = StationVolumeSetting<SplitToning>(profile);
-            split.shadows.Override(new Color(0.34f, 0.44f, 0.64f));
+            // Sickly teal shadows, as in Left 4 Dead 2's grade.
+            split.shadows.Override(new Color(0.30f, 0.46f, 0.50f));
             split.highlights.Override(new Color(0.78f, 0.56f, 0.34f));
-            split.balance.Override(-8f);
+            split.balance.Override(-14f);
             EditorUtility.SetDirty(split);
 
             // Lift shadows toward the reference's mid-grey night (median ~48/255) without clipping the signs.
@@ -91,24 +100,26 @@ namespace ResidualSignal
             EditorUtility.SetDirty(lgg);
             var adjust = StationVolumeSetting<ColorAdjustments>(profile);
             adjust.postExposure.Override(PostExposure);
-            adjust.contrast.Override(22f);
-            adjust.saturation.Override(2f);
+            // Gritty, desaturated survival-horror grade; signs and blood still carry colour.
+            adjust.contrast.Override(32f);
+            adjust.saturation.Override(-18f);
             adjust.colorFilter.Override(new Color(1f, 0.985f, 0.97f));
             EditorUtility.SetDirty(adjust);
 
             var vignette = StationVolumeSetting<Vignette>(profile);
-            vignette.intensity.Override(0.26f);
+            vignette.intensity.Override(0.38f);
             vignette.smoothness.Override(0.45f);
             EditorUtility.SetDirty(vignette);
 
             var grain = StationVolumeSetting<FilmGrain>(profile);
-            grain.type.Override(FilmGrainLookup.Thin2);
-            grain.intensity.Override(0.10f);
-            grain.response.Override(0.85f);
+            // Heavy film grain is the series' signature; low response keeps it in the shadows too.
+            grain.type.Override(FilmGrainLookup.Medium1);
+            grain.intensity.Override(0.32f);
+            grain.response.Override(0.6f);
             EditorUtility.SetDirty(grain);
 
             var lens = StationVolumeSetting<ChromaticAberration>(profile);
-            lens.intensity.Override(0.025f);
+            lens.intensity.Override(0.04f);
             EditorUtility.SetDirty(lens);
         }
 
@@ -134,7 +145,7 @@ namespace ResidualSignal
             sky.exposure.Override(StationInteriorSkyExposure);
             EditorUtility.SetDirty(sky);
             var fog = StationVolumeSetting<Fog>(profile);
-            fog.meanFreePath.Override(30f);
+            fog.meanFreePath.Override(21f);
             fog.albedo.Override(new Color(0.70f, 0.72f, 0.66f));
             fog.colorMode.Override(FogColorMode.ConstantColor);
             fog.color.Override(new Color(0.05f, 0.055f, 0.05f));

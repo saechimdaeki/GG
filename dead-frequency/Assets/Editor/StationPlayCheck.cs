@@ -115,6 +115,9 @@ namespace ResidualSignal
             {
                 Application.runInBackground = true;
                 startedAt = EditorApplication.timeSinceStartup;
+                // Scripted checks count shots against the original tuning; -difficulty N opts into a tier.
+                if (Array.IndexOf(Environment.GetCommandLineArgs(), "-difficulty") < 0)
+                    Difficulty.Current = Difficulty.Level.Easy;
                 demoFrameFolder = SessionState.GetString(RunningKey + ".demo", "");
                 freightDemo = !string.IsNullOrEmpty(demoFrameFolder) &&
                     Array.IndexOf(Environment.GetCommandLineArgs(), "-freightDemo") >= 0;
@@ -157,6 +160,33 @@ namespace ResidualSignal
                         Finish(true, "PLATFORM03 DETAIL TOUR READY");
                         return;
                     }
+                    break;
+                }
+                case 400:
+                    CheckMission(trial, controller);
+                    break;
+                case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-missionCheck") >= 0:
+                {
+                    // -mission survival|annex -difficulty N -missionCheck: real director, real squad, no scripted input.
+                    var level = Difficulty.Current;
+                    Difficulty.Current = Difficulty.Level.Expert;
+                    bool scaled = Difficulty.Hurt(15) > 30 && Difficulty.Hurt(1) == 1 && Difficulty.Horde(10) > 15;
+                    Difficulty.Current = Difficulty.Level.Easy;
+                    scaled &= Difficulty.Hurt(15) == 15 && Difficulty.Horde(10) == 10;
+                    Difficulty.Current = level;
+                    if (!scaled)
+                    {
+                        Finish(false, "Difficulty multipliers are wrong.");
+                        return;
+                    }
+                    var mission = new SerializedObject(trial);
+                    mission.FindProperty("spawnSpecials").boolValue = true;
+                    mission.FindProperty("acceptLocalInput").boolValue = false;
+                    mission.FindProperty("survivalBruteEvery").floatValue = 30f;
+                    mission.ApplyModifiedPropertiesWithoutUndo();
+                    stepTime = Time.time;
+                    missionPeakThreats = 0;
+                    step = 400;
                     break;
                 }
                 case 0 when sinceStart >= 2:
@@ -1605,6 +1635,83 @@ namespace ResidualSignal
                 RenderTexture.ReleaseTemporary(target);
                 UnityEngine.Object.DestroyImmediate(image);
             }
+        }
+
+        static int missionPeakThreats;
+        static bool missionPlaced;
+        static float nextFuelStep;
+
+        static void CheckMission(StationTrial trial, CharacterController controller)
+        {
+            float elapsed = Time.time - stepTime;
+            int alive = 0;
+            bool brute = false;
+            foreach (var infected in trial.Threats)
+                if (infected != null && !infected.Dead)
+                {
+                    alive++;
+                    brute |= infected.Kind == InfectedKind.Brute;
+                }
+            missionPeakThreats = Mathf.Max(missionPeakThreats, alive);
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "-keepAlive") >= 0 && !trial.Downed && trial.Health < 60)
+                trial.Heal(60);
+            bool survival = Difficulty.Selected == Difficulty.Mission.Survival;
+            if (elapsed > 3f && !missionPlaced)
+            {
+                missionPlaced = true;
+                Vector3 at = controller.transform.position;
+                bool placed = survival ? at.z > 14f && at.z < 20f : at.z > 31f;
+                bool scavenge = Difficulty.Selected == Difficulty.Mission.Scavenge;
+                if (scavenge)
+                    placed = at.z > 14f && at.z < 20f && trial.FuelNeeded >= 6;
+                int expected = survival || scavenge ? 4 : 9;
+                if (!placed || trial.PhaseIndex != expected || SurvivorBot.All.Count != 3)
+                {
+                    Finish(false, $"Mission {Difficulty.Selected} start wrong: player {at}, phase {trial.PhaseIndex}, bots {SurvivorBot.All.Count}.");
+                    return;
+                }
+            }
+            string path = SessionState.GetString(RunningKey + ".path", "");
+            if (elapsed > 8f && elapsed - Time.deltaTime <= 8f)
+            {
+                Camera.main.transform.localRotation = Quaternion.identity;
+                Capture(Camera.main, path.Replace(".png", ".early.png"));
+            }
+            if (Difficulty.Selected == Difficulty.Mission.Scavenge && missionPlaced && elapsed > 4f)
+            {
+                // Walk the carry loop for real: stand on a can, E, stand at the generator, E.
+                if (Time.time >= nextFuelStep)
+                {
+                    nextFuelStep = Time.time + 0.6f;
+                    Vector3 goal = trial.CarryingFuel ? trial.GeneratorPosition + Vector3.left * 1.2f :
+                        trial.FuelCans.Count > 0 ? trial.FuelCans[0].transform.position : controller.transform.position;
+                    controller.enabled = false;
+                    controller.transform.position = goal + Vector3.up * 0.08f;
+                    controller.enabled = true;
+                    if (!trial.CarryingFuel && trial.FuelCans.Count > 0 && !trial.TryInteract())
+                        Debug.LogWarning("Fuel pickup refused at " + goal);
+                    else if (trial.CarryingFuel && trial.TryFire())
+                    {
+                        Finish(false, "Fired while carrying a fuel can.");
+                        return;
+                    }
+                    else if (trial.CarryingFuel && trial.TryInteract() && trial.FuelPoured == 1)
+                        Capture(Camera.main, path.Replace(".png", ".pour.png"));
+                }
+                if (!trial.Downed && trial.Health < 60)
+                    trial.Heal(60);
+            }
+            float length = survival ? 45f : Difficulty.Selected == Difficulty.Mission.Scavenge ? 60f : 25f;
+            if (elapsed < length && trial.PhaseIndex != 8)
+                return;
+            Capture(Camera.main, path);
+            string report = $"{Difficulty.Selected} {Difficulty.LevelName}: {elapsed:F0}s, phase {trial.PhaseIndex}, peak infected {missionPeakThreats}, " +
+                $"brute {brute}, health {trial.Health}, downed {trial.Downed}, survival {trial.SurvivalSeconds:F0}s";
+            if (Difficulty.Selected == Difficulty.Mission.Scavenge)
+                report += $", fuel {trial.FuelPoured}/{trial.FuelNeeded}";
+            bool passed = Difficulty.Selected == Difficulty.Mission.Scavenge ? trial.PhaseIndex == 7 && trial.FuelPoured == trial.FuelNeeded :
+                survival ? missionPeakThreats >= 10 && trial.SurvivalSeconds > 10f : trial.PhaseIndex >= 9;
+            Finish(passed, "PLATFORM03 MISSION CHECK " + report);
         }
 
         static void Finish(bool passed, string message)

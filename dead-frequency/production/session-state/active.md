@@ -33,3 +33,13 @@
 - 다시 촬영할 때는 `ResidualSignal.StationPlayCheck.Run`에 `-solo -stationCapture <비어 있는 PNG 경로> -demoFrames <프레임 폴더>`를 넘긴다. 진입은 `-botCheck`, 승강장은 `-liveDefenseCheck`, 적재장은 `-yardBossCheck`, 호송은 `-freightDemo -triageLeft -drainRoute`를 사용한다.
 - 검증. 분대, 승강장 증원, 적재장 보스 검사와 침수 통로 경유 호송 촬영 통과. 일반 임무 자동 검사는 첫 사격의 피격 반응 확인에서 멈췄다. 호송 촬영 모드는 해당 사격 검사를 건너뛰고 탈출 완료까지 확인한다.
 - 다음 할 일. 확장 임무의 4인 Relay 완주, 실플레이 난이도와 프레임 타임을 확인한다.
+
+## 2026-11-24 미션·난이도·L4D2 화면
+
+- 미션 선택(열한 번째 이름 / 정비동 돌파 / 승강장 사수)과 4단계 난이도(`Assets/Scripts/Difficulty.cs`, `StationMission.cs`). 기본 난이도는 보통. 배수는 Difficulty.cs 표에서 조정.
+- 화면 등급: `ResidualSignal.StationSceneBuilder.ApplyLook`으로 채도 -18, 대비 32, 그레인 0.32, 비네트 0.38, 안개 62m/실내 21m 적용.
+- 검사: `-solo -mission survival|annex -difficulty N -missionCheck [-keepAlive]`. 생존 전문가 17초 만에 쓰러짐(감염체 42), 보통+keepAlive 45초 거대체 등장, 정비동 시작 위치·단계 통과, `-botCheck` 회귀 통과. 증거: production/qa/evidence/*-2026-11-24.png.
+- 다음: 사람이 직접 난이도별로 플레이해 배수 조정. 커밋 안 됨.
+- 추가: 4번째 미션 〈연료 수집〉(`StationScavenge.cs`, L4D2 스캐빈지). 연료통 8개, 90초+통당 20초, 운반 중 사격 불가. 직원 통로 셔터는 즉시 열림. 손전등 그림자 켬.
+- 기존 스크립트 검사는 `-difficulty`가 없으면 쉬움(원래 조정값)으로 고정된다. 보통에서는 감염체 체력이 올라 `-yardBossCheck`의 첫 사격 처치 조건이 맞지 않는다.
+- 검사: 연료 수집 고급 60초 8/8 완료(감염체 최대 32), `-botCheck`·`-liveDefenseCheck`·`-yardBossCheck`(쉬움) 통과.

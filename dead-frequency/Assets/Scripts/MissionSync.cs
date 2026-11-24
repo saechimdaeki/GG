@@ -17,13 +17,20 @@ namespace ResidualSignal
         readonly NetworkVariable<Vector3> witnessPosition = new();
         readonly NetworkVariable<float> witnessYaw = new();
         readonly NetworkVariable<bool> witnessWalking = new();
+        readonly NetworkVariable<int> difficulty = new();
         float nextPush;
 
         public override void OnNetworkSpawn()
         {
             Instance = this;
             if (IsServer)
+            {
+                difficulty.Value = (int)Difficulty.Current;
                 return;
+            }
+            // Everyone plays the host's difficulty; damage is applied on each owner's machine.
+            Difficulty.Current = (Difficulty.Level)difficulty.Value;
+            difficulty.OnValueChanged += (_, value) => Difficulty.Current = (Difficulty.Level)value;
             phase.OnValueChanged += (_, value) => StationTrial.Local?.ApplyPhase(value, drain.Value);
             // Late joiners catch up with whatever already happened.
             if (phase.Value != 0)

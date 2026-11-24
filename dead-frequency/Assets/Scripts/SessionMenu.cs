@@ -73,6 +73,7 @@ namespace ResidualSignal
                     NetworkManager.Singleton.StartClient();
                 return;
             }
+            Difficulty.ReadCommandLine(arguments);
             Blocking = !Application.isBatchMode && Array.IndexOf(arguments, "-solo") < 0;
         }
 
@@ -199,21 +200,29 @@ namespace ResidualSignal
             switch (page)
             {
                 case ScreenPage.Briefing:
-                    Label(new Rect(48, top + 201, 346, 24), "해림역 · 3번 승강장", 16, Amber, bold: true);
-                    Label(new Rect(47, top + 230, 350, 57), "열한 번째 이름", 36, Ink, bold: true);
-                    Label(new Rect(48, top + 305, 350, 30), "역에 남은 구조 요청을 확인하세요.", 17, Muted);
+                    Label(new Rect(48, top + 193, 346, 24), "해림역 · 3번 승강장", 16, Amber, bold: true);
+                    Label(new Rect(47, top + 220, 350, 52), Difficulty.MissionTitle, 34, Ink, bold: true);
+                    Label(new Rect(48, top + 276, 350, 44), Difficulty.MissionLine, 16, Muted, wrap: true);
+                    // Mission and difficulty cycle on click; online play always runs the full campaign.
+                    if (Button(new Rect(48, top + 330, 228, 40), $"미션  ◀ {Difficulty.MissionTitle} ▶"))
+                        Difficulty.Selected = (Difficulty.Mission)(((int)Difficulty.Selected + 1) % 4);
+                    if (Button(new Rect(284, top + 330, 110, 40), Difficulty.LevelName))
+                        Difficulty.Current = (Difficulty.Level)(((int)Difficulty.Current + 1) % 4);
                     if (Button(new Rect(48, top + 405, 346, 56), "혼자 출격   /   Enter", true) || quickDeploy)
                         Deploy();
                     if (Button(new Rect(48, top + 473, 346, 54), "온라인 협동"))
                         Navigate(ScreenPage.Online);
-                    Label(new Rect(48, top + 546, 346, 30), "혼자 출격 · AI 동료 3명", 15, Muted);
+                    Label(new Rect(48, top + 546, 346, 30), $"혼자 출격 · AI 동료 3명 · 난이도 {Difficulty.LevelName}", 15, Muted);
                     break;
                 case ScreenPage.Online:
                     Label(new Rect(48, top + 220, 346, 55), "온라인 협동", 38, Ink, bold: true);
                     Label(new Rect(48, top + 291, 346, 30), "최대 4명  /  해림역 3번 승강장", 17, Muted);
                     Label(new Rect(48, top + 325, 346, 30), "방을 만든 뒤 친구에게 참가 코드를 보내세요.", 16, Muted);
                     if (Button(new Rect(48, top + 405, 346, 56), busy ? "방 만드는 중…" : "방 만들기", true))
+                    {
+                        Difficulty.Selected = Difficulty.Mission.Campaign;
                         Host();
+                    }
                     if (Button(new Rect(48, top + 473, 346, 54), "코드로 참가"))
                         Navigate(ScreenPage.Join);
                     break;

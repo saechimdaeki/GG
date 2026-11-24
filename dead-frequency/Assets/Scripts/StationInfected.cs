@@ -126,6 +126,13 @@ namespace ResidualSignal
         public bool Dead => Authority ? health <= 0 : netDead.Value;
         public InfectedKind Kind => kind;
         public int RemainingHealth => health;
+
+        /// <summary>Authority: replace spawn health (survival brutes are lighter than the yard boss).</summary>
+        public void OverrideHealth(int value)
+        {
+            health = value;
+            bossOpeningFloor = value / 2;
+        }
         public bool PreparingCall => callWindup > 0f && !Dead;
         /// <summary>Hunting the squad (as opposed to wandering, unaware).</summary>
         public bool Alerted => Authority ? alerted : netAlerted.Value;
@@ -308,6 +315,7 @@ namespace ResidualSignal
                 InfectedKind.Caller => 95,
                 _ => maximumHealth
             };
+            health = Difficulty.InfectedHealth(health);
         }
 
         public void StageEncounter() => stagedEncounter = true;
@@ -539,7 +547,7 @@ namespace ResidualSignal
             }
             else if (hasLineOfSight && distance <= Scaled(closeIn) + 0.1f && stagger <= 0f && attackCooldown <= 0f)
             {
-                attackCooldown = attackInterval;
+                attackCooldown = attackInterval * Difficulty.AttackInterval;
                 PlayAttack();
                 windup = runner ? 0.32f : 0.44f;
                 warningAudio.PlayOneShot(attackCue, 0.75f);

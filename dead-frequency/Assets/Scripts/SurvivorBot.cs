@@ -249,6 +249,7 @@ namespace ResidualSignal
         {
             if (Down)
                 return;
+            amount = Difficulty.Hurt(amount);
             health = Mathf.Max(0, health - amount);
             if (health > 0)
                 return;
@@ -771,7 +772,7 @@ namespace ResidualSignal
                 return;
             Vector3 point = aim.transform.position + Vector3.up * Random.Range(1.0f, 1.6f);
             float damageScale = aim.Kind == InfectedKind.Brute ? 0.45f : 1f;
-            aim.Hit(Mathf.RoundToInt(damage * damageScale * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
+            aim.Hit(Mathf.RoundToInt(damage * damageScale * Difficulty.BotDamage * Mathf.Lerp(1f, 1.35f, effectiveness)), point,
                 point - (transform.position + Vector3.up * 1.5f));
         }
 
