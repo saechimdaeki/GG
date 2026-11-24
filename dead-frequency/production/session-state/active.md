@@ -26,3 +26,10 @@
 - 적재장 이후 화물 연결로 쪽으로 54m 전진하며, 배전함으로 차단문을 열고 반대편 신호함에서 서비스문 잠금을 해제한 뒤 서이경과 탈출한다. `ResidualSignal.StationSceneBuilder.InstallFreightPassage`로 씬과 NavMesh를 갱신한다.
 - 거대체 보호는 첫 공격 전에 줄지 않는다. 이후 적재장 안에 표적이 있고 최근 피해를 받은 구간에서만 30.5초 보호가 소모된다.
 - 아군 충돌쌍만 제외했다. `-squadCollisionCheck`에서 아군 둘을 지나 3.20m 이동하고 감염체와의 충돌은 유지됐다. 첫 방어부터 특수 감염체를 투입하고 대기 중인 특수 감염체의 마지막 증원 몫을 유지한다. `-liveDefenseCheck`에서 은폐 증원 14체와 특수 감염체 등장 확인.
+
+## 2026-11-24 플레이 미디어
+
+- 지금 하던 일. 최신 Mixamo 모델과 해림역 씬으로 README의 진입·거대체 GIF와 대표 스크린샷을 교체하고, 승강장 방어와 화물 연결로 호송을 별도 GIF로 기록했다.
+- 다시 촬영할 때는 `ResidualSignal.StationPlayCheck.Run`에 `-solo -stationCapture <비어 있는 PNG 경로> -demoFrames <프레임 폴더>`를 넘긴다. 진입은 `-botCheck`, 승강장은 `-liveDefenseCheck`, 적재장은 `-yardBossCheck`, 호송은 `-freightDemo -triageLeft -drainRoute`를 사용한다.
+- 검증. 분대, 승강장 증원, 적재장 보스 검사와 침수 통로 경유 호송 촬영 통과. 일반 임무 자동 검사는 첫 사격의 피격 반응 확인에서 멈췄다. 호송 촬영 모드는 해당 사격 검사를 건너뛰고 탈출 완료까지 확인한다.
+- 다음 할 일. 확장 임무의 4인 Relay 완주, 실플레이 난이도와 프레임 타임을 확인한다.

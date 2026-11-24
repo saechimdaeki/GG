@@ -44,6 +44,7 @@ namespace ResidualSignal
         static int preparationThreats;
         static Vector3 approachStart;
         static string demoFrameFolder;
+        static bool freightDemo;
         static int demoFrame;
         static float nextDemoFrame;
         static bool demoBossWalked;
@@ -115,6 +116,8 @@ namespace ResidualSignal
                 Application.runInBackground = true;
                 startedAt = EditorApplication.timeSinceStartup;
                 demoFrameFolder = SessionState.GetString(RunningKey + ".demo", "");
+                freightDemo = !string.IsNullOrEmpty(demoFrameFolder) &&
+                    Array.IndexOf(Environment.GetCommandLineArgs(), "-freightDemo") >= 0;
                 // Scripted checks need a quiet station: no director until a mode turns it on.
                 var quiet = UnityEngine.Object.FindFirstObjectByType<StationTrial>();
                 if (quiet != null && Array.IndexOf(Environment.GetCommandLineArgs(), "-botCheck") < 0)
@@ -786,6 +789,11 @@ namespace ResidualSignal
                         step = 86;
                         break;
                     }
+                    if (freightDemo)
+                    {
+                        step = 3;
+                        break;
+                    }
                     // Stage a deterministic hit/reload target independently of the live director.
                     target = trial.SpawnInfected(0.0f, controller.transform.position.z + 7f, false);
                     stepTime = Time.time;
@@ -826,6 +834,11 @@ namespace ResidualSignal
                     step = 83;
                     break;
                 case 83:
+                    if (liveDefenseMode && !trial.PreparingDefense && !string.IsNullOrEmpty(demoFrameFolder))
+                    {
+                        AimAtPoint(controller.transform.position + new Vector3(0f, 1.25f, 8f));
+                        RecordDemoFrame();
+                    }
                     int arrivals = trial.Threats.Count - preparationThreats;
                     bool specialistArrived = false;
                     if (liveDefenseMode)
@@ -836,7 +849,17 @@ namespace ResidualSignal
                         if (liveDefenseMode)
                             AimAtPoint(trial.Threats[trial.Threats.Count - 1].transform.position + Vector3.up * 1.25f);
                         Capture(Camera.main, Shot(".defense.png"));
-                        Finish(true, $"PLATFORM03 CAMPAIGN PACING CHECK PASS (quiet preparation, then {arrivals} covered reinforcements, specialist {specialistArrived})");
+                        string result = $"PLATFORM03 CAMPAIGN PACING CHECK PASS (quiet preparation, then {arrivals} covered reinforcements, specialist {specialistArrived})";
+                        if (!liveDefenseMode || string.IsNullOrEmpty(demoFrameFolder))
+                        {
+                            Finish(true, result);
+                            return;
+                        }
+                        Debug.Log(result);
+                        trial.Equip(4);
+                        trial.GiveAmmo();
+                        stepTime = Time.time;
+                        step = 134;
                         return;
                     }
                     if (Time.time > stepTime + 13f)
@@ -903,12 +926,15 @@ namespace ResidualSignal
                     step++;
                     break;
                 case 3 when Time.time >= stepTime + 1.4f:
-                    AimAt(target);
-                    Capture(Camera.main, Shot(".corpse.png"));
-                    if (trial.Rounds != startingRounds)
+                    if (!freightDemo)
                     {
-                        Finish(false, "Reload did not refill the magazine.");
-                        return;
+                        AimAt(target);
+                        Capture(Camera.main, Shot(".corpse.png"));
+                        if (trial.Rounds != startingRounds)
+                        {
+                            Finish(false, "Reload did not refill the magazine.");
+                            return;
+                        }
                     }
                     controller.Move(Vector3.right * 2.8f);
                     controller.Move(Vector3.forward * Mathf.Max(0f, 27f - controller.transform.position.z));
@@ -1246,6 +1272,7 @@ namespace ResidualSignal
                     float lane = -2.45f + Mathf.Sin((Time.time - stepTime) * 1.45f) * 0.95f;
                     MoveToward(controller, new Vector3(lane, 0, 57.25f));
                     AimAtPoint(target.transform.position + Vector3.up * 1.6f);
+                    RecordDemoFrame();
                     if (trial.TryFire())
                         yardShots++;
                     else if (trial.Rounds == 0)
@@ -1350,6 +1377,11 @@ namespace ResidualSignal
                 case 132:
                     ClearAnnexTestThreats(trial, controller);
                     MoveToward(controller, new Vector3(-1.6f, 0f, 103.15f));
+                    if (freightDemo)
+                    {
+                        AimAtPoint(trial.Witness.transform.position + Vector3.up * 1.35f);
+                        RecordDemoFrame();
+                    }
                     if (controller.transform.position.x >= -1.7f)
                         step = 133;
                     break;
@@ -1357,11 +1389,50 @@ namespace ResidualSignal
                     ClearAnnexTestThreats(trial, controller);
                     float witnessZ = trial.Witness.transform.position.z;
                     MoveToward(controller, new Vector3(-1.6f, 0f, Mathf.Min(121.1f, witnessZ + 3.8f)));
+                    if (freightDemo)
+                    {
+                        AimAtPoint(trial.Witness.transform.position + Vector3.up * 1.35f);
+                        RecordDemoFrame();
+                    }
                     if (!trial.Complete)
                         break;
                     AimAtPoint(new Vector3(-1.6f, 2.2f, 122.6f));
                     Capture(Camera.main, Shot(".freight-exit.png"));
                     Finish(true, "PLATFORM03 MISSION PLAY CHECK PASS (annex, freight power, exit release and escort escape)");
+                    break;
+                case 134:
+                    if (Time.time >= stepTime + 5f)
+                    {
+                        Finish(true, "PLATFORM03 DEFENSE GAMEPLAY CAPTURE READY");
+                        return;
+                    }
+                    StationInfected nearest = null;
+                    float nearestDistance = float.PositiveInfinity;
+                    foreach (var infected in trial.Threats)
+                    {
+                        if (infected == null || infected.Dead)
+                            continue;
+                        float distance = (infected.transform.position - controller.transform.position).sqrMagnitude;
+                        if (distance >= nearestDistance)
+                            continue;
+                        if (Physics.Linecast(Camera.main.transform.position, infected.transform.position + Vector3.up * 1.25f,
+                                out var obstruction, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+                            obstruction.collider.GetComponentInParent<StationInfected>() != infected)
+                            continue;
+                        nearest = infected;
+                        nearestDistance = distance;
+                    }
+                    if (nearest != null)
+                    {
+                        AimAt(nearest);
+                        if (nearestDistance < 9f)
+                            trial.TryShove();
+                        if (!trial.TryFire() && trial.Rounds == 0)
+                            trial.TryReload();
+                    }
+                    if (trial.Health < 75 && !trial.Downed)
+                        trial.Heal(60);
+                    RecordDemoFrame();
                     break;
             }
         }
