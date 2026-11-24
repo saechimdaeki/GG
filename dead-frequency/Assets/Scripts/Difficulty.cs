@@ -27,6 +27,8 @@ namespace ResidualSignal
         static readonly float[] AttackIntervalScale = { 1f, 0.9f, 0.8f, 0.7f };
         static readonly float[] BotDamageScale = { 1f, 0.8f, 0.65f, 0.5f };
         static readonly int[] ReviveHealth = { 40, 35, 30, 20 };
+        // Share of a round's damage a teammate takes when you shoot them (L4D2 friendly fire).
+        static readonly float[] FriendlyFireScale = { 0f, 0.1f, 0.3f, 0.6f };
 
         static int Index => (int)Current;
 
@@ -41,6 +43,7 @@ namespace ResidualSignal
         public static float AttackInterval => AttackIntervalScale[Index];
         public static float BotDamage => BotDamageScale[Index];
         public static int ReviveTo => ReviveHealth[Index];
+        public static float FriendlyFire => FriendlyFireScale[Index];
 
         public static string MissionTitle => Selected switch
         {

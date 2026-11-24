@@ -237,6 +237,7 @@ namespace ResidualSignal
             if (item.kind == LootItem.Kind.Medkit)
             {
                 Heal(60);
+                OnMedkit();
                 Signal("구급상자를 썼다", 2.5f);
             }
             else
@@ -320,6 +321,7 @@ namespace ResidualSignal
                 return;
             UpdateWeapon();
             UpdateHolds();
+            UpdateBlackAndWhite();
             aimedAtInfected = InCombat && FindAimTarget(out _, out _);
             if (activeGate != null)
                 activeGate.position = Vector3.MoveTowards(activeGate.position, raisedGatePosition, shutterSpeed * Time.deltaTime);
@@ -746,15 +748,7 @@ namespace ResidualSignal
             }
             if (TryScavenge() || TryRevive() || TryLoot() || TryPickUp())
                 return true;
-            if (tookSupply || !Nearby(supply))
-                return false;
-            tookSupply = true;
-            foreach (var gun in arsenal)
-                gun.reserve += gun.capacity * 2;
-            health = Mathf.Min(100, health + 30);
-            supply.gameObject.SetActive(false);
-            Signal("보급함 · 탄약 보충, 응급처치", 4f);
-            return true;
+            return TrySupply();
         }
 
         /// <summary>Checks (and with <paramref name="apply"/>, performs on the authority) the shared mission step for a survivor at <paramref name="at"/>.</summary>
@@ -935,6 +929,11 @@ namespace ResidualSignal
             if (gun.pellets == 1 && !gun.pierces)
             {
                 Vector3 traceEnd = eyes.transform.position + eyes.transform.forward * range;
+                if (TryFriendlyFire(eyes.transform.position, eyes.transform.forward, gun.damage, out Vector3 friendly))
+                {
+                    ShotFeedback.Trace(gun.muzzle.transform.position, friendly);
+                    return true;
+                }
                 if (FindAimTarget(out StationInfected infected, out Vector3 hitPoint))
                 {
                     Damage(infected, hitPoint, gun.damage);
@@ -966,6 +965,12 @@ namespace ResidualSignal
                     var infected = aimHits[index].collider.GetComponent<StationInfected>();
                     if (infected == null)
                     {
+                        var mate = Difficulty.FriendlyFire > 0f ? aimHits[index].collider.GetComponentInParent<SurvivorBot>() : null;
+                        if (mate != null && !mate.Down)
+                        {
+                            mate.TakeFriendlyFire(Mathf.Max(1, Mathf.RoundToInt(gun.damage * Difficulty.FriendlyFire)));
+                            break;
+                        }
                         // Wall or prop stops the round. Only bare geometry gets a hole; corpses and limbs don't.
                         if (IsImpactSurface(aimHits[index].collider))
                             ShotFeedback.Impact(aimHits[index].point, aimHits[index].normal);
@@ -1395,6 +1400,12 @@ namespace ResidualSignal
             AddPacingStress(damage / 40f);
             if (health > 0)
                 return;
+            if (FallIsFatal())
+            {
+                Signal("흑백 상태에서 쓰러졌다 · 사망", 6f);
+                SetPhase(Phase.Failed);
+                return;
+            }
             if (!Networked && SurvivorBot.All.Count == 0)
             {
                 SetPhase(Phase.Failed);
@@ -1416,6 +1427,7 @@ namespace ResidualSignal
                 return;
             Downed = false;
             health = Difficulty.ReviveTo;
+            OnRevived();
             Signal("다시 일어났다", 3f);
             SurvivorAvatar.Mine?.ReportDowned(false);
         }
@@ -1481,7 +1493,7 @@ namespace ResidualSignal
             if (loot != null) return $"E · {loot.Label}";
             var pickup = NearbyPickup();
             if (pickup != null) return $"E · {arsenal[pickup.arsenalIndex].label} 줍기";
-            if (!tookSupply && Nearby(supply)) return "E · 보급함 열기";
+            if (SupplyReady && Nearby(supply)) return tookSupply ? "E · 탄약 보충" : "E · 보급함 열기";
             if (InCombat && reloadUntil <= 0 && Current.rounds == 0 && Current.reserve > 0) return "R · 재장전";
             if (aimedAtInfected && !Networked && SurvivorBot.All.Count > 0 && FocusTarget == null)
                 return "Q · 분대 집중 사격";

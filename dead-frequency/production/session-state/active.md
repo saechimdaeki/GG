@@ -43,3 +43,4 @@
 - 추가: 4번째 미션 〈연료 수집〉(`StationScavenge.cs`, L4D2 스캐빈지). 연료통 8개, 90초+통당 20초, 운반 중 사격 불가. 직원 통로 셔터는 즉시 열림. 손전등 그림자 켬.
 - 기존 스크립트 검사는 `-difficulty`가 없으면 쉬움(원래 조정값)으로 고정된다. 보통에서는 감염체 체력이 올라 `-yardBossCheck`의 첫 사격 처치 조건이 맞지 않는다.
 - 검사: 연료 수집 고급 60초 8/8 완료(감염체 최대 32), `-botCheck`·`-liveDefenseCheck`·`-yardBossCheck`(쉬움) 통과.
+- 추가: `StationHardship.cs` — 흑백 상태(쓰러짐 2회 후 회색 화면, 3회째 사망, 구급상자로 초기화), 오인사격(보통 10/고급 30/전문가 60%), 생존·연료 미션 보급함 25초 재충전. `-hardshipCheck`(survival, 전문가) 통과. 브랜치 feat/residual-signal-missions.

@@ -245,11 +245,25 @@ namespace ResidualSignal
             Hurt(amount);
         }
 
-        void Hurt(int amount)
+        void Hurt(int amount) => Wound(Difficulty.Hurt(amount));
+
+        float nextFriendlyComplaint;
+
+        /// <summary>The player shot this bot (Advanced/Expert friendly fire); damage is already scaled.</summary>
+        public void TakeFriendlyFire(int amount)
+        {
+            if (Time.time >= nextFriendlyComplaint)
+            {
+                nextFriendlyComplaint = Time.time + 4f;
+                Say("아군이야! 조준 똑바로 해!", true);
+            }
+            Wound(amount);
+        }
+
+        void Wound(int amount)
         {
             if (Down)
                 return;
-            amount = Difficulty.Hurt(amount);
             health = Mathf.Max(0, health - amount);
             if (health > 0)
                 return;
@@ -529,7 +543,7 @@ namespace ResidualSignal
                     {
                         taskTimer = 0;
                         hasMedkit = false;
-                        leader.Heal(50);
+                        leader.MedkitHeal(50);
                         Say("됐어, 붕대 감았어.", true);
                         task = Task.Roam;
                     }

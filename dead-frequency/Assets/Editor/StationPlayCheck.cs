@@ -1677,6 +1677,11 @@ namespace ResidualSignal
                 Camera.main.transform.localRotation = Quaternion.identity;
                 Capture(Camera.main, path.Replace(".png", ".early.png"));
             }
+            if (missionPlaced && elapsed > 4f && Array.IndexOf(Environment.GetCommandLineArgs(), "-hardshipCheck") >= 0)
+            {
+                CheckHardship(trial, controller);
+                return;
+            }
             if (Difficulty.Selected == Difficulty.Mission.Scavenge && missionPlaced && elapsed > 4f)
             {
                 // Walk the carry loop for real: stand on a can, E, stand at the generator, E.
@@ -1712,6 +1717,106 @@ namespace ResidualSignal
             bool passed = Difficulty.Selected == Difficulty.Mission.Scavenge ? trial.PhaseIndex == 7 && trial.FuelPoured == trial.FuelNeeded :
                 survival ? missionPeakThreats >= 10 && trial.SurvivalSeconds > 10f : trial.PhaseIndex >= 9;
             Finish(passed, "PLATFORM03 MISSION CHECK " + report);
+        }
+
+        static int hardStep;
+        static float hardAt;
+        static int hardBotHealth;
+        static string hardLog = "";
+
+        /// <summary>-mission survival -difficulty 3 -missionCheck -hardshipCheck: friendly fire, endless supply,
+        /// black and white, then the fatal third fall.</summary>
+        static void CheckHardship(StationTrial trial, CharacterController controller)
+        {
+            if (Time.time < hardAt)
+                return;
+            hardAt = Time.time + 0.4f;
+            string path = SessionState.GetString(RunningKey + ".path", "");
+            var settings = new SerializedObject(trial);
+            switch (hardStep++)
+            {
+                case 0:
+                {
+                    // Bot two metres ahead, nothing else in the line.
+                    var bot = SurvivorBot.All[0];
+                    var agent = bot.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                    agent.Warp(controller.transform.position + controller.transform.forward * 2.2f);
+                    agent.isStopped = true;
+                    hardBotHealth = bot.Health;
+                    AimAtPoint(bot.transform.position + Vector3.up * 1.2f);
+                    break;
+                }
+                case 1:
+                {
+                    var bot = SurvivorBot.All[0];
+                    AimAtPoint(bot.transform.position + Vector3.up * 1.2f);
+                    bool fired = trial.TryFire();
+                    hardLog += $"friendly fire {hardBotHealth}->{bot.Health} (fired {fired}); ";
+                    if (!fired || bot.Health >= hardBotHealth)
+                    {
+                        Finish(false, "Expert friendly fire did not hurt the bot. " + hardLog);
+                        return;
+                    }
+                    bot.GetComponent<UnityEngine.AI.NavMeshAgent>().isStopped = false;
+                    break;
+                }
+                case 2:
+                {
+                    settings.FindProperty("supplyRefillSeconds").floatValue = 0.3f;
+                    settings.ApplyModifiedPropertiesWithoutUndo();
+                    var box = (Transform)settings.FindProperty("supply").objectReferenceValue;
+                    controller.enabled = false;
+                    controller.transform.position = box.position + Vector3.up * 0.1f;
+                    controller.enabled = true;
+                    bool first = trial.TryInteract();
+                    hardLog += $"supply first {first}; ";
+                    if (!first)
+                    {
+                        Finish(false, "Survival supply box did not open. " + hardLog);
+                        return;
+                    }
+                    break;
+                }
+                case 3:
+                {
+                    bool again = trial.TryInteract();
+                    hardLog += $"supply refill {again}; ";
+                    if (!again)
+                    {
+                        Finish(false, "Survival supply box did not refill. " + hardLog);
+                        return;
+                    }
+                    break;
+                }
+                case 4:
+                case 6:
+                    trial.TakeHit(400);
+                    if (!trial.Downed)
+                    {
+                        Finish(false, "Lethal hit did not down the player. " + hardLog);
+                        return;
+                    }
+                    break;
+                case 5:
+                case 7:
+                    trial.Revive();
+                    break;
+                case 8:
+                    hardLog += $"black and white {trial.BlackAndWhite}; ";
+                    if (!trial.BlackAndWhite)
+                    {
+                        Finish(false, "Two falls did not leave the player black and white. " + hardLog);
+                        return;
+                    }
+                    hardAt = Time.time + 1.2f;
+                    break;
+                case 9:
+                    Capture(Camera.main, path.Replace(".png", ".blackwhite.png"));
+                    trial.TakeHit(400);
+                    Finish(trial.PhaseIndex == 8 && !trial.Downed,
+                        $"PLATFORM03 HARDSHIP CHECK {hardLog}third fall phase {trial.PhaseIndex}");
+                    return;
+            }
         }
 
         static void Finish(bool passed, string message)
