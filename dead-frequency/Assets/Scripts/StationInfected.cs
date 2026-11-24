@@ -140,8 +140,9 @@ namespace ResidualSignal
             if (bespokeBoss)
                 foreach (var bone in rig.GetComponentsInChildren<Transform>())
                 {
-                    if (bone.name == "mixamorigLeftToeBase") bossLeftFoot = bone;
-                    if (bone.name == "mixamorigRightToeBase") bossRightFoot = bone;
+                    string bare = bone.name.Replace(":", "");
+                    if (bare == "mixamorigLeftToeBase") bossLeftFoot = bone;
+                    if (bare == "mixamorigRightToeBase") bossRightFoot = bone;
                     FindBossThrowBone(bone);
                 }
             physique = GetComponent<InfectedBody>();
@@ -246,6 +247,13 @@ namespace ResidualSignal
             if (Dead || kind == InfectedKind.Brute)
                 return;
             Alert();
+            // A shove interrupts a scream or a rise: the body must take the push.
+            if (Time.time < holdUntil)
+            {
+                holdUntil = 0f;
+                if (rig.IsPlaying("scream"))
+                    rig.Stop("scream");
+            }
             stagger = 0.95f;
             windup = 0;
             shoveVelocity = Vector3.ProjectOnPlane(direction, Vector3.up).normalized * 5.6f;
@@ -449,6 +457,14 @@ namespace ResidualSignal
             if (Dead || mission == null || stagedEncounter || Time.time < waitInCoverUntil || SessionMenu.Blocking ||
                 (mission.OpeningStaging && transform.position.z < 4f && !alerted))
                 return;
+            // A shove always lands, whatever the combat state or target: the body takes the push first.
+            if (shoveVelocity.sqrMagnitude > 0.01f)
+            {
+                body.Move((shoveVelocity + Vector3.down * 3f) * Time.deltaTime);
+                shoveVelocity = Vector3.MoveTowards(shoveVelocity, Vector3.zero, Time.deltaTime * 12f);
+                Locomotion(0f);
+                return;
+            }
             if (Time.time > nextGroan)
             {
                 nextGroan = Time.time + Random.Range(3.5f, 9f);

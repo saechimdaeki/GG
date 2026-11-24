@@ -248,7 +248,8 @@ namespace ResidualSignal
 
         void FindBossThrowBone(Transform bone)
         {
-            int index = bone.name switch
+            // glTF strips the colon from Mixamo bone names; FBX keeps it. Accept both.
+            int index = bone.name.Replace(":", "") switch
             {
                 "mixamorigLeftArm" => 0,
                 "mixamorigLeftForeArm" => 1,

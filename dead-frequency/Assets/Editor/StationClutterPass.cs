@@ -52,7 +52,9 @@ namespace ResidualSignal
                 {
                     Vector3 origin = centre.position + Vector3.up * 0.5f;
                     if (!Physics.Raycast(origin, Vector3.right * side, out RaycastHit wall, 9f, Physics.DefaultRaycastLayers,
-                            QueryTriggerInteraction.Ignore) || Vector3.Dot(wall.normal, Vector3.up) > 0.3f)
+                            QueryTriggerInteraction.Ignore) || Vector3.Dot(wall.normal, Vector3.up) > 0.3f ||
+                        // Real walls only: a table or counter side is not a wall to pile junk against.
+                        wall.collider.bounds.size.y < 2.2f)
                         continue;
                     // Grime creeping up from the floor on most wall stretches.
                     if (random.NextDouble() < 0.7)

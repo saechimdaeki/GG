@@ -14,6 +14,7 @@ namespace ResidualSignal
         const string CaptureArgument = "-stationCapture";
         static double startedAt;
         static int step;
+        static int tourIndex;
         static int shotsFired;
         static bool sawShotKick;
         static bool sawShotTrace;
@@ -139,12 +140,39 @@ namespace ResidualSignal
             }
             switch (step)
             {
+                case 300:
+                {
+                    var view = StationSceneBuilder.DetailViews[tourIndex];
+                    Camera.main.transform.SetPositionAndRotation(view.eye, Quaternion.Euler(view.angles));
+                    if (Time.time - stepTime < 0.8f)
+                        break;
+                    string tourPath = SessionState.GetString(RunningKey + ".path", "");
+                    Capture(Camera.main, tourPath.Replace(".png", $".{tourIndex}.png"));
+                    stepTime = Time.time;
+                    if (++tourIndex == StationSceneBuilder.DetailViews.Length)
+                    {
+                        Finish(true, "PLATFORM03 DETAIL TOUR READY");
+                        return;
+                    }
+                    break;
+                }
                 case 0 when sinceStart >= 2:
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-openingPlate") >= 0)
                     {
                         CaptureOpeningPlate(Camera.main, SessionState.GetString(RunningKey + ".path", ""));
                         Finish(true, "PLATFORM03 OPENING PLATE READY");
                         return;
+                    }
+                    if (Array.IndexOf(Environment.GetCommandLineArgs(), "-detailTour") >= 0)
+                    {
+                        // Play-mode views of the architecture pass (decals only resolve while frames run).
+                        trial.enabled = false;
+                        foreach (Transform child in Camera.main.transform)
+                            child.gameObject.SetActive(false);
+                        tourIndex = 0;
+                        stepTime = Time.time;
+                        step = 300;
+                        break;
                     }
                     if (Array.IndexOf(Environment.GetCommandLineArgs(), "-gripCheck") >= 0)
                     {
@@ -390,7 +418,7 @@ namespace ResidualSignal
                     controller.Move(new Vector3(2.4f, 0, 1.6f));
                     if (!trial.TryInteract() || trial.Equipped != "산탄총")
                     {
-                        Finish(false, $"Gun rack pickup failed (holding {trial.Equipped}).");
+                        Finish(false, $"Gun rack pickup failed (holding {trial.Equipped}, player at {controller.transform.position}).");
                         return;
                     }
                     Capture(Camera.main, Path.ChangeExtension(launchCapture, ".shotgun.png"));
@@ -1188,7 +1216,8 @@ namespace ResidualSignal
                             ShoveTargets[i].transform.position.z > ShoveOrigins[i].z)
                             pushed++;
                     bool followup = trial.TryFire();
-                    Finish(pushed == 3 && followup, $"PLATFORM03 SHOVE CHECK (pushed {pushed}/3, follow-up shot {followup})");
+                    string moves = string.Join(" ", System.Linq.Enumerable.Select(ShoveTargets, (t, i) => $"{(t.transform.position - ShoveOrigins[i]):F2}"));
+                    Finish(pushed == 3 && followup, $"PLATFORM03 SHOVE CHECK (pushed {pushed}/3, follow-up shot {followup}, moves {moves})");
                     break;
                 case 98:
                     ClearAnnexTestThreats(trial, controller);
@@ -1376,8 +1405,8 @@ namespace ResidualSignal
             {
                 switch (joint.name)
                 {
-                    case "Bip01 R Hand": right = joint; break;
-                    case "Bip01 L Hand": left = joint; break;
+                    case "Bip01 R Hand" or "mixamorig:RightHand": right = joint; break;
+                    case "Bip01 L Hand" or "mixamorig:LeftHand": left = joint; break;
                     case "Trigger hand contact": trigger = joint; break;
                     case "Support hand under fore-end": fore = joint; break;
                 }

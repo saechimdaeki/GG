@@ -18,6 +18,11 @@ namespace ResidualSignal
         [SerializeField] AnimationClip idleClip;
         [SerializeField] AnimationClip walkClip;
         [SerializeField] AnimationClip runClip;
+        [Tooltip("Per squad slot: a Mixamo character that replaces the default rescuer model.")]
+        [SerializeField] GameObject[] survivorModels;
+        [SerializeField] AnimationClip rifleIdle;
+        [SerializeField] AnimationClip rifleWalk;
+        [SerializeField] AnimationClip rifleRun;
         [SerializeField] AudioSource voice;
         [SerializeField] AudioClip shot;
         [SerializeField] Light muzzle;
@@ -35,7 +40,7 @@ namespace ResidualSignal
         [SerializeField] float reaction = 0.6f;
         [SerializeField] int magazine = 30;
 
-        static readonly string[] Names = { "민호", "지훈", "태식" };
+        static readonly string[] Names = { "민호", "수아", "태식" };
         static float nextAnyCallout;
 
         public static readonly List<SurvivorBot> All = new();
@@ -116,7 +121,9 @@ namespace ResidualSignal
             Label = Names[slot % Names.Length];
             agent = GetComponent<NavMeshAgent>();
             squadSlot = slot;
-            if (slot > 0 && slot <= alternateCoats.Length && slot <= alternateHelmets.Length)
+            if (survivorModels != null && slot < survivorModels.Length && survivorModels[slot] != null)
+                SwapModel(survivorModels[slot]);
+            else if (slot > 0 && slot <= alternateCoats.Length && slot <= alternateHelmets.Length)
                 ApplyUniform(alternateCoats[slot - 1], alternateHelmets[slot - 1]);
             formationOffset = FormationOffset(slot);
             scanPhase = slot * 1.8f;
@@ -145,6 +152,15 @@ namespace ResidualSignal
                     case "Bip01 R Hand": rightHand = bone; break;
                     case "Bip01 L Finger2": leftKnuckle = bone; break;
                     case "Bip01 R Finger2": rightKnuckle = bone; break;
+                    // Mixamo rig equivalents.
+                    case "mixamorig:LeftArm": leftArm = bone; break;
+                    case "mixamorig:RightArm": rightArm = bone; break;
+                    case "mixamorig:LeftForeArm": leftFore = bone; break;
+                    case "mixamorig:RightForeArm": rightFore = bone; break;
+                    case "mixamorig:LeftHand": leftHand = bone; break;
+                    case "mixamorig:RightHand": rightHand = bone; break;
+                    case "mixamorig:LeftHandMiddle1": leftKnuckle = bone; break;
+                    case "mixamorig:RightHandMiddle1": rightKnuckle = bone; break;
                 }
             }
             armBones = new[] { rightArm, rightFore, rightHand, leftArm, leftFore, leftHand };
@@ -171,7 +187,22 @@ namespace ResidualSignal
             nextRoam = Time.time + slot * 0.25f;
         }
 
-        void ApplyUniform(Material coat, Material helmet)
+        /// <summary>Replaces the default rescuer body with a Mixamo survivor carrying rifle locomotion clips.</summary>
+        void SwapModel(GameObject model)
+        {
+            Transform old = rig.transform;
+            while (old.parent != transform)
+                old = old.parent;
+            var body = Instantiate(model, transform);
+            body.transform.SetLocalPositionAndRotation(old.localPosition, Quaternion.identity);
+            Destroy(old.gameObject);
+            rig = body.GetComponent<Animation>();
+            if (rifleIdle != null) idleClip = rifleIdle;
+            if (rifleWalk != null) walkClip = rifleWalk;
+            if (rifleRun != null) runClip = rifleRun;
+        }
+
+                void ApplyUniform(Material coat, Material helmet)
         {
             foreach (var renderer in rig.GetComponentsInChildren<Renderer>())
             {

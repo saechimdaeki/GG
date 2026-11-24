@@ -162,6 +162,7 @@ namespace ResidualSignal
         public StationWitness Witness => witness;
         SquadMember self;
         float reviveProgress;
+        const float ShoveDuration = 0.4f;
         float shoveReadyAt;
         float shoveStarted = -10f;
         bool ambientSpawned;
@@ -554,7 +555,7 @@ namespace ResidualSignal
             return true;
         }
 
-        /// <summary>Right click: shove nearby infected and release teammates they are holding.</summary>
+        /// <summary>V or wheel click: rifle-butt shove nearby infected and release teammates they are holding.</summary>
         public bool TryShove()
         {
             if (pinnedBy != null || Downed || launchedByImpact || Time.time < knockLandingAt || Time.time < shoveReadyAt || phase is Phase.Complete or Phase.Failed)
@@ -608,8 +609,9 @@ namespace ResidualSignal
                 return true;
             }
             bool ended = phase is Phase.Complete or Phase.Failed;
+            // Right mouse aims down sights (Alt kept as an alternative); shove lives on V / mouse wheel click.
             SetHeldAim(!ended && Cursor.lockState == CursorLockMode.Locked &&
-                (Input.GetKey(KeyCode.LeftAlt) || Input.GetMouseButton(2)));
+                (Input.GetMouseButton(1) || Input.GetKey(KeyCode.LeftAlt)));
             if (ended && Input.GetKeyDown(KeyCode.Return))
             {
                 SceneManager.LoadScene(gameObject.scene.buildIndex);
@@ -643,7 +645,7 @@ namespace ResidualSignal
                     Move();
                 if (Input.GetKeyDown(KeyCode.E))
                     TryInteract();
-                if (Input.GetMouseButtonDown(1))
+                if (Input.GetKeyDown(KeyCode.V) || Input.GetMouseButtonDown(2))
                     TryShove();
                 if (Input.GetKeyDown(KeyCode.Q))
                     TryFocusFire();
@@ -1277,16 +1279,20 @@ namespace ResidualSignal
             float bob = Mathf.Sin(stride) * 0.012f * steady;
             float sway = Mathf.Sin(stride * 0.5f) * 0.011f * steady;
             drop = Mathf.Max(drop, raise);
-            float shove = Mathf.Clamp01(1f - (Time.time - shoveStarted) / 0.35f);
-            shove = Mathf.Sin(shove * Mathf.PI) * (shove > 0 ? 1 : 0);
+            // Shove: a short wind-up (gun pulled back and canted) then a hard butt-strike across the screen.
+            float shoveT = (Time.time - shoveStarted) / ShoveDuration;
+            bool shoving = shoveT >= 0f && shoveT <= 1f;
+            float windup = !shoving ? 0f : shoveT < 0.22f ? Mathf.SmoothStep(0f, 1f, shoveT / 0.22f) : Mathf.SmoothStep(1f, 0f, (shoveT - 0.22f) / 0.12f);
+            float strike = !shoving || shoveT < 0.22f ? 0f : shoveT < 0.36f ? Mathf.SmoothStep(0f, 1f, (shoveT - 0.22f) / 0.14f)
+                : Mathf.SmoothStep(1f, 0f, (shoveT - 0.36f) / 0.64f);
             // Lens space: x/y are multiplied by the lens scale (~1.4 at hip), so these sit closer in than they look.
             Vector3 hip = equipped == 0 ? new Vector3(0.095f, -0.118f, 0.40f) : new Vector3(0.118f, -0.118f, 0.29f);
             Vector3 sight = new Vector3(0f, equipped == 0 ? -0.018f : -0.014f, equipped == 0 ? 0.37f : 0.24f);
-            gun.view.localPosition = Vector3.Lerp(hip, sight, aimBlend) + new Vector3(sway - drop * 0.08f - shove * 0.1f, bob - drop * 0.15f + shove * 0.03f,
-                -weaponKick * 0.09f + shove * 0.16f);
+            gun.view.localPosition = Vector3.Lerp(hip, sight, aimBlend) + new Vector3(sway - drop * 0.08f + windup * 0.06f - strike * 0.13f,
+                bob - drop * 0.15f - windup * 0.02f + strike * 0.05f, -weaponKick * 0.09f - windup * 0.08f + strike * 0.21f);
             Quaternion hipRotation = Quaternion.Euler(1.2f, equipped == 0 ? -5f : -3f, 2.2f);
-            gun.view.localRotation = Quaternion.Slerp(hipRotation, Quaternion.identity, aimBlend) * Quaternion.Euler(-weaponKick * 8f + drop * 17f,
-                -shove * 25f + weaponKick * kickRoll * 1.5f, drop * -18f + shove * 35f + weaponKick * kickRoll * 4f);
+            gun.view.localRotation = Quaternion.Slerp(hipRotation, Quaternion.identity, aimBlend) * Quaternion.Euler(-weaponKick * 8f + drop * 17f + windup * 10f - strike * 8f,
+                windup * 20f - strike * 42f + weaponKick * kickRoll * 1.5f, drop * -18f - windup * 15f + strike * 32f + weaponKick * kickRoll * 4f);
             if (gun.magazine != null)
                 gun.magazine.localPosition = gun.magazineRest + Vector3.down * drop * 0.105f;
             if (gun.slide != null)
