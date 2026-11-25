@@ -109,3 +109,6 @@
 - [x] 새 이벤트 GIF 5개와 최신 4분 라운드 플레이 갤러리 추가.
 - [x] 4분 라운드 macOS Apple Silicon ZIP과 v0.2.0 패치노트 준비.
 - [ ] 4분 라운드 수동 플레이테스트에서 이벤트 간격, 콤보와 청소기 난이도 확인.
+- [x] 홈캠, 휴지·식탁보 물기, 상자 숨기, 빨래 바구니, 막판 배율과 카메라 개선.
+- [x] v0.3.0 Apple Silicon macOS 빌드 및 ZIP 검증, Unity EditMode 11/11 통과, README에 신규 플레이 GIF 추가.
+- [ ] v0.3.0 실플레이에서 홈캠 안내, 벽 근처 시야와 소품 조작 확인 ([#38](https://github.com/saechimdaeki/GG/issues/38)).

@@ -28,10 +28,16 @@ namespace CatChaos
         /// <summary>Places a catnip sprig can turn up (floor, table tops, the fridge).</summary>
         public readonly List<Vector3> NipSpots = new();
         /// <summary>Open windows a butterfly can drift in through.</summary>
+        /// <summary>Open cardboard boxes (world bounds): a cat must sit in one, and it hides you like the cushion.</summary>
+        public readonly List<Bounds> Boxes = new();
+        /// <summary>Inside faces of the outer walls, a little in.</summary>
+        public static readonly Rect Inside = new(X0 + 0.15f, Z0 + 0.15f, X1 - X0 - 0.3f, Z1 - Z0 - 0.3f);
+        public PetCam Cam;
         public readonly Vector3[] WindowIn = { new(-4.6f, 1.5f, -4.7f), new(-5.7f, 1.5f, -2.2f), new(-3f, 1.5f, 4.7f), new(5.7f, 1.6f, -2.4f) };
 
         readonly Transform _root;
         readonly Material _wall, _trim, _frame;
+        Transform _group;
 
         public House(Transform root)
         {
@@ -59,14 +65,14 @@ namespace CatChaos
             Floor(new Rect(3, 1, 3, 4), "Planks");             // entry
 
             // exterior: gaps are (center, width, sill, top)
-            Wall(true, Z0, X0, X1, Win(-4.6f, 1.2f), Win(-0.8f, 1.2f), Win(2.84f, 1.4f, 1.1f));
-            Wall(true, Z1, X0, X1, Win(-3f, 1.3f), Win(2.5f, 0.7f, 1.5f), Gap(4.5f, 1.0f));
-            Wall(false, X0, Z0, Z1, Win(-2.2f, 1.4f), Win(3f, 1.1f));
-            Wall(false, X1, Z0, Z1, Win(-2.4f, 1.2f, 1.1f));
+            Wall(true, Z0, X0, X1, false, Win(-4.6f, 1.2f), Win(-0.8f, 1.2f), Win(2.84f, 1.4f, 1.1f));
+            Wall(true, Z1, X0, X1, false, Win(-3f, 1.3f), Win(2.5f, 0.7f, 1.5f), Gap(4.5f, 1.0f));
+            Wall(false, X0, Z0, Z1, false, Win(-2.2f, 1.4f), Win(3f, 1.1f));
+            Wall(false, X1, Z0, Z1, false, Win(-2.4f, 1.2f, 1.1f));
             // interior
-            Wall(true, 1f, X0, X1, Gap(-1f, 0.9f), Gap(2.4f, 0.8f), Gap(4.5f, 1.6f));
-            Wall(false, 0f, 1f, Z1);
-            Wall(false, 3f, 1f, Z1);
+            Wall(true, 1f, X0, X1, true, Gap(-1f, 0.9f), Gap(2.4f, 0.8f), Gap(4.5f, 1.6f));
+            Wall(false, 0f, 1f, Z1, true);
+            Wall(false, 3f, 1f, Z1, true);
 
             var ceiling = Block("천장", new Vector3(0, H + 0.05f, 0), new Vector3(X1 - X0 + 0.4f, 0.1f, Z1 - Z0 + 0.4f), _trim);
             ceiling.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.ShadowsOnly;
@@ -79,6 +85,7 @@ namespace CatChaos
             hinge.localPosition = new Vector3(4.0f, 0, Z1 - 0.02f);
             var leaf = Block("문짝", new Vector3(0.5f, 1.05f, 0), new Vector3(1.0f, 2.1f, 0.06f), Mats.Flat(new Color(0.45f, 0.3f, 0.2f), 0.35f));
             leaf.transform.SetParent(hinge, false);
+            leaf.AddComponent<CamBlock>();
             var knob = Mats.Shape(PrimitiveType.Sphere, hinge, new Vector3(0.88f, 1.0f, -0.06f), Vector3.one * 0.06f, Mats.Flat(new Color(0.85f, 0.72f, 0.4f), 0.8f, 0.9f));
             knob.name = "손잡이";
             Door = hinge;
@@ -139,6 +146,9 @@ namespace CatChaos
             Fishbowl(new Vector3(-4.1f, 0.81f, Z0 + 0.2f));
             Dyn("plantSmall1", new Vector3(-0.8f, 0.82f, Z0 + 0.22f), 0, new Vector3(0.2f, 0.28f, 0.2f), "창가 화분", PropKind.Plant, 0.5f);
             Yarn(new Vector3(-1.0f, 0.06f, -3.4f), new Color(0.95f, 0.35f, 0.4f));
+            Tissue(new Vector3(-1.7f, 0.06f, -0.7f));
+            Box(new Vector3(-0.95f, 0, -4.45f), 15);
+            Cam = PetCam.Spawn(_root, At(X0 + 0.25f, 0.0f), 90);
             CatBed = new Vector3(0.45f, 0, Z0 + 0.6f);
             Bed(CatBed);
             DockBase();
@@ -167,6 +177,7 @@ namespace CatChaos
             Bowl(At(4.4f, z + 0.05f, 1.3f));
 
             Furn("table", new Vector3(3.5f, 0, -1.9f), 0, new Vector3(1.4f, 0.76f, 0.85f));
+            Tablecloth.Spawn(_root, At(3.5f, -1.9f), new Vector2(1.3f, 0.8f), Vector3.left);
             Dyn("chair", new Vector3(3.1f, 0, -2.65f), 0, new Vector3(0.45f, 0.95f, 0.45f), "의자", PropKind.Thing, 3f, big: true);
             Dyn("chair", new Vector3(3.9f, 0, -2.65f), 0, new Vector3(0.45f, 0.95f, 0.45f), "의자", PropKind.Thing, 3f, big: true);
             Dyn("chair", new Vector3(3.1f, 0, -1.15f), 180, new Vector3(0.45f, 0.95f, 0.45f), "의자", PropKind.Thing, 3f, big: true);
@@ -207,6 +218,8 @@ namespace CatChaos
             Dyn("cardboardBoxOpen", new Vector3(-0.35f, 1.9f, 2.2f), -90, new Vector3(0.4f, 0.3f, 0.35f), "상자", PropKind.Thing, 0.8f);
             Dyn("coatRackStanding", new Vector3(-1.0f, 0, Z1 - 0.35f), 0, new Vector3(0.45f, 1.7f, 0.45f), "옷걸이", PropKind.Thing, 3f, big: true);
             Furn("rugRound", new Vector3(-3.4f, 0, 1.9f), 0, new Vector3(1.6f, 0.02f, 1.6f), solid: false);
+            Box(new Vector3(-1.7f, 0, 1.55f), -20);
+            Laundry(new Vector3(-1.85f, 0, 3.3f));
         }
 
         void Bathroom()
@@ -215,7 +228,7 @@ namespace CatChaos
             Furn("toilet", new Vector3(2.55f, 0, Z1 - 0.4f), 180, new Vector3(0.45f, 0.8f, 0.7f));
             var sink = Furn("bathroomSink", new Vector3(1.35f, 0, Z1 - 0.28f), 180, new Vector3(0.6f, 0.9f, 0.5f));
             Furn("bathroomMirror", new Vector3(1.35f, 1.15f, Z1 - 0.08f), 180, new Vector3(0.55f, 0.75f, 0.06f), solid: false);
-            Tissue(new Vector3(2.1f, 0.06f, Z1 - 0.3f));
+            Tissue(new Vector3(2.05f, 0.06f, 4.1f));
             Tissue(new Vector3(2.95f - 0.15f, 0.06f, 3.6f));
             Tissue(new Vector3(1.0f, 0.65f, 1.9f));
             Cup(At(1.12f, Z1 - 0.3f), new Color(0.6f, 0.85f, 0.85f));
@@ -354,6 +367,25 @@ namespace CatChaos
             p.Body.angularDamping = 0.3f;
         }
 
+        /// <summary>An open cardboard box on the floor, big enough to climb into.</summary>
+        void Box(Vector3 at, float yaw)
+        {
+            var go = Furn("cardboardBoxOpen", at, yaw, new Vector3(0.7f, 0.4f, 0.6f));
+            var b = go.GetComponentInChildren<Renderer>().bounds;
+            foreach (var r in go.GetComponentsInChildren<Renderer>()) b.Encapsulate(r.bounds);
+            Boxes.Add(b);
+        }
+
+        void Laundry(Vector3 at) => Proc("빨래 바구니", PropKind.Laundry, at, 0, 1.2f, new Vector3(0.42f, 0.45f, 0.42f), t =>
+        {
+            var weave = Mats.Flat(new Color(0.85f, 0.75f, 0.55f), 0.1f);
+            Mats.Shape(PrimitiveType.Cylinder, t, new Vector3(0, 0.2f, 0), new Vector3(0.42f, 0.2f, 0.42f), weave);
+            Mats.Shape(PrimitiveType.Cylinder, t, new Vector3(0, 0.4f, 0), new Vector3(0.44f, 0.012f, 0.44f), Mats.Flat(new Color(0.7f, 0.58f, 0.4f), 0.1f));
+            var cols = new[] { new Color(0.35f, 0.5f, 0.85f), new Color(0.95f, 0.45f, 0.5f), new Color(0.95f, 0.95f, 0.97f) };
+            for (int i = 0; i < 3; i++)
+                Mats.Shape(PrimitiveType.Sphere, t, new Vector3((i - 1) * 0.1f, 0.42f, (i % 2) * 0.06f - 0.03f), new Vector3(0.18f, 0.08f, 0.16f), Mats.Flat(cols[i], 0.1f));
+        });
+
         void Bowl(Vector3 at)
         {
             Proc("그릇", PropKind.Fragile, at, 0, 0.5f, new Vector3(0.24f, 0.07f, 0.24f), t =>
@@ -422,6 +454,7 @@ namespace CatChaos
                 foreach (var mf in go.GetComponentsInChildren<MeshFilter>())
                     mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
             else foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.Off;
+            if (solid && (size.y > 0.8f || at.y > 1f)) go.AddComponent<CamBlock>();   // beds, sofas, counters, fridge, shelves
             Physics.SyncTransforms();
             return go;
         }
@@ -565,8 +598,13 @@ namespace CatChaos
         void Floor(Rect r, string mat) =>
             Block("바닥", new Vector3(r.center.x, -0.05f, r.center.y), new Vector3(r.width, 0.1f, r.height), Mats.Saved(mat));
 
-        void Wall(bool alongX, float at, float a0, float a1, params Vector4[] gaps)
+        void Wall(bool alongX, float at, float a0, float a1, bool hideable, params Vector4[] gaps)
         {
+            // One wall line (segments, panes, frames, skirting) hides as a unit when it blocks the camera.
+            _group = new GameObject("벽 줄").transform;
+            _group.SetParent(_root, false);
+            // Outer walls never stand between the camera (kept indoors) and the cat.
+            if (hideable) _group.gameObject.AddComponent<CamBlock>();
             float cur = a0;
             foreach (var g in gaps.OrderBy(g => g.x))
             {
@@ -577,6 +615,7 @@ namespace CatChaos
                 cur = g1;
             }
             Seg(alongX, at, cur, a1, 0, H);
+            _group = null;
         }
 
         void Seg(bool alongX, float at, float a, float b, float y0, float y1, bool plain = false)
@@ -610,12 +649,11 @@ namespace CatChaos
         {
             var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
             g.name = name;
-            g.transform.SetParent(_root, false);
+            g.transform.SetParent(_group ? _group : _root, false);
             g.transform.localPosition = c;
             g.transform.localScale = s;
             g.GetComponent<MeshRenderer>().sharedMaterial = m;
             if (!collide) Object.DestroyImmediate(g.GetComponent<Collider>());
-            else g.AddComponent<CamBlock>();
             return g;
         }
     }

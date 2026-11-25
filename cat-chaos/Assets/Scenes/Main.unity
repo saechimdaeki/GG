@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &908885221
+--- !u!1 &1197980689
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 908885223}
-  - component: {fileID: 908885222}
+  - component: {fileID: 1197980691}
+  - component: {fileID: 1197980690}
   m_Layer: 0
   m_Name: Game
   m_TagString: Untagged
@@ -136,13 +136,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &908885222
+--- !u!114 &1197980690
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 908885221}
+  m_GameObject: {fileID: 1197980689}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d2a09c6363c14fb3bdd6e545158ee83, type: 3}
@@ -206,6 +206,18 @@ MonoBehaviour:
     ptsButterfly: 300
     ptsSplash: 200
     ptsTrash: 80
+    clothPull: 0.45
+    ptsCloth: 250
+    ptsLaundry: 80
+    ptsBox: 200
+    camFirst: 55
+    camEvery: 50
+    camSeconds: 9
+    ptsCamCute: 250
+    ptsCamGood: 300
+    camPenalty: 60
+    rushMult: 1.5
+    goalCount: 8
     grades: dc050000ac0d0000581b0000e02e0000i
   S: 0
   Cat: {fileID: 0}
@@ -218,13 +230,14 @@ MonoBehaviour:
   FeverLeft: 0
   Target: {fileID: 0}
   TargetLeft: 0
---- !u!4 &908885223
+  CamLeft: 0
+--- !u!4 &1197980691
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 908885221}
+  m_GameObject: {fileID: 1197980689}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -237,4 +250,4 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 908885223}
+  - {fileID: 1197980691}

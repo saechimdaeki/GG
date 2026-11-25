@@ -32,6 +32,7 @@ namespace CatChaos
         public sealed class Stats
         {
             public int Tipped, Dropped, Broken, Soil, Plants, Vacuums, Cleaned, Bowls, Butterflies, Targets, Trash, Fevers;
+            public int Cloths, Laundry, Boxes, Cute, Caught;
             public float Tissue, Scratch, MaxHeight;
             public bool TvDown;
         }
@@ -55,6 +56,13 @@ namespace CatChaos
         /// <summary>The owner's favourite thing right now, and how long until the chance passes.</summary>
         public Prop Target;
         public float TargetLeft;
+        /// <summary>Seconds the pet cam keeps recording (0 = off).</summary>
+        public float CamLeft;
+        /// <summary>The owner is on the way: points are multiplied by rushMult.</summary>
+        public bool Rush => S == State.Play && TimeLeft <= T.ownerWarnSeconds;
+        float _nextCam, _caughtCd;
+        bool _camClean, _camCute;
+        readonly HashSet<int> _boxesVisited = new();
         Marker _marker;
         float _nextTarget, _nextNip, _nextFly;
         Catnip _nip;
@@ -81,6 +89,7 @@ namespace CatChaos
             _nextTarget = T.targetFirst;
             _nextNip = T.catnipFirst;
             _nextFly = T.butterflyFirst;
+            _nextCam = T.camFirst;
             ReadArgs();
             if (_args.TryGetValue("time", out var tl)) TimeLeft = float.Parse(tl, CultureInfo.InvariantCulture);
             Build();
@@ -91,6 +100,7 @@ namespace CatChaos
             Sfx.Init(transform);
             Debris.Clear();
             Prop.Trails.Clear();
+            Tablecloth.All.Clear();
             Butterfly.All.Clear();
             Lighting();
             House = new House(new GameObject("House").transform);
@@ -110,12 +120,13 @@ namespace CatChaos
             cam.gameObject.AddComponent<AudioListener>();
             Rig = cam.gameObject.AddComponent<CameraRig>();
             Rig.Target = Cat.transform;
+            Rig.Bounds = House.Inside;
             Rig.Yaw = 200;
             Rig.Orbit = true;
             cam.transform.position = Cat.transform.position + new Vector3(0, 1, 2);
 
             Hud = gameObject.AddComponent<Hud>();
-            Goals.AddRange(new[]
+            var pool = new List<Goal>
             {
                 new Goal { Name = "물건 3개 깨뜨리기", Target = 3, Value = () => Mess.Broken },
                 new Goal { Name = "화분 엎기", Target = 1, Value = () => Mess.Plants },
@@ -128,7 +139,23 @@ namespace CatChaos
                 new Goal { Name = "나비 잡기", Target = 1, Value = () => Mess.Butterflies },
                 new Goal { Name = "아끼는 물건 3개 해치우기", Target = 3, Value = () => Mess.Targets },
                 new Goal { Name = "물건 25개 쓰러뜨리기", Target = 25, Value = () => Mess.Tipped + Mess.Dropped },
-            });
+                new Goal { Name = "식탁보 잡아당기기", Target = 1, Value = () => Mess.Cloths },
+                new Goal { Name = "빨래 바구니 엎기", Target = 1, Value = () => Mess.Laundry },
+                new Goal { Name = "상자 2곳 들어가 보기", Target = 2, Value = () => Mess.Boxes },
+                new Goal { Name = "홈캠 앞에서 애교", Target = 1, Value = () => Mess.Cute },
+                new Goal { Name = "휴지 15m 풀기", Target = 15, Unit = "m", Value = () => Mess.Tissue },
+                new Goal { Name = "쓰레기통 2개 엎기", Target = 2, Value = () => Mess.Trash },
+                new Goal { Name = "캣닢 피버 2번", Target = 2, Value = () => Mess.Fevers },
+            };
+            // A different handful each round; the two tissue goals never both.
+            var rng = new System.Random(_args.ContainsKey("shot") ? 7 : Environment.TickCount);
+            while (Goals.Count < Mathf.Min(T.goalCount, pool.Count) && pool.Count > 0)
+            {
+                var g = pool[rng.Next(pool.Count)];
+                pool.Remove(g);
+                if (g.Name.StartsWith("휴지") && Goals.Exists(x => x.Name.StartsWith("휴지"))) continue;
+                Goals.Add(g);
+            }
         }
 
         void Lighting()
@@ -231,7 +258,7 @@ namespace CatChaos
             {
                 _warned = true;
                 Sfx.Ding();
-                Hud.Toast("[문자] 주인: 이제 퇴근~ 금방 갈게!", 4f);
+                Hud.Toast($"[문자] 주인: 이제 퇴근~ 금방 갈게!  막판 스퍼트 점수 x{T.rushMult:0.#}", 4f);
             }
             if (T.roundSeconds - TimeLeft >= _nextVacuum && TimeLeft > 20f)
             {
@@ -248,9 +275,11 @@ namespace CatChaos
             if (TimeLeft <= 10 && (_tick -= dt) <= 0) { _tick = 1f; Sfx.Tick(); }
             Events(dt);
 
+            if (_steady > 0 && CamLeft > 0) { Caught(_steadyAt); _steady = 0; }
+            Boxes();
             if (_steady > 0 && Time.time > _steadyPopT)
             {
-                int gained = Score.Add(Mathf.RoundToInt(_steady), Time.time, chain: false);
+                int gained = Score.Add(Mathf.RoundToInt(_steady * Mult()), Time.time, chain: false);
                 if (gained > 0) Hud.Pop("+" + gained, _steadyAt, new Color(0.8f, 0.95f, 1f), 20);
                 _steady = 0;
                 _steadyPopT = Time.time + 0.6f;
@@ -301,6 +330,28 @@ namespace CatChaos
                 if (FeverLeft <= 0) Hud.Toast("캣닢 기운이 빠졌다…", 2f);
             }
 
+            // pet cam
+            if (CamLeft > 0)
+            {
+                CamLeft -= dt;
+                if (CamLeft <= 0)
+                {
+                    House.Cam.Set(false);
+                    if (_camClean) { Score.Bonus(T.ptsCamGood); Sfx.Ding(); Hud.Toast($"홈캠 끝. 착한 척 성공!  +{T.ptsCamGood}", 3f); }
+                    else Hud.Toast("홈캠 꺼짐. 다시 난리 타임!", 2.5f);
+                }
+            }
+            else if (t >= _nextCam && TimeLeft > T.ownerWarnSeconds + 5f && House.Cam)
+            {
+                _nextCam = t + T.camEvery;
+                CamLeft = T.camSeconds;
+                _camClean = true;
+                _camCute = false;
+                House.Cam.Set(true);
+                Sfx.Beep(House.Cam.transform.position, 1.4f);
+                Hud.Toast("주인이 홈캠을 켰다! 착한 척… Q로 애교 부리면 보너스", 3.5f);
+            }
+
             // butterfly
             if (t >= _nextFly && TimeLeft > 15f)
             {
@@ -338,7 +389,7 @@ namespace CatChaos
         {
             if (!p || p != Target) return;
             Mess.Targets++;
-            int gained = Score.Bonus(T.ptsTarget * (FeverLeft > 0 ? T.feverMult : 1));
+            int gained = Score.Bonus(Mathf.RoundToInt(T.ptsTarget * Mult()));
             Hud.Pop($"+{gained} 주인이 아끼던 거!", p.transform.position + Vector3.up * 0.5f, new Color(1f, 0.85f, 0.25f), 34);
             Sfx.Ding();
             ClearTarget();
@@ -369,6 +420,20 @@ namespace CatChaos
             Award(T.ptsSplash, "어항 철퍼덕!", p.transform.position, new Color(0.5f, 0.8f, 1f), 32);
         }
 
+        public void OnLaundry(Prop p)
+        {
+            Mess.Laundry++;
+            HitTarget(p);
+            Award(T.ptsLaundry, "빨래 와르르", p.transform.position, new Color(0.7f, 0.8f, 1f), 28);
+        }
+
+        public void OnCloth(Vector3 at)
+        {
+            Mess.Cloths++;
+            Sfx.Ding();
+            Award(T.ptsCloth, "식탁보 휙!", at, new Color(1f, 0.6f, 0.6f), 36);
+        }
+
         public void OnTrash(Prop p)
         {
             Mess.Trash++;
@@ -379,6 +444,8 @@ namespace CatChaos
         {
             S = State.Ending;
             ClearTarget();
+            CamLeft = 0;
+            if (House.Cam) House.Cam.Set(false);
             FeverLeft = 0;
             _color.saturation.Override(12f);
             _color.hueShift.Override(0f);
@@ -387,7 +454,7 @@ namespace CatChaos
             Cat.AutoMove = Vector3.zero;
             Sfx.Scratching(false);
             var flat = new Vector2(Cat.transform.position.x - House.CatBed.x, Cat.transform.position.z - House.CatBed.z);
-            Hidden = flat.magnitude < T.bedRadius && Cat.transform.position.y < 0.3f;
+            Hidden = (flat.magnitude < T.bedRadius && Cat.transform.position.y < 0.3f) || House.Boxes.Exists(b => InBox(b, Cat.transform.position));
             Sfx.Keys();
             yield return new WaitForSeconds(1.2f);
             Sfx.Door();
@@ -426,9 +493,53 @@ namespace CatChaos
         }
 
         // ================================================================== events from props and the cat
+        /// <summary>Fever and the end-of-round rush stack.</summary>
+        float Mult() => (FeverLeft > 0 ? T.feverMult : 1) * (Rush ? T.rushMult : 1f);
+
+        /// <summary>Mischief on camera: points lost instead of gained.</summary>
+        void Caught(Vector3 at)
+        {
+            _camClean = false;
+            if (Time.time < _caughtCd) return;
+            _caughtCd = Time.time + 1f;
+            Mess.Caught++;
+            int lost = Score.Penalty(T.camPenalty);
+            Hud.Pop($"-{lost} 홈캠에 찍혔다!", at + Vector3.up * 0.4f, new Color(1f, 0.35f, 0.35f), 28);
+            Sfx.Beep(at, 0.7f);
+        }
+
+        /// <summary>Meowing straight into the recording pet cam is adorable (once per recording).</summary>
+        public void OnMeow(Vector3 at)
+        {
+            if (CamLeft <= 0 || _camCute || S != State.Play) return;
+            _camCute = true;
+            Mess.Cute++;
+            Score.Bonus(T.ptsCamCute);
+            Sfx.Ding();
+            Hud.Pop($"+{T.ptsCamCute} 애교 성공!", at + Vector3.up * 0.5f, new Color(1f, 0.7f, 0.85f), 32);
+            Hud.Toast("주인: 아고 귀여워~ (지금은 들키지 않았다)", 2.5f);
+        }
+
+        /// <summary>First time sitting in each box pays; "if it fits, I sits".</summary>
+        void Boxes()
+        {
+            var p = Cat.transform.position;
+            for (int i = 0; i < House.Boxes.Count; i++)
+            {
+                if (_boxesVisited.Contains(i) || !InBox(House.Boxes[i], p)) continue;
+                _boxesVisited.Add(i);
+                Mess.Boxes++;
+                Award(T.ptsBox, "상자는 못 참지!", p + Vector3.up * 0.3f, new Color(0.95f, 0.8f, 0.55f), 30);
+            }
+        }
+
+        static bool InBox(Bounds b, Vector3 p) =>
+            p.x > b.min.x + 0.05f && p.x < b.max.x - 0.05f && p.z > b.min.z + 0.05f && p.z < b.max.z - 0.05f && p.y < b.max.y - 0.1f;
+
         void Award(int pts, string label, Vector3 at, Color c, int size = 24)
         {
-            int gained = Score.Add(pts * (FeverLeft > 0 ? T.feverMult : 1), Time.time);
+            if (CamLeft > 0 && S == State.Play) { Caught(at); return; }
+            int gained = Score.Add(Mathf.RoundToInt(pts * Mult()), Time.time);
             if (_args.ContainsKey("shot")) Debug.Log($"[mess] {label} {at} t={T.roundSeconds - TimeLeft:0.0}");
             Hud.Pop($"+{gained} {label}", at + Vector3.up * 0.25f, c, size);
             if (Score.Combo > 1) { Hud.ComboPulse(); Sfx.Pop(0.9f + Score.Combo * 0.12f); }
@@ -701,6 +812,66 @@ namespace CatChaos
                     fragile.Shatter();
                     Cat.Meow();
                     TimeLeft = 2f;
+                    break;
+                case "wall":
+                    // Camera outside the south wall: the wall must vanish, not squeeze the shot.
+                    Cat.Place(new Vector3(-1.6f, 0.05f, -4.55f));
+                    Cat.Body.rotation = Quaternion.Euler(0, 160, 0);
+                    Rig.Yaw = 10;
+                    Rig.Pitch = 22;
+                    Rig.Distance = 2.4f;
+                    break;
+                case "tug":
+                    var roll = House.Props.Find(p => p && p.Kind == PropKind.Tissue && p.transform.position.z > 4f);
+                    Cat.Place(roll.Body.position + new Vector3(0, -0.01f, -0.22f));
+                    Cat.Body.rotation = Quaternion.identity;
+                    Rig.Yaw = 200;
+                    Rig.Pitch = 40;
+                    Rig.Distance = 2.2f;
+                    Cat.AutoScratch = true;
+                    yield return new WaitForSeconds(0.3f);
+                    Cat.AutoMove = new Vector3(-0.3f, 0, -1f).normalized;
+                    yield return new WaitForSeconds(0.9f);
+                    Cat.AutoMove = new Vector3(1f, 0, -0.2f).normalized;
+                    break;
+                case "cloth":
+                    var cloth = Tablecloth.All[0];
+                    Cat.Place(new Vector3(cloth.Handle.x - 0.15f, 0.05f, cloth.Handle.z));
+                    Cat.Body.rotation = Quaternion.Euler(0, 90, 0);
+                    Rig.Yaw = 150;
+                    Rig.Pitch = 26;
+                    Rig.Distance = 2.4f;
+                    Cat.AutoScratch = true;
+                    yield return new WaitForSeconds(0.3f);
+                    Cat.AutoMove = Vector3.left;
+                    break;
+                case "petcam":
+                    Cat.Place(new Vector3(-4.6f, 0.05f, 0.9f));
+                    Cat.Body.rotation = Quaternion.Euler(0, -90, 0);
+                    Rig.Yaw = 100;
+                    Rig.Pitch = 20;
+                    Rig.Distance = 2f;
+                    _nextCam = 0;
+                    yield return new WaitForSeconds(0.8f);
+                    Cat.Meow();
+                    break;
+                case "box":
+                    var bx = House.Boxes[0];
+                    Cat.Place(new Vector3(bx.center.x, bx.min.y + 0.05f, bx.center.z));
+                    Rig.Yaw = 160;
+                    Rig.Pitch = 34;
+                    Rig.Distance = 1.8f;
+                    break;
+                case "laundry":
+                    var basket = House.Props.Find(p => p && p.Kind == PropKind.Laundry);
+                    Cat.Place(basket.Body.position + new Vector3(-0.4f, 0.03f, 0));
+                    Cat.Body.rotation = Quaternion.Euler(0, 90, 0);
+                    Rig.Yaw = 50;
+                    Rig.Pitch = 30;
+                    Rig.Distance = 1.9f;
+                    yield return new WaitForSeconds(0.4f);
+                    Cat.Paw();
+                    basket.Body.AddForceAtPosition(Vector3.right * 2f * basket.Body.mass, basket.Body.worldCenterOfMass + Vector3.up * 0.3f, ForceMode.Impulse);
                     break;
                 case "ending":
                 case "result":
