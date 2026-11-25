@@ -1,0 +1,7 @@
+# Keep vendor FBX bytes and Unity's generated YAML formatting.
+*.fbx binary
+*.meta whitespace=-blank-at-eol
+*.asset whitespace=-blank-at-eol
+*.mat whitespace=-blank-at-eol
+*.unity whitespace=-blank-at-eol
+LICENSE-kenney-furniture-kit.txt text eol=lf whitespace=cr-at-eol,-blank-at-eol
