@@ -4,8 +4,8 @@ using UnityEngine;
 namespace ResidualSignal
 {
     /// <summary>
-    /// The Left 4 Dead 2 specials: the spitter (침뱉개) lobs acid that pools and burns, the charger (돌진개) rams a
-    /// survivor into the wall and pounds them, and the jockey (올라타개) leaps onto a survivor's shoulders and steers them.
+    /// The Left 4 Dead 2 specials: the spitter (게움이) lobs acid that pools and burns, the charger (들소) rams a
+    /// survivor into the wall and pounds them, and the jockey (목말꾼) leaps onto a survivor's shoulders and steers them.
     /// </summary>
     public sealed partial class StationInfected
     {
