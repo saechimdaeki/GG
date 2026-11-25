@@ -45,3 +45,5 @@ Microsoft Rocketbox 원본의 저작권 및 라이선스 전문은 [MIT 라이�
 - 동료 소총의 주황색 목재 텍스처는 같은 원본에서 색만 어두운 호두나무색으로 바꾼 파생 텍스처다.
 - 역 안의 책상·총기 탁자·창구·상자 더미는 Poly Haven CC0 모델로 교체했다: metal_office_desk, wooden_table_02, drawer_cabinet, wooden_military_crate, wooden_crate_01, portable_generator (1K FBX).
 - 특수 감염체와 보스도 Adobe Mixamo 캐릭터로 바꿨다: 덮치개 Prisoner B Styperek, 끌개 Skeletonzombie T Avelange, 부풀이 Pumpkinhulk L Shaw, 울음꾼 Girlscout T Masuyama, 적재장 거대체 Mutant. 보스 모션은 Mixamo Creature Pack이다. 원본 FBX는 저장소에 넣지 않았고, 메시 .asset과 추출한 텍스처만 넣었다.
+- 화염병 병은 Rico Cilliers의 [Wine Bottles 01](https://polyhaven.com/a/wine_bottles_01), Poly Haven CC0. 병 하나의 메시만 쓰고 초록 유리·연료·심지 재질은 Unity에서 만들었다. 파이프 폭탄은 Unity 기본 도형으로 조립했다.
+- 근접 무기는 Poly Haven CC0: Ulan Cabanilla의 [Wooden Axe](https://polyhaven.com/a/wooden_axe)(소방 도끼)·[Machete](https://polyhaven.com/a/machete), Alexander Otterbeck의 [Crowbar 01](https://polyhaven.com/a/crowbar_01), Enrique Martín의 [Baseball Bat](https://polyhaven.com/a/baseball_bat). 색상 텍스처만 쓰고 길이를 실제 크기로 맞췄다. 진통제 병·아드레날린 주사기는 Unity 기본 도형으로 조립했다. 산성액·자동차 경보·파이프 폭탄 소리는 코드로 합성했다.

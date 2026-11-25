@@ -98,6 +98,7 @@ namespace ResidualSignal
         bool hasMedkit;
         int health = 150;
         StationInfected heldBy;
+        float heldHurt;
         readonly HashSet<StationInfected> calledOut = new();
         Transform leftArm, rightArm, leftFore, rightFore, leftHand, rightHand, leftKnuckle, rightKnuckle;
         Quaternion restRotation;
@@ -231,7 +232,13 @@ namespace ResidualSignal
         bool Grab(StationInfected source)
         {
             heldBy = source;
-            Say(source.Kind == InfectedKind.Leaper ? "덮쳤어! 도와줘!" : "끌려간다!", true);
+            Say(source.Kind switch
+            {
+                InfectedKind.Leaper => "덮쳤어! 도와줘!",
+                InfectedKind.Charger => "돌진개한테 깔렸어! 쏴 줘!",
+                InfectedKind.Jockey => "뭐가 올라탔어! 떼어 줘!",
+                _ => "끌려간다!",
+            }, true);
             return true;
         }
 
@@ -337,11 +344,18 @@ namespace ResidualSignal
             if (heldBy != null)
             {
                 agent.ResetPath();
-                if (heldBy.Kind == InfectedKind.Dragger)
+                if (heldBy.Kind is InfectedKind.Dragger or InfectedKind.Jockey)
                 {
-                    Vector3 pull = Vector3.ProjectOnPlane(heldBy.transform.position - transform.position, Vector3.up);
+                    Vector3 pull = Vector3.ProjectOnPlane(heldBy.PullPoint - transform.position, Vector3.up);
                     if (pull.sqrMagnitude > 1f)
                         agent.Move(pull.normalized * (2.8f * Time.deltaTime));
+                }
+                // Held survivors bleed, as the player does: pins hurt faster than a tongue or a rider.
+                heldHurt += Time.deltaTime * (heldBy.Kind is InfectedKind.Leaper or InfectedKind.Charger ? 9f : 3f);
+                if (heldHurt >= 1f)
+                {
+                    Hurt(Mathf.FloorToInt(heldHurt));
+                    heldHurt %= 1f;
                 }
                 rig.transform.localRotation = Quaternion.Euler(-28f, 0f, 0f) * restRotation;
                 Play("idle");
@@ -362,6 +376,9 @@ namespace ResidualSignal
                         InfectedKind.Dragger => "끌개 조심해!",
                         InfectedKind.Bloater => "부풀이다, 가까이서 쏘지 마!",
                         InfectedKind.Caller => "울음꾼이다. 소리 지르기 전에 막아!",
+                        InfectedKind.Spitter => "침뱉개다! 바닥 조심해!",
+                        InfectedKind.Charger => "돌진개 온다! 옆으로 피해!",
+                        InfectedKind.Jockey => "올라타개다, 등 뒤 봐!",
                         _ => "거대체다! 흩어져!",
                     }, true);
             }
@@ -382,6 +399,10 @@ namespace ResidualSignal
                 case Task.Loot when loot != null: GoTo(loot.transform.position, 0.8f); break;
                 default: Roam(); break;
             }
+            // Step out of spitter acid before anything else.
+            if (AcidPool.Escape(transform.position, out var away) &&
+                NavMesh.SamplePosition(transform.position + away * (AcidPool.Radius + 1.2f), out var dry, 2f, agent.areaMask))
+                agent.SetDestination(dry.position);
             Act();
             Animate();
         }

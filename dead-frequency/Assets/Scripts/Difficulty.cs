@@ -19,14 +19,16 @@ namespace ResidualSignal
         public static string LevelName => LevelNames[(int)Current];
 
         // Easy, Normal, Advanced, Expert.
-        static readonly float[] HurtScale = { 1f, 1.35f, 1.9f, 2.7f };
-        static readonly float[] HealthScale = { 1f, 1.2f, 1.45f, 1.75f };
-        static readonly float[] HordeScale = { 1f, 1.3f, 1.65f, 2.1f };
-        static readonly float[] MobIntervalScale = { 1f, 0.75f, 0.6f, 0.45f };
-        static readonly float[] SpecialCooldownScale = { 1f, 0.8f, 0.6f, 0.45f };
-        static readonly float[] AttackIntervalScale = { 1f, 0.9f, 0.8f, 0.7f };
-        static readonly float[] BotDamageScale = { 1f, 0.8f, 0.65f, 0.5f };
-        static readonly int[] ReviveHealth = { 40, 35, 30, 20 };
+        // Normal was every axis stacked at once (over twice Easy); playtest 2026-11-25 found it too hard.
+        // Normal now leans on numbers a little and leaves the rest near Easy; Advanced and Expert step up from there.
+        static readonly float[] HurtScale = { 1f, 1.1f, 1.6f, 2.4f };
+        static readonly float[] HealthScale = { 1f, 1.05f, 1.3f, 1.6f };
+        static readonly float[] HordeScale = { 1f, 1.1f, 1.45f, 1.9f };
+        static readonly float[] MobIntervalScale = { 1f, 0.9f, 0.7f, 0.5f };
+        static readonly float[] SpecialCooldownScale = { 1f, 0.95f, 0.7f, 0.5f };
+        static readonly float[] AttackIntervalScale = { 1f, 1f, 0.85f, 0.72f };
+        static readonly float[] BotDamageScale = { 1f, 0.95f, 0.75f, 0.55f };
+        static readonly int[] ReviveHealth = { 40, 40, 30, 20 };
         // Share of a round's damage a teammate takes when you shoot them (L4D2 friendly fire).
         static readonly float[] FriendlyFireScale = { 0f, 0.1f, 0.3f, 0.6f };
 
