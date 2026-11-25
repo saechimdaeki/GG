@@ -2,11 +2,11 @@
 
 주인이 출근했습니다. 퇴근까지 4분. 고양이가 되어 집을 최대한 어지르세요. 컵을 툭 쳐서 떨어뜨리고, 화분을 엎고, 휴지를 굴려 풀고, 소파를 벅벅 긁으면 전부 점수입니다. 주인이 오기 직전 내 방석에 숨으면 시치미 보너스가 붙습니다.
 
-## macOS 다운로드 · v0.1.0
+## macOS 다운로드 · v0.2.0
 
-[CatChaos-mac.zip 다운로드](https://github.com/saechimdaeki/GG/releases/download/cat-chaos-v0.1.0/CatChaos-mac.zip) · [릴리스 노트](https://github.com/saechimdaeki/GG/releases/tag/cat-chaos-v0.1.0)
+[CatChaos-mac.zip 다운로드](https://github.com/saechimdaeki/GG/releases/download/cat-chaos-v0.2.0/CatChaos-mac.zip) · [릴리스 노트](https://github.com/saechimdaeki/GG/releases/tag/cat-chaos-v0.2.0)
 
-다운로드는 10분 라운드가 들어 있는 v0.1.0입니다. 아래 4분 라운드와 신규 이벤트는 소스로 실행할 수 있습니다. Apple Silicon Mac(M1 이상)에서 압축을 풀고 `CatChaos.app`을 실행합니다. Gatekeeper가 실행을 차단하면 시스템 설정의 **개인정보 보호 및 보안**에서 **확인 없이 열기**를 선택합니다.
+v0.2.0에는 4분 라운드와 아래 신규 이벤트가 들어 있습니다. Apple Silicon Mac(M1 이상)에서 압축을 풀고 `CatChaos.app`을 실행합니다. Gatekeeper가 실행을 차단하면 시스템 설정의 **개인정보 보호 및 보안**에서 **확인 없이 열기**를 선택합니다.
 
 ## 플레이 GIF
 

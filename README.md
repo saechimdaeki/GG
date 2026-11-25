@@ -6,7 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
-| <img src="cat-chaos/docs/media/fever.gif" width="260" alt="고양이가 캣닢을 먹고 피버에 들어가는 장면"> | **[냥난리](cat-chaos/)** | 4분 동안 집을 뒤집고 캣닢 피버와 나비를 노리는 3인칭 고양이 물리 샌드박스 (Unity URP) | macOS v0.1.0 배포 |
+| <img src="cat-chaos/docs/media/fever.gif" width="260" alt="고양이가 캣닢을 먹고 피버에 들어가는 장면"> | **[냥난리](cat-chaos/)** | 4분 동안 집을 뒤집고 캣닢 피버와 나비를 노리는 3인칭 고양이 물리 샌드박스 (Unity URP) | macOS v0.2.0 배포 |
 | <img src="dead-frequency/docs/media/approach.gif" width="260" alt="밤의 해림역 광장에서 대합실로 진입"> | **[잔류신호](dead-frequency/)** | 폐역에서 감염체 무리를 뚫고 생존자를 구조하는 1인칭 협동 FPS (Unity HDRP) | 솔로 작전 4종 · 최대 4인 온라인 캠페인 · macOS 로컬 빌드 |
 | <img src="last-train/docs/media/gameplay.gif" width="260" alt="시장 관리동 출입과 수색"> | **[막차까지](last-train/)** | 봉쇄 도시 수색과 다층 건물 탐색, 세 가지 탈출로 (3D 탑다운, Unity) | macOS 로컬 빌드 플레이 가능 |
 | <img src="reel-dungeon/docs/media/combat.gif" width="260"> | **[슬롯 던전](reel-dungeon/)** | 슬롯머신 턴제 던전 로그라이크 — 동료 한 명이 슬롯 한 줄, 11명 중 골라 3장 돌파 (2D 픽셀, Unity) | 플레이 가능 (이어하기·어려움 0~5·도감), 사람 플레이테스트 전 |
@@ -32,7 +32,7 @@ godot --headless --import   # 클론 직후 한 번
 godot
 ```
 
-**냥난리** — [macOS 플레이테스트 v0.1.0](https://github.com/saechimdaeki/GG/releases/tag/cat-chaos-v0.1.0)에서 `CatChaos-mac.zip`을 받습니다. Apple Silicon Mac에서 압축을 풀어 `CatChaos.app`을 실행합니다. [조작과 플레이 GIF](cat-chaos/README.md)
+**냥난리** — [macOS 플레이테스트 v0.2.0](https://github.com/saechimdaeki/GG/releases/tag/cat-chaos-v0.2.0)에서 `CatChaos-mac.zip`을 받습니다. Apple Silicon Mac에서 압축을 풀어 `CatChaos.app`을 실행합니다. [조작과 플레이 GIF](cat-chaos/README.md)
 
 **잔류신호** — [GitHub Releases](https://github.com/saechimdaeki/GG/releases)의 **잔류신호 macOS 플레이테스트**에서 `ResidualSignal-mac.zip`을 받습니다. 소스 실행은 Unity 6000.6.9f1을 사용합니다. Unity Hub에서 `dead-frequency`를 열고 `Platform03` 씬을 실행합니다. [실행·조작·플레이 GIF](dead-frequency/README.md)
 
