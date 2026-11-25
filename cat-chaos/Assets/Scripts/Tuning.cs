@@ -7,7 +7,7 @@ namespace CatChaos
     [Serializable]
     public sealed class Tuning
     {
-        public float roundSeconds = 600f, ownerWarnSeconds = 60f, hideHintSeconds = 30f;
+        public float roundSeconds = 240f, ownerWarnSeconds = 30f, hideHintSeconds = 20f;
         public float walkSpeed = 1.5f, runSpeed = 3.4f, groundAccel = 18f, airAccel = 7f, turnDegPerSec = 720f;
         public float jumpSpeed = 4.2f, airJumpSpeed = 3.6f, gravity = -14f;
         public int airJumps = 1;
@@ -18,9 +18,17 @@ namespace CatChaos
         public float ptsTissuePerMeter = 25f, ptsScratchPerSecond = 40f;
         public float breakSpeed = 2.2f, tipAngle = 55f, dropDistance = 0.4f, tissueLength = 10f;
         public float hideBonus = 1.5f, bedRadius = 0.55f;
-        public float vacuumFirst = 75f, vacuumEvery = 120f, vacuumSpeed = 0.8f;
+        public float vacuumFirst = 35f, vacuumEvery = 55f, vacuumSpeed = 0.8f;
         public int vacuumMax = 2, vacuumHits = 3, ptsVacuumFlip = 500, cleanPenalty = 10;
-        public int[] grades = { 1500, 4000, 8000, 14000 };
+        /// <summary>"주인이 아끼는 물건": a highlighted prop worth a bonus if wrecked in time.</summary>
+        public float targetFirst = 12f, targetEvery = 8f, targetSeconds = 25f;
+        public int ptsTarget = 400;
+        /// <summary>Catnip fever: faster cat, harder paw, doubled points.</summary>
+        public float catnipFirst = 25f, catnipEvery = 45f, feverSeconds = 12f, feverSpeed = 1.4f, feverPush = 1.7f;
+        public int feverMult = 2;
+        public float butterflyFirst = 45f, butterflyEvery = 50f, butterflyLife = 40f;
+        public int ptsButterfly = 300, ptsSplash = 200, ptsTrash = 80;
+        public int[] grades = { 1500, 3500, 7000, 12000 };
 
         public static Tuning Load()
         {

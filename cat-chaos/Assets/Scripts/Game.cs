@@ -31,7 +31,7 @@ namespace CatChaos
         /// <summary>What the owner will find.</summary>
         public sealed class Stats
         {
-            public int Tipped, Dropped, Broken, Soil, Plants, Vacuums, Cleaned;
+            public int Tipped, Dropped, Broken, Soil, Plants, Vacuums, Cleaned, Bowls, Butterflies, Targets, Trash, Fevers;
             public float Tissue, Scratch, MaxHeight;
             public bool TvDown;
         }
@@ -50,6 +50,15 @@ namespace CatChaos
         public bool Hidden;
         public int HideBonus;
         public string OwnerLine = "";
+        /// <summary>Seconds of catnip fever left (0 = none).</summary>
+        public float FeverLeft;
+        /// <summary>The owner's favourite thing right now, and how long until the chance passes.</summary>
+        public Prop Target;
+        public float TargetLeft;
+        Marker _marker;
+        float _nextTarget, _nextNip, _nextFly;
+        Catnip _nip;
+        ColorAdjustments _color;
 
         Light _sun;
         float _nextVacuum, _cleanPopT;
@@ -69,6 +78,9 @@ namespace CatChaos
             Score = new Score(T.comboWindow, T.comboMax);
             TimeLeft = T.roundSeconds;
             _nextVacuum = T.vacuumFirst;
+            _nextTarget = T.targetFirst;
+            _nextNip = T.catnipFirst;
+            _nextFly = T.butterflyFirst;
             ReadArgs();
             if (_args.TryGetValue("time", out var tl)) TimeLeft = float.Parse(tl, CultureInfo.InvariantCulture);
             Build();
@@ -79,6 +91,7 @@ namespace CatChaos
             Sfx.Init(transform);
             Debris.Clear();
             Prop.Trails.Clear();
+            Butterfly.All.Clear();
             Lighting();
             House = new House(new GameObject("House").transform);
             Cat = Cat.Spawn(House.CatStart, T);
@@ -111,6 +124,9 @@ namespace CatChaos
                 new Goal { Name = "가구 5초 긁기", Target = 5, Unit = "초", Value = () => Mess.Scratch },
                 new Goal { Name = "냉장고 위 올라가기", Target = 1, Value = () => Mess.MaxHeight > 1.85f ? 1 : 0 },
                 new Goal { Name = "로봇청소기 뒤집기", Target = 1, Value = () => Mess.Vacuums },
+                new Goal { Name = "어항 엎기", Target = 1, Value = () => Mess.Bowls },
+                new Goal { Name = "나비 잡기", Target = 1, Value = () => Mess.Butterflies },
+                new Goal { Name = "아끼는 물건 3개 해치우기", Target = 3, Value = () => Mess.Targets },
                 new Goal { Name = "물건 25개 쓰러뜨리기", Target = 25, Value = () => Mess.Tipped + Mess.Dropped },
             });
         }
@@ -144,9 +160,10 @@ namespace CatChaos
             bloom.threshold.Override(1.0f);
             var tone = prof.Add<Tonemapping>(true);
             tone.mode.Override(TonemappingMode.Neutral);
-            var color = prof.Add<ColorAdjustments>(true);
+            var color = _color = prof.Add<ColorAdjustments>(true);
             color.saturation.Override(12f);
             color.postExposure.Override(0.15f);
+            color.hueShift.Override(0f);
             var vig = prof.Add<Vignette>(true);
             vig.intensity.Override(0.22f);
             vig.smoothness.Override(0.5f);
@@ -229,6 +246,7 @@ namespace CatChaos
                 _cleanPopT = Time.time + 0.7f;
             }
             if (TimeLeft <= 10 && (_tick -= dt) <= 0) { _tick = 1f; Sfx.Tick(); }
+            Events(dt);
 
             if (_steady > 0 && Time.time > _steadyPopT)
             {
@@ -250,9 +268,120 @@ namespace CatChaos
             if (TimeLeft <= 0) StartCoroutine(OwnerComesHome());
         }
 
+        /// <summary>The little timed things that keep a short round busy: favourite-thing targets, catnip and butterflies.</summary>
+        void Events(float dt)
+        {
+            float t = T.roundSeconds - TimeLeft;
+            // favourite thing
+            if (Target || TargetLeft > 0)
+            {
+                TargetLeft -= dt;
+                if (!Target || TargetLeft <= 0)
+                {
+                    if (Target) Hud.Toast($"{Target.Label}… 주인이 무사히 지켜냈다", 2.5f);
+                    ClearTarget();
+                    _nextTarget = t + T.targetEvery;
+                }
+            }
+            else if (t >= _nextTarget && TimeLeft > 15f) PickTarget();
+
+            // catnip
+            if (!_nip && t >= _nextNip && FeverLeft <= 0)
+            {
+                _nextNip = t + T.catnipEvery;
+                var spot = House.NipSpots[UnityEngine.Random.Range(0, House.NipSpots.Count)];
+                _nip = Catnip.Spawn(spot);
+                Hud.Toast(spot.y > 0.5f ? "어디선가 캣닢 냄새가… 높은 곳이다!" : "어디선가 캣닢 냄새가…", 3f);
+            }
+            if (FeverLeft > 0)
+            {
+                FeverLeft -= dt;
+                _color.saturation.Override(FeverLeft > 0 ? 55f : 12f);
+                _color.hueShift.Override(FeverLeft > 0 ? Mathf.Sin(Time.time * 2f) * 25f : 0f);
+                if (FeverLeft <= 0) Hud.Toast("캣닢 기운이 빠졌다…", 2f);
+            }
+
+            // butterfly
+            if (t >= _nextFly && TimeLeft > 15f)
+            {
+                _nextFly = t + T.butterflyEvery;
+                if (Butterfly.All.Count < 2)
+                {
+                    var win = House.WindowIn[UnityEngine.Random.Range(0, House.WindowIn.Length)];
+                    var home = new Vector3(win.x * 0.7f, 0, win.z * 0.7f);
+                    Butterfly.Spawn(win, home, T.butterflyLife);
+                    Hud.Toast("창문으로 나비가 들어왔다! 냥펀치로 잡자", 3f);
+                }
+            }
+        }
+
+        void PickTarget(Prop pick = null)
+        {
+            var pool = House.Props.FindAll(p => p && !p.Tipped && !p.Dropped && !p.Broken && p.Kind != PropKind.Tissue && p.transform.position.y < 2f);
+            if (pool.Count == 0) return;
+            Target = pick ? pick : pool[UnityEngine.Random.Range(0, pool.Count)];
+            TargetLeft = T.targetSeconds;
+            _marker = Marker.Spawn(Target.transform);
+            Sfx.Ding();
+            Hud.Toast($"주인이 아끼는 {Target.Label}! {T.targetSeconds:0}초 안에 해치워라", 3.5f);
+        }
+
+        void ClearTarget()
+        {
+            Target = null;
+            TargetLeft = 0;
+            if (_marker) Destroy(_marker.gameObject);
+        }
+
+        /// <summary>Any mischief done to the current favourite thing pays the bonus once.</summary>
+        void HitTarget(Prop p)
+        {
+            if (!p || p != Target) return;
+            Mess.Targets++;
+            int gained = Score.Bonus(T.ptsTarget * (FeverLeft > 0 ? T.feverMult : 1));
+            Hud.Pop($"+{gained} 주인이 아끼던 거!", p.transform.position + Vector3.up * 0.5f, new Color(1f, 0.85f, 0.25f), 34);
+            Sfx.Ding();
+            ClearTarget();
+            _nextTarget = T.roundSeconds - TimeLeft + T.targetEvery;
+        }
+
+        public void OnCatnip(Vector3 at)
+        {
+            Mess.Fevers++;
+            FeverLeft = T.feverSeconds;
+            Sfx.Meow(at);
+            Sfx.Ding();
+            Hud.Pop("캣닢!!", at + Vector3.up * 0.3f, new Color(0.5f, 1f, 0.5f), 36);
+            Hud.Toast($"캣닢 피버! {T.feverSeconds:0}초 동안 점수 x{T.feverMult}, 우다다 가속", 3f);
+        }
+
+        public void OnButterfly(Vector3 at)
+        {
+            Mess.Butterflies++;
+            Sfx.Meow(at);
+            Award(T.ptsButterfly, "나비 잡았다!", at, new Color(1f, 0.9f, 0.5f), 32);
+        }
+
+        public void OnSplash(Prop p)
+        {
+            Mess.Bowls++;
+            HitTarget(p);
+            Award(T.ptsSplash, "어항 철퍼덕!", p.transform.position, new Color(0.5f, 0.8f, 1f), 32);
+        }
+
+        public void OnTrash(Prop p)
+        {
+            Mess.Trash++;
+            Award(T.ptsTrash, "쓰레기 와르르", p.transform.position, new Color(0.85f, 0.8f, 0.6f));
+        }
+
         IEnumerator OwnerComesHome()
         {
             S = State.Ending;
+            ClearTarget();
+            FeverLeft = 0;
+            _color.saturation.Override(12f);
+            _color.hueShift.Override(0f);
             TimeLeft = 0;
             Cat.Controllable = false;
             Cat.AutoMove = Vector3.zero;
@@ -299,7 +428,7 @@ namespace CatChaos
         // ================================================================== events from props and the cat
         void Award(int pts, string label, Vector3 at, Color c, int size = 24)
         {
-            int gained = Score.Add(pts, Time.time);
+            int gained = Score.Add(pts * (FeverLeft > 0 ? T.feverMult : 1), Time.time);
             if (_args.ContainsKey("shot")) Debug.Log($"[mess] {label} {at} t={T.roundSeconds - TimeLeft:0.0}");
             Hud.Pop($"+{gained} {label}", at + Vector3.up * 0.25f, c, size);
             if (Score.Combo > 1) { Hud.ComboPulse(); Sfx.Pop(0.9f + Score.Combo * 0.12f); }
@@ -335,6 +464,7 @@ namespace CatChaos
                 return;
             }
             Mess.Tipped++;
+            HitTarget(p);
             if (p.Kind == PropKind.Tv) { Mess.TvDown = true; Award(T.ptsTvDrop, "TV 쾅!", p.transform.position, new Color(1f, 0.45f, 0.4f), 34); return; }
             if (p.Kind == PropKind.Plant) Mess.Plants++;
             Award(p.Big ? T.ptsBigTip : T.ptsTip, p.Label + " 쓰러뜨림", p.transform.position, p.Big ? new Color(1f, 0.75f, 0.35f) : Color.white, p.Big ? 30 : 24);
@@ -343,6 +473,7 @@ namespace CatChaos
         public void OnDrop(Prop p)
         {
             Mess.Dropped++;
+            HitTarget(p);
             if (p.Kind == PropKind.Tv && !Mess.TvDown) { Mess.TvDown = true; Award(T.ptsTvDrop, "TV 추락!", p.transform.position, new Color(1f, 0.45f, 0.4f), 34); return; }
             Award(T.ptsDrop, p.Label + " 떨어뜨림", p.transform.position, new Color(1f, 0.95f, 0.6f));
         }
@@ -350,6 +481,7 @@ namespace CatChaos
         public void OnBreak(Prop p)
         {
             Mess.Broken++;
+            HitTarget(p);
             Award(T.ptsBreak, p.Label + " 와장창!", p.transform.position, new Color(1f, 0.55f, 0.6f), 30);
         }
 
@@ -461,16 +593,85 @@ namespace CatChaos
                     Rig.Pitch = 33;
                     Cat.AutoScratch = true;
                     break;
-                case "plant":
                 case "tv":
-                    var kind = name == "plant" ? PropKind.Plant : PropKind.Tv;
+                    Cat.Place(House.TvSpot + Vector3.up * 0.03f);
+                    Cat.Body.rotation = Quaternion.identity;
+                    Rig.Yaw = 120;
+                    Rig.Pitch = 25;
+                    Rig.Distance = 2.2f;
+                    yield return new WaitForSeconds(0.65f);
+                    Cat.Paw();
+                    yield return new WaitForSeconds(0.35f);
+                    Cat.Paw();
+                    break;
+                case "fishbowl":
+                    var bowl = House.Props.FindLast(p => p && p.Kind == PropKind.Water);
+                    Cat.Place(bowl.Body.position + new Vector3(0.3f, 0.02f, 0));
+                    Cat.Body.rotation = Quaternion.Euler(0, -90, 0);
+                    Rig.Yaw = 300;
+                    Rig.Pitch = 30;
+                    Rig.Distance = 1.8f;
+                    yield return new WaitForSeconds(0.5f);
+                    Cat.Paw();
+                    yield return new WaitForSeconds(0.35f);
+                    Cat.Paw();
+                    break;
+                case "butterfly":
+                    Cat.Place(new Vector3(-1.4f, 0.05f, -2.4f));
+                    Rig.Yaw = 180;
+                    Rig.Pitch = 15;
+                    var fly = Butterfly.Spawn(Cat.transform.position + new Vector3(0.2f, 0.6f, -0.9f), Cat.transform.position + Vector3.back * 0.8f, 30);
+                    Cat.Body.rotation = Quaternion.Euler(0, 180, 0);
+                    yield return new WaitForSeconds(1.4f);
+                    if (fly)
+                    {
+                        Cat.Place(new Vector3(fly.transform.position.x, 0.05f, fly.transform.position.z) + Vector3.forward * 0.3f);
+                        Cat.Jump();
+                        yield return new WaitForSeconds(0.15f);
+                        // Frame the moving butterfly at paw height for the staged capture.
+                        Cat.Place(fly.transform.position + new Vector3(0, -0.2f, 0.3f));
+                        yield return null;
+                        Cat.Paw();
+                    }
+                    break;
+                case "fever":
+                    Cat.Place(new Vector3(-1.4f, 0.05f, -2.4f));
+                    Rig.Yaw = 200;
+                    Rig.Pitch = 26;
+                    Catnip.Spawn(Cat.transform.position + Vector3.back * 0.6f);
+                    Cat.AutoMove = Vector3.back;
+                    yield return new WaitForSeconds(0.5f);
+                    Cat.AutoMove = Vector3.zero;
+                    Cat.Place(new Vector3(-1.6f, 0.05f, -1.85f));
+                    Cat.Body.rotation = Quaternion.Euler(0, -90, 0);
+                    Rig.Yaw = 270;
+                    Rig.Pitch = 24;
+                    var feverProp = House.Props.Find(p => p && p.Kind == PropKind.Fragile);
+                    Cat.Place(feverProp.Body.position + new Vector3(0.4f, 0.03f, 0));
+                    yield return new WaitForSeconds(0.55f);
+                    Cat.Paw();
+                    break;
+                case "trash":
+                    var bin = House.Props.FindLast(p => p && p.Kind == PropKind.Trash);
+                    Cat.Place(bin.Body.position + Vector3.back * 0.44f);
+                    Cat.Body.rotation = Quaternion.identity;
+                    Rig.Yaw = 42;
+                    Rig.Pitch = 38;
+                    Rig.Distance = 1.7f;
+                    yield return new WaitForSeconds(0.75f);
+                    Cat.AutoPaw = true;
+                    break;
+                case "favorite":
+                case "plant":
+                    var kind = PropKind.Plant;
                     var prop = House.Props.Find(p => p && p.Kind == kind);
                     var forward = Vector3.right;
                     Cat.Place(prop.Body.position - forward * 0.46f);
                     Cat.Body.rotation = Quaternion.LookRotation(forward);
                     Rig.Yaw = 44;
                     Rig.Pitch = 40;
-                    yield return new WaitForSeconds(0.65f);
+                    if (name == "favorite") PickTarget(prop);
+                    yield return new WaitForSeconds(name == "favorite" ? 1.65f : 0.65f);
                     Cat.Paw();
                     // Keep a heavy prop falling into view in the staged replay.
                     prop.Body.AddForceAtPosition(
@@ -531,7 +732,7 @@ namespace CatChaos
                 Destroy(texture);
                 yield return null;
             }
-            Debug.Log($"[frames] state={S} score={Score.Total} plants={Mess.Plants} scratch={Mess.Scratch:0.0} tissue={Mess.Tissue:0.0} tv={Mess.TvDown} cleaned={Mess.Cleaned} vacuums={Mess.Vacuums} hidden={Hidden} bonus={HideBonus}");
+            Debug.Log($"[frames] state={S} score={Score.Total} plants={Mess.Plants} scratch={Mess.Scratch:0.0} tissue={Mess.Tissue:0.0} tv={Mess.TvDown} cleaned={Mess.Cleaned} vacuums={Mess.Vacuums} bowls={Mess.Bowls} butterflies={Mess.Butterflies} fevers={Mess.Fevers} targets={Mess.Targets} trash={Mess.Trash} hidden={Hidden} bonus={HideBonus}");
             Application.Quit();
         }
 

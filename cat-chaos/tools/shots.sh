@@ -1,6 +1,6 @@
 #!/bin/bash
 # Rebuild (setup + mac build) and capture evidence screenshots: tools/shots.sh [scene ...]
-# Scenes: intro play chaos kitchen bath result.  NOBUILD=1 skips the rebuild.
+# Scenes: intro play chaos kitchen bath robot tv fishbowl butterfly fever ending result.  NOBUILD=1 skips the rebuild.
 set -e
 cd "$(dirname "$0")/.."
 U="/Applications/Unity/Hub/Editor/6000.6.9f1/Unity.app/Contents/MacOS/Unity"

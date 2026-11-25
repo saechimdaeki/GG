@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace CatChaos
 {
-    public enum PropKind { Thing, Fragile, Plant, Tissue, Tv }
+    public enum PropKind { Thing, Fragile, Plant, Tissue, Tv, Water, Trash }
 
     /// <summary>Something the cat can push around. Reports tipping, falling, breaking, spilling and unrolling.</summary>
     [DisallowMultipleComponent]
@@ -47,6 +47,8 @@ namespace CatChaos
                 Tipped = true;
                 G.OnTip(this);
                 if (Kind == PropKind.Plant) SpillSoil();
+                if (Kind == PropKind.Trash) SpillTrash();
+                if (Kind == PropKind.Water) Splash();
             }
             if (!Dropped && transform.position.y < _baseY - G.T.dropDistance)
             {
@@ -65,7 +67,7 @@ namespace CatChaos
                 Sfx.Impact(transform.position, v, Body.mass, Kind == PropKind.Fragile);
             }
             bool byCat = c.rigidbody && c.rigidbody.GetComponent<Cat>();
-            if (_armed && Playing && !Broken && Kind == PropKind.Fragile && v > G.T.breakSpeed && !byCat) Shatter();
+            if (_armed && Playing && !Broken && (Kind == PropKind.Fragile || Kind == PropKind.Water) && v > G.T.breakSpeed && !byCat) Shatter();
         }
 
         public void Shatter()
@@ -84,6 +86,7 @@ namespace CatChaos
                     Body.linearVelocity * 0.4f + Random.insideUnitSphere * 1.6f + Vector3.up * 1.2f);
             }
             Sfx.Shatter(transform.position);
+            if (Kind == PropKind.Water && !Tipped) Splash();
             G.OnBreak(this);
             Destroy(gameObject);
         }
@@ -102,6 +105,41 @@ namespace CatChaos
             }
             Sfx.Soil(transform.position);
             G.OnSoil(this);
+        }
+
+        void SpillTrash()
+        {
+            var bits = new[] { Mats.Flat(new Color(0.95f, 0.94f, 0.9f), 0.1f), Mats.Flat(new Color(0.95f, 0.85f, 0.3f), 0.3f), Mats.Flat(new Color(0.6f, 0.45f, 0.3f), 0.1f), Mats.Flat(new Color(0.7f, 0.85f, 0.95f), 0.6f) };
+            Vector3 spill = Vector3.ProjectOnPlane(transform.up, Vector3.up).normalized;
+            for (int i = 0; i < 12; i++)
+            {
+                float s = Random.Range(0.04f, 0.08f);
+                Debris.Spawn(transform.position + transform.up * 0.25f + Random.insideUnitSphere * 0.06f, new Vector3(s, s * 0.7f, s),
+                    bits[i % bits.Length], spill * Random.Range(0.5f, 1.8f) + Random.insideUnitSphere * 0.5f, 0.02f);
+            }
+            Sfx.Paper(transform.position);
+            G.OnTrash(this);
+        }
+
+        /// <summary>Water puddle under the bowl plus a goldfish that flaps about.</summary>
+        void Splash()
+        {
+            Tipped = true;
+            var p = transform.position;
+            float floor = Physics.Raycast(p + Vector3.up * 0.1f, Vector3.down, out var hit, 3f, ~(1 << 2), QueryTriggerInteraction.Ignore) ? hit.point.y : 0f;
+            var puddle = Mats.Shape(PrimitiveType.Cylinder, null, new Vector3(p.x, floor + 0.003f, p.z), new Vector3(0.55f, 0.001f, 0.42f), Mats.Flat(new Color(0.45f, 0.7f, 0.95f, 1f), 0.98f, 0, 0.15f), new Vector3(0, Random.Range(0, 180), 0));
+            puddle.name = "물웅덩이";
+            Mats.NoShadows(puddle);
+            var fish = new GameObject("금붕어") { layer = 2 };
+            fish.transform.position = p + Vector3.up * 0.12f;
+            Mats.Shape(PrimitiveType.Sphere, fish.transform, Vector3.zero, new Vector3(0.03f, 0.04f, 0.07f), Mats.Flat(new Color(1f, 0.5f, 0.1f), 0.6f, 0, 0.6f));
+            Mats.Shape(PrimitiveType.Cube, fish.transform, new Vector3(0, 0, -0.045f), new Vector3(0.005f, 0.035f, 0.03f), Mats.Flat(new Color(1f, 0.65f, 0.2f), 0.6f));
+            fish.AddComponent<SphereCollider>().radius = 0.025f;
+            var rb = fish.AddComponent<Rigidbody>();
+            rb.mass = 0.05f;
+            fish.AddComponent<Flop>();
+            Sfx.Soil(p);
+            G.OnSplash(this);
         }
 
         /// <summary>A rolling tissue leaves a paper trail on whatever it rolls over.</summary>
@@ -136,6 +174,21 @@ namespace CatChaos
             if (Paper) { float k = Mathf.Lerp(1f, 0.45f, Unrolled / G.T.tissueLength); Paper.localScale = new Vector3(0.11f * k, Paper.localScale.y, 0.11f * k); }
             G.OnUnroll(this, d);
             if (Random.value < 0.3f) Sfx.Paper(p);
+        }
+    }
+
+    /// <summary>A stranded goldfish hopping about for a while.</summary>
+    public sealed class Flop : MonoBehaviour
+    {
+        float _t, _next = 0.4f;
+        void FixedUpdate()
+        {
+            _t += Time.fixedDeltaTime;
+            if (_t < _next || _t > 15f) return;
+            _next = _t + Random.Range(0.3f, 0.8f);
+            var rb = GetComponent<Rigidbody>();
+            rb.AddForce((Vector3.up * 1.6f + Random.insideUnitSphere * 0.6f) * rb.mass, ForceMode.Impulse);
+            rb.AddTorque(Random.insideUnitSphere * 0.002f, ForceMode.Impulse);
         }
     }
 

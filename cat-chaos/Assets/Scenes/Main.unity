@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &1419169922
+--- !u!1 &908885221
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1419169924}
-  - component: {fileID: 1419169923}
+  - component: {fileID: 908885223}
+  - component: {fileID: 908885222}
   m_Layer: 0
   m_Name: Game
   m_TagString: Untagged
@@ -136,22 +136,22 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1419169923
+--- !u!114 &908885222
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1419169922}
+  m_GameObject: {fileID: 908885221}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d2a09c6363c14fb3bdd6e545158ee83, type: 3}
   m_Name: 
   m_EditorClassIdentifier: CatChaos::CatChaos.Game
   T:
-    roundSeconds: 600
-    ownerWarnSeconds: 60
-    hideHintSeconds: 30
+    roundSeconds: 240
+    ownerWarnSeconds: 30
+    hideHintSeconds: 20
     walkSpeed: 1.5
     runSpeed: 3.4
     groundAccel: 18
@@ -183,14 +183,30 @@ MonoBehaviour:
     tissueLength: 10
     hideBonus: 1.5
     bedRadius: 0.55
-    vacuumFirst: 75
-    vacuumEvery: 120
+    vacuumFirst: 35
+    vacuumEvery: 55
     vacuumSpeed: 0.8
     vacuumMax: 2
     vacuumHits: 3
     ptsVacuumFlip: 500
     cleanPenalty: 10
-    grades: dc050000a00f0000401f0000b0360000i
+    targetFirst: 12
+    targetEvery: 8
+    targetSeconds: 25
+    ptsTarget: 400
+    catnipFirst: 25
+    catnipEvery: 45
+    feverSeconds: 12
+    feverSpeed: 1.4
+    feverPush: 1.7
+    feverMult: 2
+    butterflyFirst: 45
+    butterflyEvery: 50
+    butterflyLife: 40
+    ptsButterfly: 300
+    ptsSplash: 200
+    ptsTrash: 80
+    grades: dc050000ac0d0000581b0000e02e0000i
   S: 0
   Cat: {fileID: 0}
   Rig: {fileID: 0}
@@ -199,13 +215,16 @@ MonoBehaviour:
   Hidden: 0
   HideBonus: 0
   OwnerLine: 
---- !u!4 &1419169924
+  FeverLeft: 0
+  Target: {fileID: 0}
+  TargetLeft: 0
+--- !u!4 &908885223
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1419169922}
+  m_GameObject: {fileID: 908885221}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -218,4 +237,4 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1419169924}
+  - {fileID: 908885223}

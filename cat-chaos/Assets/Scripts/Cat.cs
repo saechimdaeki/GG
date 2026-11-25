@@ -142,7 +142,7 @@ namespace CatChaos
                        && Body.linearVelocity.y < 1.5f;
             if (Grounded) _airJumpsLeft = T.airJumps;
 
-            float speed = Scratching ? 0f : (_run ? T.runSpeed : T.walkSpeed);
+            float speed = Scratching ? 0f : (_run ? T.runSpeed : T.walkSpeed) * (Game.I.FeverLeft > 0 ? T.feverSpeed : 1f);
             var want = _move * speed;
             var vel = Body.linearVelocity;
             var flat = new Vector3(vel.x, 0, vel.z);
@@ -180,10 +180,12 @@ namespace CatChaos
             {
                 var rb = _hits[i].attachedRigidbody;
                 if (!rb || rb.isKinematic || !_pushed.Add(rb)) continue;
-                float dv = T.pawPush / Mathf.Sqrt(Mathf.Max(0.2f, rb.mass));
+                float dv = T.pawPush * (Game.I.FeverLeft > 0 ? T.feverPush : 1f) / Mathf.Sqrt(Mathf.Max(0.2f, rb.mass));
                 rb.AddForceAtPosition(dir * dv * rb.mass, _hits[i].ClosestPoint(center), ForceMode.Impulse);
                 if (rb.TryGetComponent<Vacuum>(out var vac)) vac.Hit(transform.position);
             }
+            for (int i = Butterfly.All.Count - 1; i >= 0; i--)
+                if ((Butterfly.All[i].transform.position - center).sqrMagnitude < (T.pawRadius + 0.12f) * (T.pawRadius + 0.12f)) Butterfly.All[i].Catch();
             if (_pushed.Count > 0) Game.I.Hud.Pop("냥!", center + Vector3.up * 0.2f, new Color(1f, 0.85f, 0.95f), 20);
         }
 

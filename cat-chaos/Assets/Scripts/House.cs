@@ -23,6 +23,12 @@ namespace CatChaos
         public readonly List<Vector3> LampSpots = new();
         public Vector3 Dock = new(5.45f, 0, -3.3f);
         public float DockYaw = -90f;
+        /// <summary>Behind the TV on its stand: where a cat stands to shove it off.</summary>
+        public Vector3 TvSpot;
+        /// <summary>Places a catnip sprig can turn up (floor, table tops, the fridge).</summary>
+        public readonly List<Vector3> NipSpots = new();
+        /// <summary>Open windows a butterfly can drift in through.</summary>
+        public readonly Vector3[] WindowIn = { new(-4.6f, 1.5f, -4.7f), new(-5.7f, 1.5f, -2.2f), new(-3f, 1.5f, 4.7f), new(5.7f, 1.6f, -2.4f) };
 
         readonly Transform _root;
         readonly Material _wall, _trim, _frame;
@@ -39,6 +45,8 @@ namespace CatChaos
             Bedroom();
             Bathroom();
             Entry();
+            foreach (var (x, z) in new[] { (-1.0f, -3.4f), (-4.6f, -2.6f), (3.5f, -1.9f), (4.9f, -3.2f), (-1.6f, 2.3f), (-3.4f, 3.9f), (1.8f, 3.5f), (4.5f, 3.0f), (5.58f, -0.2f), (-5.0f, 1.3f) })
+                NipSpots.Add(At(x, z));
         }
 
         // ================================================================== rooms
@@ -84,15 +92,18 @@ namespace CatChaos
             Dyn("pillowBlue", new Vector3(-3.3f, 0.5f, 0.4f), 170, new Vector3(0.45f, 0.18f, 0.4f), "쿠션", PropKind.Thing, 0.3f);
             Dyn("pillow", new Vector3(-1.9f, 0.5f, 0.4f), 195, new Vector3(0.45f, 0.18f, 0.4f), "쿠션", PropKind.Thing, 0.3f);
             var table = Furn("tableCoffee", new Vector3(-2.6f, 0, -1.8f), 0, new Vector3(1.2f, 0.42f, 0.65f));
-            var tv = Furn("cabinetTelevision", new Vector3(-2.6f, 0, -4.62f), 0, new Vector3(1.8f, 0.52f, 0.45f));
-            var tvSet = Dyn("televisionModern", At(-2.6f, -4.65f), 0, new Vector3(1.2f, 0.75f, 0.2f), "TV", PropKind.Tv, 6f, big: true);
-            Screen(tvSet.transform, new Vector3(1.2f, 0.75f, 0.2f));
-            Dyn("speakerSmall", At(-3.38f, -4.6f), 0, new Vector3(0.18f, 0.3f, 0.18f), "스피커", PropKind.Thing, 1.2f);
-            Dyn("speakerSmall", At(-1.82f, -4.6f), 0, new Vector3(0.18f, 0.3f, 0.18f), "스피커", PropKind.Thing, 1.2f);
+            // deep stand with the TV at its front edge: the cat hops up behind the TV and shoves it off
+            Furn("cabinetTelevision", new Vector3(-2.6f, 0, -4.55f), 0, new Vector3(1.8f, 0.52f, 0.7f), keepAspect: false);
+            var tvSet = Dyn("televisionModern", At(-2.6f, -4.33f), 0, new Vector3(1.1f, 0.7f, 0.16f), "TV", PropKind.Tv, 3.5f, big: true);
+            Screen(tvSet.transform, new Vector3(1.1f, 0.7f, 0.16f));
+            Dyn("speakerSmall", At(-3.38f, -4.32f), 0, new Vector3(0.16f, 0.28f, 0.16f), "스피커", PropKind.Thing, 1.2f);
+            Dyn("speakerSmall", At(-1.82f, -4.32f), 0, new Vector3(0.16f, 0.28f, 0.16f), "스피커", PropKind.Thing, 1.2f);
+            TvSpot = At(-2.6f, -4.72f);
 
             Cup(At(-2.9f, -1.7f), new Color(0.95f, 0.5f, 0.45f));
             Mug(At(-2.2f, -1.95f), new Color(0.35f, 0.55f, 0.85f));
             Remote(At(-2.55f, -1.6f));
+            Bottle(At(-2.35f, -2.0f), new Color(0.3f, 0.5f, 0.8f));
             Vase(At(-3.05f, -1.95f), new Color(0.3f, 0.6f, 0.75f), new Color(1f, 0.5f, 0.6f));
             Dyn("plantSmall2", At(-2.0f, -1.6f), 0, new Vector3(0.2f, 0.3f, 0.2f), "작은 화분", PropKind.Plant, 0.6f);
 
@@ -125,6 +136,7 @@ namespace CatChaos
 
             Dyn("pottedPlant", new Vector3(X0 + 0.5f, 0, Z0 + 0.5f), 0, new Vector3(0.6f, 1.15f, 0.6f), "큰 화분", PropKind.Plant, 4f, big: true);
             Dyn("plantSmall3", new Vector3(-4.6f, 0.82f, Z0 + 0.22f), 0, new Vector3(0.2f, 0.28f, 0.2f), "창가 화분", PropKind.Plant, 0.5f);
+            Fishbowl(new Vector3(-4.1f, 0.81f, Z0 + 0.2f));
             Dyn("plantSmall1", new Vector3(-0.8f, 0.82f, Z0 + 0.22f), 0, new Vector3(0.2f, 0.28f, 0.2f), "창가 화분", PropKind.Plant, 0.5f);
             Yarn(new Vector3(-1.0f, 0.06f, -3.4f), new Color(0.95f, 0.35f, 0.4f));
             CatBed = new Vector3(0.45f, 0, Z0 + 0.6f);
@@ -147,6 +159,8 @@ namespace CatChaos
             Mug(At(2.45f, z + 0.12f, 1.3f), new Color(0.95f, 0.95f, 0.92f));
             Plates(At(3.5f, z, 1.3f));
             Glass(At(3.3f, z + 0.15f, 1.3f));
+            Bottle(At(3.15f, z - 0.1f, 1.3f), new Color(0.2f, 0.45f, 0.25f));
+            Bottle(At(3.95f, z - 0.12f, 1.3f), new Color(0.45f, 0.15f, 0.2f));
             Cup(At(3.75f, z + 0.12f, 1.3f), new Color(0.5f, 0.8f, 0.6f));
             Dyn("kitchenBlender", At(4.85f, z, 1.3f), 0, new Vector3(0.18f, 0.38f, 0.18f), "믹서기", PropKind.Thing, 1.5f);
             Dyn("kitchenMicrowave", At(5.32f, z - 0.03f, 1.3f), 0, new Vector3(0.5f, 0.3f, 0.38f), "전자레인지", PropKind.Thing, 4f, big: true);
@@ -161,7 +175,8 @@ namespace CatChaos
             Cup(At(3.35f, -1.7f), new Color(0.95f, 0.8f, 0.35f));
             Cup(At(3.9f, -2.05f), new Color(0.6f, 0.75f, 0.95f));
             Vase(At(3.6f, -1.85f), new Color(0.95f, 0.95f, 0.95f), new Color(1f, 0.85f, 0.3f));
-            Dyn("trashcan", new Vector3(X1 - 0.3f, 0, -1.2f), -90, new Vector3(0.35f, 0.5f, 0.35f), "쓰레기통", PropKind.Thing, 1.5f);
+            Bottle(At(3.4f, -2.2f), new Color(0.55f, 0.35f, 0.15f));
+            Dyn("trashcan", new Vector3(X1 - 0.3f, 0, -1.2f), -90, new Vector3(0.35f, 0.5f, 0.35f), "쓰레기통", PropKind.Trash, 1.5f);
         }
 
         void Bedroom()
@@ -184,7 +199,8 @@ namespace CatChaos
             Dyn("computerScreen", At(-5.0f, 1.3f), 0, new Vector3(0.55f, 0.4f, 0.18f), "모니터", PropKind.Thing, 3f, big: true);
             Dyn("computerKeyboard", At(-5.0f, 1.6f), 0, new Vector3(0.42f, 0.03f, 0.14f), "키보드", PropKind.Thing, 0.6f);
             Dyn("computerMouse", At(-4.62f, 1.62f), 0, new Vector3(0.06f, 0.03f, 0.1f), "마우스", PropKind.Thing, 0.1f);
-            Mug(At(-5.48f, 1.55f), new Color(0.9f, 0.6f, 0.3f));
+            Mug(At(-5.48f, 1.6f), new Color(0.9f, 0.6f, 0.3f));
+            Fishbowl(At(-5.45f, 1.3f));
             Dyn("radio", At(-4.5f, 1.35f), -20, new Vector3(0.3f, 0.2f, 0.12f), "라디오", PropKind.Thing, 0.8f);
             Dyn("chairDesk", new Vector3(-5.0f, 0, 2.15f), 180, new Vector3(0.55f, 0.95f, 0.55f), "의자", PropKind.Thing, 4f, big: true);
             Furn("bookcaseClosedDoors", new Vector3(-0.32f, 0, 2.2f), -90, new Vector3(0.45f, 1.9f, 1.0f));
@@ -203,7 +219,7 @@ namespace CatChaos
             Tissue(new Vector3(2.95f - 0.15f, 0.06f, 3.6f));
             Tissue(new Vector3(1.0f, 0.65f, 1.9f));
             Cup(At(1.12f, Z1 - 0.3f), new Color(0.6f, 0.85f, 0.85f));
-            Dyn("trashcan", new Vector3(2.8f, 0, 3.0f), 0, new Vector3(0.28f, 0.38f, 0.28f), "휴지통", PropKind.Thing, 0.8f);
+            Dyn("trashcan", new Vector3(2.8f, 0, 3.0f), 0, new Vector3(0.28f, 0.38f, 0.28f), "휴지통", PropKind.Trash, 0.8f);
         }
 
         void Entry()
@@ -280,6 +296,23 @@ namespace CatChaos
             Mats.Shape(PrimitiveType.Cube, t, new Vector3(0, 0.11f, 0), new Vector3(0.18f, 0.22f, 0.025f), Mats.Flat(new Color(0.4f, 0.28f, 0.2f), 0.5f));
             Mats.Shape(PrimitiveType.Cube, t, new Vector3(0, 0.115f, 0.014f), new Vector3(0.14f, 0.17f, 0.004f), Mats.Flat(photo, 0.9f));
             Mats.Shape(PrimitiveType.Sphere, t, new Vector3(0, 0.13f, 0.017f), new Vector3(0.07f, 0.08f, 0.004f), Mats.Flat(new Color(0.55f, 0.55f, 0.6f)));
+        });
+
+        void Bottle(Vector3 at, Color c) => Proc("병", PropKind.Fragile, at, 0, 0.5f, new Vector3(0.07f, 0.3f, 0.07f), t =>
+        {
+            var m = Mats.Flat(c, 0.9f);
+            Mats.Shape(PrimitiveType.Cylinder, t, new Vector3(0, 0.1f, 0), new Vector3(0.07f, 0.1f, 0.07f), m);
+            Mats.Shape(PrimitiveType.Cylinder, t, new Vector3(0, 0.25f, 0), new Vector3(0.025f, 0.05f, 0.025f), m);
+            Mats.Shape(PrimitiveType.Cylinder, t, new Vector3(0, 0.1f, 0), new Vector3(0.072f, 0.04f, 0.072f), Mats.Flat(new Color(0.95f, 0.92f, 0.8f), 0.3f));
+        });
+
+        /// <summary>Glass bowl with water and a goldfish: tip or break it and the floor gets a puddle and a flapping fish.</summary>
+        void Fishbowl(Vector3 at) => Proc("어항", PropKind.Water, at, 0, 1.2f, new Vector3(0.22f, 0.2f, 0.22f), t =>
+        {
+            Mats.Shape(PrimitiveType.Sphere, t, new Vector3(0, 0.1f, 0), new Vector3(0.22f, 0.2f, 0.22f), Mats.Flat(new Color(0.8f, 0.93f, 1f), 0.97f));
+            Mats.Shape(PrimitiveType.Sphere, t, new Vector3(0, 0.09f, 0), new Vector3(0.2f, 0.15f, 0.2f), Mats.Flat(new Color(0.35f, 0.7f, 0.95f), 0.95f, 0, 0.35f));
+            Mats.Shape(PrimitiveType.Sphere, t, new Vector3(0.02f, 0.1f, 0.03f), new Vector3(0.05f, 0.03f, 0.02f), Mats.Flat(new Color(1f, 0.5f, 0.1f), 0.6f, 0, 0.6f));
+            Mats.Shape(PrimitiveType.Cylinder, t, new Vector3(0, 0.01f, 0), new Vector3(0.12f, 0.005f, 0.12f), Mats.Flat(new Color(0.85f, 0.8f, 0.65f), 0.2f));
         });
 
         void Remote(Vector3 at) => Proc("리모컨", PropKind.Thing, at, 30, 0.15f, new Vector3(0.05f, 0.022f, 0.16f), t =>
