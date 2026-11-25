@@ -1143,7 +1143,7 @@ namespace ResidualSignal
                 return false;
             pinnedBy = source;
             escapeCount = 0;
-            Signal(source.Kind == InfectedKind.Charger ? "돌진개에 깔렸다! 팀원이 떼어내야 한다" : "덮쳤다! E를 연타해 떨쳐내라", 3f);
+            Signal(source.Kind == InfectedKind.Charger ? "들소에게 깔렸다! 팀원이 떼어내야 한다" : "덮쳤다! E를 연타해 떨쳐내라", 3f);
             return true;
         }
 
@@ -1153,7 +1153,7 @@ namespace ResidualSignal
             if (!InCombat || Held)
                 return false;
             draggedBy = source;
-            Signal(source.Kind == InfectedKind.Jockey ? "올라타개가 올라탔다! 팀원이 떼어내야 한다" : "끌려간다! 끌개를 쏴라", 3f);
+            Signal(source.Kind == InfectedKind.Jockey ? "목말꾼이 목에 올라탔다! 팀원이 떼어내야 한다" : "끌려간다! 끌개를 쏴라", 3f);
             return true;
         }
 
@@ -1619,8 +1619,8 @@ namespace ResidualSignal
 
             // Centre: crosshair and whatever is happening to you.
             DrawCrosshair(width * 0.5f, height * 0.5f);
-            string alert = pinnedBy != null ? (pinnedBy.CarryingOff ? "돌진개에 깔렸다!" : $"E 연타!  {escapeCount}/{escapePresses}") :
-                draggedBy != null ? (draggedBy.CarryingOff ? "올라타개에 끌려간다!" : "끌개를 쏴라!") : Downed ? "쓰러짐 · 팀원을 기다려라" : null;
+            string alert = pinnedBy != null ? (pinnedBy.CarryingOff ? "들소에게 깔렸다!" : $"E 연타!  {escapeCount}/{escapePresses}") :
+                draggedBy != null ? (draggedBy.CarryingOff ? "목말꾼에게 끌려간다!" : "끌개를 쏴라!") : Downed ? "쓰러짐 · 팀원을 기다려라" : null;
             if (alert != null)
                 Text(new Rect(0, height * 0.5f - 90, width, 34), alert, new GUIStyle(caption) { fontSize = 24, fontStyle = FontStyle.Bold });
             if (reviveProgress > 0)

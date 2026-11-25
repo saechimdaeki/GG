@@ -235,7 +235,7 @@ namespace ResidualSignal
             Say(source.Kind switch
             {
                 InfectedKind.Leaper => "덮쳤어! 도와줘!",
-                InfectedKind.Charger => "돌진개한테 깔렸어! 쏴 줘!",
+                InfectedKind.Charger => "들소한테 깔렸어! 쏴 줘!",
                 InfectedKind.Jockey => "뭐가 올라탔어! 떼어 줘!",
                 _ => "끌려간다!",
             }, true);
@@ -376,9 +376,9 @@ namespace ResidualSignal
                         InfectedKind.Dragger => "끌개 조심해!",
                         InfectedKind.Bloater => "부풀이다, 가까이서 쏘지 마!",
                         InfectedKind.Caller => "울음꾼이다. 소리 지르기 전에 막아!",
-                        InfectedKind.Spitter => "침뱉개다! 바닥 조심해!",
-                        InfectedKind.Charger => "돌진개 온다! 옆으로 피해!",
-                        InfectedKind.Jockey => "올라타개다, 등 뒤 봐!",
+                        InfectedKind.Spitter => "게움이다! 바닥 조심해!",
+                        InfectedKind.Charger => "들소 온다! 옆으로 피해!",
+                        InfectedKind.Jockey => "목말꾼이다, 등 뒤 봐!",
                         _ => "거대체다! 흩어져!",
                     }, true);
             }

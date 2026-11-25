@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - 'dead-frequency/**'
-      - '.github/workflows/residual-signal-release.yml'
   workflow_dispatch:
 
 permissions: {}
@@ -17,6 +16,7 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: write
+      issues: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -25,6 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Build and package macOS app
         shell: bash
         run: |
@@ -53,10 +54,29 @@ jobs:
         run: |
           set -euo pipefail
           package="$RUNNER_TEMP/residual-signal-release/ResidualSignal-mac.zip"
+          notes="$RUNNER_TEMP/residual-signal-release/notes.md"
+          .github/patch-notes.sh "$RELEASE_TAG" dead-frequency 'residual-signal-*' "$GITHUB_SHA" > "$notes"
+          if [[ ! -s "$notes" ]]; then
+            printf '커밋 %s에서 빌드했습니다.\n\n[macOS 다운로드](https://github.com/%s/releases/tag/%s)\n' \
+              "$GITHUB_SHA" "$GH_REPO" "$RELEASE_TAG" > "$notes"
+          fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "$package" --clobber
           else
             gh release create "$RELEASE_TAG" "$package" --target "$GITHUB_SHA" \
               --title "잔류신호 macOS 플레이테스트 #$GITHUB_RUN_NUMBER" --latest=false \
-              --notes "커밋 $GITHUB_SHA에서 빌드했습니다. ResidualSignal-mac.zip을 풀고 Residual Signal.app을 실행하세요."
+              --notes-file "$notes"
+          fi
+      - name: Publish patch notes issue
+        shell: bash
+        run: |
+          set -euo pipefail
+          title="[잔류신호] 패치노트 $RELEASE_TAG"
+          existing="$(gh api --paginate "repos/$GH_REPO/issues?state=all&labels=patch-notes&per_page=100" \
+            --jq '.[] | select(has("pull_request") | not) | .title')"
+          if ! grep -Fxq -- "$title" <<< "$existing"; then
+            gh label create patch-notes --color FBCA04 --description "릴리스 패치노트 (자동)" --force
+            gh label create 잔류신호 --color 5319E7 --description "dead-frequency/" --force
+            gh issue create --title "$title" --label patch-notes --label 잔류신호 \
+              --body-file "$RUNNER_TEMP/residual-signal-release/notes.md"
           fi

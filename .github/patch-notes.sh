@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Prints Markdown patch notes for tag $1 and game folder $2: feat/fix commits since the
 # previous tag that touched that folder. Prints nothing when the game has no such commits.
-# Used by release.yml for the release body and the per-game patch-notes issue.
+# Optional arguments select the previous tag pattern and the revision being released.
 set -euo pipefail
 tag=$1 game=$2
-prev=$(git describe --tags --match 'v*' --abbrev=0 "$tag^" 2>/dev/null || true)
-range=${prev:+$prev..}$tag
+pattern=${3:-v*}
+revision=${4:-$tag}
+prev=$(git describe --tags --match "$pattern" --abbrev=0 "$revision^" 2>/dev/null || true)
+range=${prev:+$prev..}$revision
 if [[ -f "$game/project.godot" ]]; then
   name=$(sed -n 's/^config\/name="\(.*\)"/\1/p' "$game/project.godot")
 else
