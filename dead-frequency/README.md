@@ -17,6 +17,10 @@
 
 ## 플레이
 
+GitHub Releases에서 제목이 **잔류신호 macOS 플레이테스트**인 릴리스를 열고 `ResidualSignal-mac.zip`을 받아 압축을 푼 뒤 `Residual Signal.app`을 실행하세요. [GitHub Releases](https://github.com/saechimdaeki/GG/releases)
+
+### Unity에서 실행
+
 1. Unity Hub에서 이 저장소의 `dead-frequency` 폴더를 프로젝트로 추가합니다.
 2. **Unity 6000.6.9f1**으로 열고 패키지와 에셋 임포트가 끝날 때까지 기다립니다.
 3. `Assets/Scenes/Platform03.unity`를 열고 **Play**를 누릅니다.

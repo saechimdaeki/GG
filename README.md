@@ -31,7 +31,7 @@ godot --headless --import   # 클론 직후 한 번
 godot
 ```
 
-**잔류신호** (Unity 6000.6.9f1) — Unity Hub에서 `dead-frequency`를 열고 `Platform03` 씬을 실행합니다. [실행·조작·플레이 GIF](dead-frequency/README.md)
+**잔류신호** — [GitHub Releases](https://github.com/saechimdaeki/GG/releases)의 **잔류신호 macOS 플레이테스트**에서 `ResidualSignal-mac.zip`을 받습니다. 소스 실행은 Unity 6000.6.9f1을 사용합니다. Unity Hub에서 `dead-frequency`를 열고 `Platform03` 씬을 실행합니다. [실행·조작·플레이 GIF](dead-frequency/README.md)
 
 **슬롯 던전** (Unity 6000.6.9f1) — Unity Hub → Add → `reel-dungeon` 폴더로 열거나, 명령줄로 맥 빌드:
 

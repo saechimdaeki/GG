@@ -62,3 +62,4 @@
 - 재촬영. `ResidualSignal.StationPlayCheck.Run`에 `-solo -stationCapture <새 PNG 경로> -demoFrames <폴더>`를 넘기고 `-throwCheck`, `-gearCheck`, `-alarmCheck`, `-mutantCheck`를 한 번에 하나씩 실행한다. 프레임은 동작별 접두어로 저장되며, 동일 접두어의 PNG를 사전순으로 모아 10fps로 인코딩한다.
 - 검증. Unity 6000.6.9f1에서 네 검사 모두 통과했다. 차량 경보 2.3초 내 8체 진입, 돌진개 1.3m 운반 후 피해, 올라타개 7.1m 이동을 확인했다.
 - 다음 할 일. 신규 전투 기능의 Relay 동기화, 확장 캠페인 4인 완주, 실제 플레이 밸런스와 프레임 타임을 확인한다.
+- 배포. 잔류신호 변경이 main에 들어오면 전용 워크플로가 macOS 앱을 빌드해 `ResidualSignal-mac.zip`을 GitHub Releases에 게시한다.
