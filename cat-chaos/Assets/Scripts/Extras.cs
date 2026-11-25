@@ -144,4 +144,131 @@ namespace CatChaos
             transform.rotation = Quaternion.Euler(0, Time.time * 120f, 0);
         }
     }
+
+    /// <summary>
+    /// Dining tablecloth with a corner hanging over the edge. Grab the corner (right mouse) and walk
+    /// away: the cloth slides, then everything on it comes off the table at once.
+    /// </summary>
+    public sealed class Tablecloth : MonoBehaviour
+    {
+        public static readonly List<Tablecloth> All = new();
+        Rigidbody _rb;
+        Transform _flap;
+        Vector3 _dir;
+        Bounds _area;
+        float _pulled;
+
+        /// <summary>Where the cat bites: the bottom of the hanging flap.</summary>
+        public Vector3 Handle => _flap.position + Vector3.down * 0.15f;
+
+        public static Tablecloth Spawn(Transform parent, Vector3 top, Vector2 size, Vector3 pullDir)
+        {
+            var go = new GameObject("식탁보");
+            go.transform.SetParent(parent, false);
+            go.transform.position = top + Vector3.up * 0.005f;
+            var m = Mats.Flat(new Color(0.92f, 0.35f, 0.38f), 0.15f);
+            var check = Mats.Flat(new Color(0.98f, 0.96f, 0.92f), 0.15f);
+            Mats.Shape(PrimitiveType.Cube, go.transform, Vector3.zero, new Vector3(size.x, 0.008f, size.y), m);
+            for (int i = -1; i <= 1; i++)
+                Mats.Shape(PrimitiveType.Cube, go.transform, new Vector3(i * size.x * 0.3f, 0.0045f, 0), new Vector3(0.06f, 0.001f, size.y), check);
+            var c = go.AddComponent<BoxCollider>();
+            c.size = new Vector3(size.x, 0.01f, size.y);
+            c.sharedMaterial = new PhysicsMaterial("cloth") { dynamicFriction = 0.9f, staticFriction = 1f, frictionCombine = PhysicsMaterialCombine.Maximum };
+            var cloth = go.AddComponent<Tablecloth>();
+            cloth._dir = pullDir.normalized;
+            // flap hangs down over the edge the cat pulls from
+            var edge = Vector3.Scale(cloth._dir, new Vector3(size.x, 0, size.y) * 0.5f);
+            var flap = Mats.Shape(PrimitiveType.Cube, go.transform, edge + Vector3.down * 0.17f,
+                Mathf.Abs(cloth._dir.x) > 0.5f ? new Vector3(0.008f, 0.34f, size.y * 0.7f) : new Vector3(size.x * 0.7f, 0.34f, 0.008f), m);
+            cloth._flap = flap.transform;
+            cloth._rb = go.AddComponent<Rigidbody>();
+            cloth._rb.isKinematic = true;
+            cloth._rb.mass = 0.6f;
+            cloth._rb.interpolation = RigidbodyInterpolation.Interpolate;
+            cloth._area = new Bounds(go.transform.position + Vector3.up * 0.25f, new Vector3(size.x, 0.5f, size.y));
+            All.Add(cloth);
+            return cloth;
+        }
+
+        void OnDestroy() => All.Remove(this);
+
+        /// <summary>The cat walks away holding the corner; returns false once the cloth has come off.</summary>
+        public bool Pull(Vector3 catVelocity, float dt)
+        {
+            if (!All.Contains(this) || Game.I.S != Game.State.Play) return false;
+            float v = Vector3.Dot(catVelocity, _dir);
+            if (v <= 0.05f) return true;
+            var step = _dir * Mathf.Min(v, 2f) * dt;
+            _rb.MovePosition(_rb.position + step);
+            _pulled += step.magnitude;
+            if (Random.value < 0.15f) Sfx.Paper(transform.position);
+            if (_pulled > Game.I.T.clothPull) Yank();
+            return All.Contains(this);
+        }
+
+        /// <summary>Whoosh: everything still on the cloth flies off the table with it.</summary>
+        void Yank()
+        {
+            All.Remove(this);
+            foreach (var p in Game.I.House.Props)
+                if (p && _area.Contains(p.transform.position) && !p.Body.isKinematic)
+                    p.Body.AddForce(_dir * Random.Range(1.6f, 2.6f) + Vector3.up * Random.Range(0.6f, 1.4f) + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
+            _rb.isKinematic = false;
+            _rb.linearVelocity = _dir * 2.2f + Vector3.up * 0.5f;
+            Game.I.OnCloth(transform.position);
+        }
+    }
+
+    /// <summary>
+    /// The owner's pet camera. Now and then it switches on: mischief seen on camera costs points,
+    /// a meow into the lens is cute (bonus), and sitting it out politely pays too.
+    /// </summary>
+    public sealed class PetCam : MonoBehaviour
+    {
+        Renderer _led;
+        Light _glow;
+        Material _on, _off;
+        public bool Live { get; private set; }
+
+        public static PetCam Spawn(Transform parent, Vector3 at, float yaw)
+        {
+            var go = new GameObject("홈캠");
+            go.transform.SetParent(parent, false);
+            go.transform.SetPositionAndRotation(at, Quaternion.Euler(0, yaw, 0));
+            var white = Mats.Flat(new Color(0.96f, 0.96f, 0.97f), 0.6f);
+            Mats.Shape(PrimitiveType.Cylinder, go.transform, new Vector3(0, 0.01f, 0), new Vector3(0.09f, 0.01f, 0.09f), white);
+            Mats.Shape(PrimitiveType.Cylinder, go.transform, new Vector3(0, 0.05f, 0), new Vector3(0.025f, 0.035f, 0.025f), white);
+            Mats.Shape(PrimitiveType.Sphere, go.transform, new Vector3(0, 0.12f, 0), Vector3.one * 0.1f, white);
+            Mats.Shape(PrimitiveType.Cylinder, go.transform, new Vector3(0, 0.12f, 0.045f), new Vector3(0.05f, 0.008f, 0.05f), Mats.Flat(new Color(0.08f, 0.08f, 0.1f), 0.95f), new Vector3(90, 0, 0));
+            var cam = go.AddComponent<PetCam>();
+            cam._off = Mats.Flat(new Color(0.3f, 0.3f, 0.3f), 0.5f);
+            cam._on = Mats.Flat(new Color(1f, 0.15f, 0.15f), 0.5f, 0, 4f);
+            cam._led = Mats.Shape(PrimitiveType.Sphere, go.transform, new Vector3(0.03f, 0.165f, 0.03f), Vector3.one * 0.015f, cam._off).GetComponent<Renderer>();
+            cam._glow = new GameObject("rec").AddComponent<Light>();
+            cam._glow.transform.SetParent(go.transform, false);
+            cam._glow.transform.localPosition = new Vector3(0, 0.2f, 0.1f);
+            cam._glow.type = LightType.Point;
+            cam._glow.color = new Color(1f, 0.2f, 0.2f);
+            cam._glow.range = 1.5f;
+            cam._glow.intensity = 0;
+            cam._glow.shadows = LightShadows.None;
+            return cam;
+        }
+
+        public void Set(bool live)
+        {
+            Live = live;
+            _led.sharedMaterial = live ? _on : _off;
+        }
+
+        void Update()
+        {
+            if (!Live) { _glow.intensity = 0; return; }
+            _glow.intensity = Mathf.Sin(Time.time * 6f) > 0 ? 1.5f : 0.2f;
+            // the lens follows the cat
+            var to = Game.I.Cat.transform.position - transform.position;
+            to.y = 0;
+            if (to.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), Time.deltaTime * 3f);
+        }
+    }
 }

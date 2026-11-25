@@ -28,6 +28,16 @@ namespace CatChaos
         public int feverMult = 2;
         public float butterflyFirst = 45f, butterflyEvery = 50f, butterflyLife = 40f;
         public int ptsButterfly = 300, ptsSplash = 200, ptsTrash = 80;
+        /// <summary>Grab-and-pull: tablecloth slide before it comes off; laundry, boxes.</summary>
+        public float clothPull = 0.45f;
+        public int ptsCloth = 250, ptsLaundry = 80, ptsBox = 200;
+        /// <summary>Pet cam: mischief while it records costs camPenalty; a meow into it pays ptsCamCute, a clean watch ptsCamGood.</summary>
+        public float camFirst = 55f, camEvery = 50f, camSeconds = 9f;
+        public int ptsCamCute = 250, ptsCamGood = 300, camPenalty = 60;
+        /// <summary>Points multiplier once the owner texts they are on the way.</summary>
+        public float rushMult = 1.5f;
+        /// <summary>How many of the mischief goals are drawn for a round.</summary>
+        public int goalCount = 8;
         public int[] grades = { 1500, 3500, 7000, 12000 };
 
         public static Tuning Load()

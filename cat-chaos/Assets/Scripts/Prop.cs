@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace CatChaos
 {
-    public enum PropKind { Thing, Fragile, Plant, Tissue, Tv, Water, Trash }
+    public enum PropKind { Thing, Fragile, Plant, Tissue, Tv, Water, Trash, Laundry }
 
     /// <summary>Something the cat can push around. Reports tipping, falling, breaking, spilling and unrolling.</summary>
     [DisallowMultipleComponent]
@@ -18,7 +18,7 @@ namespace CatChaos
         public Transform Paper;   // tissue: the visual roll that shrinks as it unrolls
 
         bool _armed;
-        float _baseY, _lastHit;
+        float _baseY, _lastHit, _pulledUntil;
         Vector3 _lastMark;
         LineRenderer _ribbon;
 
@@ -48,6 +48,7 @@ namespace CatChaos
                 G.OnTip(this);
                 if (Kind == PropKind.Plant) SpillSoil();
                 if (Kind == PropKind.Trash) SpillTrash();
+                if (Kind == PropKind.Laundry) SpillLaundry();
                 if (Kind == PropKind.Water) Splash();
             }
             if (!Dropped && transform.position.y < _baseY - G.T.dropDistance)
@@ -107,6 +108,21 @@ namespace CatChaos
             G.OnSoil(this);
         }
 
+        void SpillLaundry()
+        {
+            var cloth = new[] { Mats.Flat(new Color(0.95f, 0.95f, 0.97f), 0.1f), Mats.Flat(new Color(0.35f, 0.5f, 0.85f), 0.1f), Mats.Flat(new Color(0.95f, 0.45f, 0.5f), 0.1f), Mats.Flat(new Color(0.3f, 0.3f, 0.32f), 0.1f), Mats.Flat(new Color(0.95f, 0.8f, 0.35f), 0.1f) };
+            Vector3 spill = Vector3.ProjectOnPlane(transform.up, Vector3.up).normalized;
+            for (int i = 0; i < 10; i++)
+            {
+                bool sock = i % 2 == 0;
+                var size = sock ? new Vector3(0.06f, 0.02f, 0.16f) : new Vector3(0.24f, 0.015f, 0.2f);
+                Debris.Spawn(transform.position + transform.up * 0.2f + Random.insideUnitSphere * 0.08f, size,
+                    cloth[i % cloth.Length], spill * Random.Range(0.6f, 2f) + Random.insideUnitSphere * 0.5f + Vector3.up * 0.5f, 0.04f);
+            }
+            Sfx.Paper(transform.position);
+            G.OnLaundry(this);
+        }
+
         void SpillTrash()
         {
             var bits = new[] { Mats.Flat(new Color(0.95f, 0.94f, 0.9f), 0.1f), Mats.Flat(new Color(0.95f, 0.85f, 0.3f), 0.3f), Mats.Flat(new Color(0.6f, 0.45f, 0.3f), 0.1f), Mats.Flat(new Color(0.7f, 0.85f, 0.95f), 0.6f) };
@@ -145,12 +161,37 @@ namespace CatChaos
         /// <summary>A rolling tissue leaves a paper trail on whatever it rolls over.</summary>
         void Unroll()
         {
-            if (Unrolled >= G.T.tissueLength) return;
+            if (Unrolled >= G.T.tissueLength || Time.time < _pulledUntil) return;
             var p = transform.position;
             if (Body.angularVelocity.magnitude < 1.5f) { _lastMark = p; return; }
             if (!Physics.Raycast(p, Vector3.down, out var hit, 0.15f, ~(1 << 2), QueryTriggerInteraction.Ignore)) return;
-            float d = Vector2.Distance(new Vector2(p.x, p.z), new Vector2(_lastMark.x, _lastMark.z));
+            Mark(hit.point);
+        }
+
+        /// <summary>True while there is paper left on the roll.</summary>
+        public bool HasPaper => Unrolled < G.T.tissueLength;
+
+        /// <summary>
+        /// The cat has the loose end in its mouth: paper peels off the roll along the cat's path,
+        /// wherever the roll is stuck (corners included). Returns false once the roll is empty.
+        /// </summary>
+        public bool Pull(Vector3 floorPoint)
+        {
+            if (!HasPaper || !Playing) return false;
+            if (Time.time > _pulledUntil + 0.2f) { _ribbon = null; _lastMark = transform.position; }   // fresh strip from the roll
+            _pulledUntil = Time.time + 0.1f;
+            Body.AddTorque(Random.insideUnitSphere * 0.0004f, ForceMode.Impulse);
+            Mark(floorPoint);
+            if (!HasPaper) { _ribbon = null; return false; }
+            return true;
+        }
+
+        /// <summary>Extends the paper trail to <paramref name="point"/> (on the surface below) and scores the new length.</summary>
+        void Mark(Vector3 point)
+        {
+            float d = Vector2.Distance(new Vector2(point.x, point.z), new Vector2(_lastMark.x, _lastMark.z));
             if (d < 0.08f) return;
+            d = Mathf.Min(d, G.T.tissueLength - Unrolled);
             if (!_ribbon)
             {
                 var g = new GameObject("휴지 자국");
@@ -164,13 +205,14 @@ namespace CatChaos
                 _ribbon.sharedMaterial = Mats.Saved("Paper");
                 _ribbon.shadowCastingMode = ShadowCastingMode.Off;
                 _ribbon.positionCount = 1;
-                _ribbon.SetPosition(0, new Vector3(_lastMark.x, hit.point.y + 0.004f, _lastMark.z));
+                _ribbon.SetPosition(0, new Vector3(_lastMark.x, point.y + 0.004f, _lastMark.z));
                 Trails.Add(_ribbon);
             }
             _ribbon.positionCount++;
-            _ribbon.SetPosition(_ribbon.positionCount - 1, hit.point + Vector3.up * 0.004f);
+            _ribbon.SetPosition(_ribbon.positionCount - 1, point + Vector3.up * 0.004f);
             Unrolled = Mathf.Min(G.T.tissueLength, Unrolled + d);
-            _lastMark = p;
+            _lastMark = point;
+            var p = transform.position;
             if (Paper) { float k = Mathf.Lerp(1f, 0.45f, Unrolled / G.T.tissueLength); Paper.localScale = new Vector3(0.11f * k, Paper.localScale.y, 0.11f * k); }
             G.OnUnroll(this, d);
             if (Random.value < 0.3f) Sfx.Paper(p);

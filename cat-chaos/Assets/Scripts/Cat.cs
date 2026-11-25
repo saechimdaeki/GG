@@ -18,6 +18,10 @@ namespace CatChaos
         public bool Controllable;
         public bool Scratching { get; private set; }
         public bool Grounded { get; private set; }
+        /// <summary>What the cat has in its mouth right now ("휴지", "식탁보") or null.</summary>
+        public string Holding => _roll ? "휴지" : _cloth ? "식탁보" : null;
+        /// <summary>Something grabbable is within reach (for the HUD hint).</summary>
+        public bool CanGrab { get; private set; }
 
         // screenshot runs drive the cat without input
         public Vector3 AutoMove;
@@ -33,6 +37,8 @@ namespace CatChaos
         readonly Dictionary<string, string> _clips = new();
         readonly Collider[] _hits = new Collider[32];
         readonly HashSet<Rigidbody> _pushed = new();
+        Prop _roll;
+        Tablecloth _cloth;
 
         /// <summary>Teleports the body (setting the transform alone is undone by interpolation).</summary>
         public void Place(Vector3 at)
@@ -157,6 +163,7 @@ namespace CatChaos
                 Sfx.Jump(transform.position);
             }
             Body.linearVelocity = vel;
+            Tug();
 
             if (_move.sqrMagnitude > 0.01f)
             {
@@ -183,6 +190,8 @@ namespace CatChaos
                 float dv = T.pawPush * (Game.I.FeverLeft > 0 ? T.feverPush : 1f) / Mathf.Sqrt(Mathf.Max(0.2f, rb.mass));
                 rb.AddForceAtPosition(dir * dv * rb.mass, _hits[i].ClosestPoint(center), ForceMode.Impulse);
                 if (rb.TryGetComponent<Vacuum>(out var vac)) vac.Hit(transform.position);
+                if (rb.TryGetComponent<Prop>(out var pr) && pr.Kind == PropKind.Tissue)   // set it rolling, not just sliding
+                    rb.AddTorque(Vector3.Cross(Vector3.up, transform.forward) * 0.004f, ForceMode.Impulse);
             }
             for (int i = Butterfly.All.Count - 1; i >= 0; i--)
                 if ((Butterfly.All[i].transform.position - center).sqrMagnitude < (T.pawRadius + 0.12f) * (T.pawRadius + 0.12f)) Butterfly.All[i].Catch();
@@ -193,12 +202,54 @@ namespace CatChaos
         {
             Sfx.Meow(transform.position);
             Game.I.Hud.Pop(Random.value < 0.5f ? "냐옹~" : "애옹!", transform.position + Vector3.up * 0.6f, Color.white, 24);
+            Game.I.OnMeow(transform.position);
+        }
+
+        /// <summary>Right mouse with nothing to scratch: bite the nearest tissue end or tablecloth corner.</summary>
+        Component NearestGrab()
+        {
+            var p = transform.position;
+            Component best = null;
+            float bestD = 0.5f;
+            foreach (var pr in Game.I.House.Props)
+            {
+                if (!pr || pr.Kind != PropKind.Tissue || !pr.HasPaper) continue;
+                var d = pr.transform.position - p;
+                if (Mathf.Abs(d.y) > 0.4f) continue;
+                d.y = 0;
+                if (d.magnitude < bestD) { bestD = d.magnitude; best = pr; }
+            }
+            foreach (var c in Tablecloth.All)
+            {
+                var d = c.Handle - p;
+                if (d.y > 0.6f || d.y < -0.3f) continue;
+                d.y = 0;
+                if (d.magnitude < bestD) { bestD = d.magnitude; best = c; }
+            }
+            return best;
+        }
+
+        /// <summary>Runs every physics step while something is held.</summary>
+        void Tug()
+        {
+            if (_roll)
+            {
+                var floor = Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out var hit, 1f, ~(1 << 2), QueryTriggerInteraction.Ignore) ? hit.point : transform.position;
+                if (!_roll.Pull(floor))
+                {
+                    if (!_roll.HasPaper) Game.I.Hud.Toast("휴지 한 롤을 다 풀었다!", 2f);
+                    _roll = null;
+                }
+            }
+            if (_cloth && !_cloth.Pull(Body.linearVelocity, Time.fixedDeltaTime)) _cloth = null;
         }
 
         void Scratch(float dt)
         {
             Scratching = false;
-            if (_scratchHeld && Grounded)
+            if (!_scratchHeld) { _roll = null; _cloth = null; }
+            CanGrab = Holding == null && Grounded && NearestGrab();
+            if (_scratchHeld && Grounded && Holding == null)
             {
                 var from = transform.position + Vector3.up * 0.2f;
                 if (Physics.SphereCast(from, 0.1f, transform.forward, out var hit, 0.45f, ~(1 << 2), QueryTriggerInteraction.Ignore))
@@ -210,6 +261,12 @@ namespace CatChaos
                         Game.I.OnScratch(s, dt, hit.point);
                         if (_decalCd < 0) { _decalCd = 0.3f; Claw(hit); }
                     }
+                }
+                if (!Scratching)
+                {
+                    var grab = NearestGrab();
+                    if (grab is Prop roll) { _roll = roll; Game.I.Hud.Pop("앙!", transform.position + Vector3.up * 0.5f, Color.white, 22); }
+                    else if (grab is Tablecloth cloth) { _cloth = cloth; Game.I.Hud.Pop("앙!", transform.position + Vector3.up * 0.5f, Color.white, 22); }
                 }
             }
             Sfx.Scratching(Scratching);

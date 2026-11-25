@@ -33,14 +33,12 @@ Task:
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-11-17
-**Branch:** `feat/haunted-movers-layouts`
-**Current task:** 유령집 이삿짐센터 후속 개편 커밋 — Poly Haven/Kenney/OpenGameArt CC0 에셋(가구·텍스처·발소리·무기), 방 종류·몰딩·큰 홀, 집 탑·지붕창, 트럭 탑차, 첫 1분 목표 안내, 상점(삽·섬광탄·무전기), 갈 곳(시골집/저택/폐병원), 함정·금고방, 가구 뒤지기 열린 모양, 쇠지렛대 전투·괴물 체력·처치 드롭, 미믹, 체력 100, 심장 소리·붉은 가장자리, 유령 재디자인.
-**Next step:** 사용자 피드백(4분 19초 플레이 후 커밋 요청). 후보: 2~4명 플레이테스트로 난이도, 트럭·미믹·유령은 아직 기본 도형 조합(진짜 모델 필요), 고른 곳마다 집 외관 다르게. 푸시/PR은 사용자 요청 시.
-**Blocked on:** 없음
-**Files in progress:** 커밋 안 됨 (작업 트리에 변경 있음): haunted-movers/src/*, data/tuning.json, tests, README, design/game-brief.md
-**Run result:** smoke PASS(스크립트 에러 0, 손전등 쫓기·가구 안 고물·괴물 우회는 일부러 망가뜨려 FAIL 확인), network integration PASS. 증거: haunted-movers/production/qa/evidence/*-2026-11-17.png.
-**Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
+**Updated:** 2026-11-26
+**Branch:** `codex/cat-chaos-v0.3.0`
+**Current task:** 냥난리 v0.3.0. 홈캠, 휴지·식탁보 물기, 상자와 빨래 바구니, 카메라 개선을 macOS 플레이테스트 빌드와 README GIF로 정리.
+**Next step:** PR 리뷰 및 [플레이테스트 #38](https://github.com/saechimdaeki/GG/issues/38)에서 홈캠 안내, 카메라 시야, 소품 조작과 4분 라운드 밸런스 확인.
+**Blocked on:** 없음.
+**Run result:** Unity 6000.6.9f1 macOS arm64 빌드 성공. EditMode 11/11 통과. 서명과 ZIP 무결성 검사 통과.
 <!-- /CHECKPOINT -->
 
 ---
@@ -287,3 +285,14 @@ Humanoid 그래프를 수동 평가해 플레이어 애니메이션과 위치 �
 - 미디어. 신규 GIF 5개를 추가하고 기존 갤러리를 최신 4분 라운드 빌드로 갱신했다.
 - 배포. 4분 라운드 macOS ZIP을 v0.2.0으로 패키징하고 README 다운로드를 갱신했다.
 - 다음 할 일. 4분 라운드를 수동으로 끝까지 플레이하며 이벤트 간격과 청소기 난이도를 확인한다.
+
+### 이전 체크포인트 · 2026-11-17
+
+**Updated:** 2026-11-17
+**Branch:** `feat/haunted-movers-layouts`
+**Current task:** 유령집 이삿짐센터 후속 개편 커밋 — Poly Haven/Kenney/OpenGameArt CC0 에셋(가구·텍스처·발소리·무기), 방 종류·몰딩·큰 홀, 집 탑·지붕창, 트럭 탑차, 첫 1분 목표 안내, 상점(삽·섬광탄·무전기), 갈 곳(시골집/저택/폐병원), 함정·금고방, 가구 뒤지기 열린 모양, 쇠지렛대 전투·괴물 체력·처치 드롭, 미믹, 체력 100, 심장 소리·붉은 가장자리, 유령 재디자인.
+**Next step:** 사용자 피드백(4분 19초 플레이 후 커밋 요청). 후보: 2~4명 플레이테스트로 난이도, 트럭·미믹·유령은 아직 기본 도형 조합(진짜 모델 필요), 고른 곳마다 집 외관 다르게. 푸시/PR은 사용자 요청 시.
+**Blocked on:** 없음
+**Files in progress:** 커밋 안 됨 (작업 트리에 변경 있음): haunted-movers/src/*, data/tuning.json, tests, README, design/game-brief.md
+**Run result:** smoke PASS(스크립트 에러 0, 손전등 쫓기·가구 안 고물·괴물 우회는 일부러 망가뜨려 FAIL 확인), network integration PASS. 증거: haunted-movers/production/qa/evidence/*-2026-11-17.png.
+**Open questions:** 없음. "러셀컴퍼니" = Lethal Company.
