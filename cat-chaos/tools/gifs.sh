@@ -20,7 +20,7 @@ capture() {
 }
 
 if [[ $# -eq 0 ]]; then
-  set -- intro play sprint chaos plant tv scratch kitchen bath robot robot-flip hide ending result
+  set -- intro play sprint chaos plant tv scratch kitchen bath robot robot-flip hide ending result favorite fever butterfly fishbowl trash
 fi
 
 for name in "$@"; do
@@ -29,6 +29,7 @@ for name in "$@"; do
       ending) capture "$name" 2 4.5 ;;
       hide) capture "$name" 0.9 7.3 ;;
       robot|robot-flip) capture "$name" 1.2 4.5 ;;
+      favorite|fever|butterfly|fishbowl|trash) capture "$name" 0.8 4.8 ;;
       scratch) capture "$name" 0.9 5.6 ;;
       *) capture "$name" 0.7 3.5 ;;
   esac

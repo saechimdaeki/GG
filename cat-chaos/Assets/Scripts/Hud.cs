@@ -106,14 +106,32 @@ namespace CatChaos
             Fill(new Rect(clock.x + 20, 94, 260, 5), new Color(0, 0, 0, 0.1f));
             Fill(new Rect(clock.x + 20, 94, 260 * left / G.T.roundSeconds, 5), late ? new Color(0.95f, 0.35f, 0.35f) : Pink);
 
+            // favourite thing and fever
+            float ey = 132;
+            if (G.Target)
+            {
+                Panel(new Rect(18, ey, 270, 64), new Color(1f, 0.95f, 0.75f, 0.92f));
+                Text(new Rect(34, ey + 6, 240, 26), "주인이 아끼는 물건 (!)", 18, new Color(0.65f, 0.45f, 0.2f), TextAnchor.MiddleLeft);
+                Text(new Rect(34, ey + 30, 200, 30), G.Target.Label, 24, Ink, TextAnchor.MiddleLeft);
+                Text(new Rect(200, ey + 30, 72, 30), $"{Mathf.CeilToInt(G.TargetLeft)}초", 22, new Color(0.85f, 0.35f, 0.25f), TextAnchor.MiddleRight);
+                ey += 74;
+            }
+            if (G.FeverLeft > 0)
+            {
+                float pulse = 1f + Mathf.Sin(Time.time * 10f) * 0.04f;
+                Panel(new Rect(18, ey, 270, 56), Color.HSVToRGB(Time.time * 0.3f % 1f, 0.35f, 1f));
+                Text(new Rect(18, ey + 2, 270, 34), $"캣닢 피버 x{G.T.feverMult}!", Mathf.RoundToInt(26 * pulse), new Color(0.2f, 0.5f, 0.2f), TextAnchor.MiddleCenter);
+                Fill(new Rect(38, ey + 40, 230 * G.FeverLeft / G.T.feverSeconds, 6), new Color(0.35f, 0.8f, 0.35f));
+            }
+
             // goals
-            float gx = w - 300, gy = 18;
-            Panel(new Rect(gx, gy, 282, 50 + G.Goals.Count * 34), new Color(1, 1, 1, 0.88f));
+            float gx = w - 300, gy = 18, row = 30;
+            Panel(new Rect(gx, gy, 282, 50 + G.Goals.Count * row), new Color(1, 1, 1, 0.88f));
             Text(new Rect(gx + 18, gy + 10, 250, 30), "오늘의 말썽", 22, new Color(0.75f, 0.35f, 0.5f), TextAnchor.MiddleLeft);
             for (int i = 0; i < G.Goals.Count; i++)
             {
                 var g = G.Goals[i];
-                float y = gy + 46 + i * 34;
+                float y = gy + 44 + i * row;
                 Fill(new Rect(gx + 20, y + 8, 18, 18), g.Done ? new Color(0.45f, 0.8f, 0.5f) : new Color(0, 0, 0, 0.12f));
                 if (g.Done) Text(new Rect(gx + 20, y + 4, 18, 22), "v", 18, Color.white, TextAnchor.MiddleCenter);
                 var col = g.Done ? new Color(0.45f, 0.6f, 0.5f) : Ink;
@@ -180,16 +198,18 @@ namespace CatChaos
                 { "쏟은 화분", $"{m.Soil}개" },
                 { "뒤집은 로봇청소기", $"{m.Vacuums}대" },
                 { "로봇청소기가 치운 것", $"{m.Cleaned}개" },
+                { "엎은 어항 · 잡은 나비", $"{m.Bowls}개 · {m.Butterflies}마리" },
+                { "해치운 아끼는 물건", $"{m.Targets}개" },
             };
             for (int i = 0; i < rows.GetLength(0); i++)
             {
-                float y = 308 + i * 30;
+                float y = 306 + i * 25;
                 Text(new Rect(r.x + 110, y, 300, 34), rows[i, 0], 22, new Color(0.4f, 0.32f, 0.38f), TextAnchor.MiddleLeft);
                 Text(new Rect(r.x + 350, y, 200, 34), rows[i, 1], 22, Ink, TextAnchor.MiddleRight);
             }
-            Text(new Rect(r.x, 528, r.width, 40), "주인: " + G.OwnerLine, 26, new Color(0.75f, 0.3f, 0.4f), TextAnchor.MiddleCenter);
+            Text(new Rect(r.x, 544, r.width, 40), "주인: " + G.OwnerLine, 26, new Color(0.75f, 0.3f, 0.4f), TextAnchor.MiddleCenter);
             float blink = 0.6f + 0.4f * Mathf.Sin(Time.time * 4f);
-            Text(new Rect(r.x, 590, r.width, 40), "R  다시 하기", 26, new Color(Ink.r, Ink.g, Ink.b, blink), TextAnchor.MiddleCenter);
+            Text(new Rect(r.x, 600, r.width, 40), "R  다시 하기", 26, new Color(Ink.r, Ink.g, Ink.b, blink), TextAnchor.MiddleCenter);
         }
 
         void Popups(float k)
