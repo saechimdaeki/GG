@@ -46,3 +46,20 @@
 - 추가: `StationHardship.cs` — 흑백 상태(쓰러짐 2회 후 회색 화면, 3회째 사망, 구급상자로 초기화), 오인사격(보통 10/고급 30/전문가 60%), 생존·연료 미션 보급함 25초 재충전. `-hardshipCheck`(survival, 전문가) 통과. 브랜치 feat/residual-signal-missions.
 - 2026-11-24 마무리: 흐느끼는 자(L4D2 위치형, `StationInfected.Weeper.cs`; 총소리 무시·근접/손전등/피격에 분노·경직 없음·강타 58), 동료 순간이동 수정(Mixamo 걸음·달리기 루프 이동 1.4/2.4m를 0.4m만 되돌리던 것 → 전부 고정, `-gaitCheck` 1.55m→0.00m; 온라인 아바타·서이경도 동일 처리), STP 동적 해상도(약 2.1M 픽셀 기준), `-perfLog`(무적 포함, 측정 전용). 앱: Builds/Residual Signal Missions.app. GIF: docs/media/survival·scavenge·weeper·approach.gif.
 - 다음: 사람 플레이로 난이도·연료 시간 조정, 4인 Relay 검증.
+
+## 2026-11-25 L4D2 추가분 (브랜치 feat/residual-signal-l4d2-next, origin/main 기반)
+
+- 투척 무기(`Throwable.cs`): 파이프 폭탄(6초 유인·폭발)·화염병(불바다 9초). Poly Haven 와인병, 협동은 `MissionSync.ThrowRpc`로 모든 피어가 같은 투척, 피해·유인은 방장 복사본만.
+- 특수 3종(`StationInfected.Mutants.cs`, `AcidPool.cs`): 침뱉개(산성 웅덩이, 오래 설수록 피해↑)·돌진개(들고 가 내리찍기, 스스로 못 풂)·올라타개(어깨에 타서 분대 반대로 끌고 감). 디렉터 순서 7종 순환. AI 동료도 붙잡힌 동안 피해, 산성액 회피.
+- 장비(`Gear.cs`, `MeleeWeapon.cs`, `StationTrial.Gear.cs`, `StationTrial.Melee.cs`): 근접 4종(Poly Haven CC0 스캔, 2번 칸), 진통제·아드레날린(4번, 임시 체력 0.27/s 감소, 피해 먼저 흡수). `GearImport.cs`로 스캔 메시 읽기 허용.
+- 자동차 경보(`CarAlarm.cs`, `StationTrial.Crescendo.cs`): 봉쇄선·화물 연결로 차. 쏘기/근접/폭발로 울림, 무리 16.
+- 검사: `-throwCheck -gearCheck -mutantCheck -alarmCheck` 통과. 전체 회귀는 스크래치패드 regress.sh로 실행.
+- 남은 것: 세이프룸, 4인 실접속 확인, 사람 플레이 밸런스. 커밋 안 함(사용자 요청 시에만).
+
+## 2026-11-25 PR 문서 및 촬영
+
+- 지금 하던 일. 루트와 프로젝트 README에 출격 화면, 신규 장비·감염체·차량 경보, 난이도 변경을 반영했다. Unity Play Mode GIF 6종과 올라타개 스크린샷을 추가했다.
+- 재촬영. `ResidualSignal.StationPlayCheck.Run`에 `-solo -stationCapture <새 PNG 경로> -demoFrames <폴더>`를 넘기고 `-throwCheck`, `-gearCheck`, `-alarmCheck`, `-mutantCheck`를 한 번에 하나씩 실행한다. 프레임은 동작별 접두어로 저장되며, 동일 접두어의 PNG를 사전순으로 모아 10fps로 인코딩한다.
+- 검증. Unity 6000.6.9f1에서 네 검사 모두 통과했다. 차량 경보 2.3초 내 8체 진입, 돌진개 1.3m 운반 후 피해, 올라타개 7.1m 이동을 확인했다.
+- 다음 할 일. 신규 전투 기능의 Relay 동기화, 확장 캠페인 4인 완주, 실제 플레이 밸런스와 프레임 타임을 확인한다.
+- 배포. 잔류신호 변경이 main에 들어오면 전용 워크플로가 macOS 앱을 빌드해 `ResidualSignal-mac.zip`을 GitHub Releases에 게시한다.

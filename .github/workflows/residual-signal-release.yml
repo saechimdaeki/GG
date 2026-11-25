@@ -1,0 +1,62 @@
+name: Residual Signal macOS release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dead-frequency/**'
+      - '.github/workflows/residual-signal-release.yml'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release:
+    if: github.repository == 'saechimdaeki/GG' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, ARM64, gg-unity-release]
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: residual-signal-${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build and package macOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          project="$GITHUB_WORKSPACE/dead-frequency"
+          version="$(awk '$1 == "m_EditorVersion:" { print $2 }' "$project/ProjectSettings/ProjectVersion.txt")"
+          unity="/Applications/Unity/Hub/Editor/$version/Unity.app/Contents/MacOS/Unity"
+          test -x "$unity" || { echo "::error::Unity $version is missing from the Mac release runner."; exit 1; }
+          output="$(mktemp -d "$RUNNER_TEMP/residual-signal.XXXXXX")"
+          trap 'rm -rf "$output"' EXIT
+          app="$output/Residual Signal.app"
+          if ! "$unity" -batchmode -quit -projectPath "$project" -buildTarget OSXUniversal \
+            -executeMethod ResidualSignal.StationTrialBuild.Mac -trialOutput "$app" \
+            -logFile "$output/unity.log"; then
+            tail -120 "$output/unity.log"
+            exit 1
+          fi
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
+          test -x "$app/Contents/MacOS/$executable"
+          mkdir -p "$RUNNER_TEMP/residual-signal-release"
+          package="$RUNNER_TEMP/residual-signal-release/ResidualSignal-mac.zip"
+          ditto -c -k --keepParent "$app" "$package"
+          unzip -tq "$package"
+      - name: Publish GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$RUNNER_TEMP/residual-signal-release/ResidualSignal-mac.zip"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$package" --clobber
+          else
+            gh release create "$RELEASE_TAG" "$package" --target "$GITHUB_SHA" \
+              --title "잔류신호 macOS 플레이테스트 #$GITHUB_RUN_NUMBER" --latest=false \
+              --notes "커밋 $GITHUB_SHA에서 빌드했습니다. ResidualSignal-mac.zip을 풀고 Residual Signal.app을 실행하세요."
+          fi

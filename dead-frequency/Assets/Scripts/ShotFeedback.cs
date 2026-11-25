@@ -296,8 +296,34 @@ namespace ResidualSignal
             hole.localScale = Vector3.one * Random.Range(0.07f, 0.11f);
         }
 
-        static ParticleSystem Burst(string name, Color a, Color b, float life, float minSize, float maxSize,
-            float minSpeed, float maxSpeed, float gravity, bool streak)
+        static readonly System.Collections.Generic.Dictionary<Color, Material> scorchMaterials = new();
+
+        /// <summary>A mark on the floor: blackened by a blast or a molotov by default, or tinted (spitter acid).</summary>
+        internal static void Scorch(Vector3 point, float radius, Color? tint = null, float lifetime = 30f)
+        {
+            Color color = tint ?? new Color(0.03f, 0.025f, 0.02f);
+            if (!scorchMaterials.TryGetValue(color, out var scorchMaterial))
+                scorchMaterials[color] = scorchMaterial = Unlit(Radial(64, (r, angle) =>
+                {
+                    float rim = 0.75f + 0.15f * Mathf.Sin(angle * 5f) * Mathf.Sin(angle * 3f + 2f);
+                    return r < rim ? Mathf.Clamp01((rim - r) * 3f) * 0.85f : 0f;
+                }), color, transparent: true);
+            var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Object.Destroy(quad.GetComponent<Collider>());
+            quad.name = "Scorch";
+            quad.layer = 2;
+            var renderer = quad.GetComponent<Renderer>();
+            renderer.sharedMaterial = scorchMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            quad.transform.SetPositionAndRotation(point + Vector3.up * 0.006f,
+                Quaternion.Euler(90f, Random.Range(0f, 360f), 0f));
+            quad.transform.localScale = Vector3.one * radius * 2f;
+            Object.Destroy(quad, lifetime);
+        }
+
+        internal static ParticleSystem Burst(string name, Color a, Color b, float life, float minSize, float maxSize,
+            float minSpeed, float maxSpeed, float gravity, bool streak, bool additive = false,
+            Color? tint = null, AnimationCurve sizeCurve = null)
         {
             var node = new GameObject(name);
             var system = node.AddComponent<ParticleSystem>();
@@ -320,7 +346,7 @@ namespace ResidualSignal
             shape.radius = 0.01f;
             var size = system.sizeOverLifetime;
             size.enabled = true;
-            size.size = new ParticleSystem.MinMaxCurve(1f, streak ? AnimationCurve.Linear(0, 1, 1, 0.2f) : AnimationCurve.EaseInOut(0, 0.6f, 1, 1.8f));
+            size.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve ?? (streak ? AnimationCurve.Linear(0, 1, 1, 0.2f) : AnimationCurve.EaseInOut(0, 0.6f, 1, 1.8f)));
             var fade = system.colorOverLifetime;
             fade.enabled = true;
             var gradient = new Gradient();
@@ -334,7 +360,8 @@ namespace ResidualSignal
                 renderer.velocityScale = 0.035f;
                 renderer.lengthScale = 1f;
             }
-            renderer.sharedMaterial = streak ? Additive(a) : Unlit(SoftDot(), Color.white, transparent: true);
+            // HDRP/Unlit ignores particle vertex colour, so a tint is baked into the material instead.
+            renderer.sharedMaterial = streak || additive ? Additive(a) : Unlit(SoftDot(), tint ?? Color.white, transparent: true);
             system.Play();
             return system;
         }
@@ -400,7 +427,7 @@ namespace ResidualSignal
         }
 
         /// <summary>Short decaying tone; sweep bends the pitch over its length (ricochet whine).</summary>
-        static AudioClip Tick(string name, float frequency, float seconds, float gain, float sweep = 0f)
+        internal static AudioClip Tick(string name, float frequency, float seconds, float gain, float sweep = 0f)
         {
             const int rate = 44100;
             int length = Mathf.CeilToInt(rate * seconds);

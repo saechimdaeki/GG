@@ -8,7 +8,7 @@ using UnityEngine.Rendering;
 namespace ResidualSignal
 {
     [InitializeOnLoad]
-    public static class StationPlayCheck
+    public static partial class StationPlayCheck
     {
         const string RunningKey = "ResidualSignal.StationPlayCheck";
         const string CaptureArgument = "-stationCapture";
@@ -164,6 +164,22 @@ namespace ResidualSignal
                 }
                 case 400:
                     CheckMission(trial, controller);
+                    break;
+                case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-alarmCheck") >= 0:
+                case >= 800 and < 900:
+                    CheckAlarm(trial, controller);
+                    break;
+                case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-mutantCheck") >= 0:
+                case >= 600 and < 700:
+                    CheckMutants(trial, controller);
+                    break;
+                case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-gearCheck") >= 0:
+                case >= 700 and < 800:
+                    CheckGear(trial, controller);
+                    break;
+                case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-throwCheck") >= 0:
+                case >= 500 and < 600:
+                    CheckThrowables(trial, controller);
                     break;
                 case 0 when sinceStart >= 2 && Array.IndexOf(Environment.GetCommandLineArgs(), "-gaitCheck") >= 0:
                 {
@@ -1652,12 +1668,12 @@ namespace ResidualSignal
             }
         }
 
-        static void RecordDemoFrame()
+        static void RecordDemoFrame(string prefix = "frame")
         {
             if (string.IsNullOrEmpty(demoFrameFolder) || demoFrame >= 114 || Time.time < nextDemoFrame)
                 return;
             nextDemoFrame = Time.time + 0.10f;
-            Capture(Camera.main, Path.Combine(demoFrameFolder, $"frame-{demoFrame++:D4}.png"), 720, 405);
+            Capture(Camera.main, Path.Combine(demoFrameFolder, $"{prefix}-{demoFrame++:D4}.png"), 720, 405);
         }
 
         static void Capture(Camera camera, string path, int width = 1280, int height = 720)
@@ -1728,6 +1744,18 @@ namespace ResidualSignal
                 RecordDemoFrame();
                 if (Array.IndexOf(Environment.GetCommandLineArgs(), "-weeperCheck") < 0 && Difficulty.Selected != Difficulty.Mission.Scavenge)
                     DemoFight(trial);
+            }
+            // -autoFight: the player shoots back (instant aim at the nearest infected), to compare difficulty tiers.
+            if (missionPlaced && Array.IndexOf(Environment.GetCommandLineArgs(), "-autoFight") >= 0 && !trial.Downed)
+            {
+                DemoFight(trial);
+                if (Mathf.FloorToInt(elapsed / 5f) != Mathf.FloorToInt((elapsed - Time.deltaTime) / 5f))
+                {
+                    int botHealth = 0;
+                    foreach (var bot in SurvivorBot.All)
+                        botHealth += bot.Down ? 0 : bot.Health;
+                    Debug.Log($"AUTOFIGHT {Difficulty.Current} t={elapsed:F0}s health {trial.Health} bots {botHealth} alive {alive}");
+                }
             }
             if (missionPlaced && elapsed > 4f && Array.IndexOf(Environment.GetCommandLineArgs(), "-weeperCheck") >= 0)
             {
@@ -1871,6 +1899,135 @@ namespace ResidualSignal
                     }
                     break;
             }
+        }
+
+        static readonly System.Collections.Generic.List<StationInfected> throwCrowd = new();
+        static float throwAt;
+        static bool lureChecked;
+        static readonly Vector3 ThrowSpot = new(0f, 0f, 19.5f);
+
+        /// <summary>-throwCheck: pick up a pipe bomb, throw it, commons walk to it and die in the blast;
+        /// then a molotov at a crowd's feet burns them down. Screenshots: .pipe.png and .molotov.png.</summary>
+        static void CheckThrowables(StationTrial trial, CharacterController controller)
+        {
+            string path = SessionState.GetString(RunningKey + ".path", "");
+            if (step == 0)
+                step = 500;
+            switch (step)
+            {
+                case 500:
+                case 503:
+                {
+                    var want = step == 500 ? Gear.PipeBomb : Gear.Molotov;
+                    GearPickup pickup = null;
+                    foreach (var candidate in GearPickup.All)
+                        if (candidate.gear == want)
+                            pickup = candidate;
+                    if (pickup == null)
+                    {
+                        Finish(false, $"No {want} pickup placed in the station ({GearPickup.All.Count} pickups).");
+                        return;
+                    }
+                    // Close-up of the pickup as it lies on the floor, from crouching height.
+                    var view = Camera.main.transform;
+                    Vector3 restPosition = view.localPosition;
+                    Quaternion restRotation = view.localRotation;
+                    Vector3 lens = pickup.transform.position + new Vector3(0.35f, 0.32f, -0.45f);
+                    view.SetPositionAndRotation(lens, Quaternion.LookRotation(pickup.transform.position - lens));
+                    Capture(Camera.main, path.Replace(".png", step == 500 ? ".pickup-pipe.png" : ".pickup-molotov.png"));
+                    view.SetLocalPositionAndRotation(restPosition, restRotation);
+                    Teleport(controller, pickup.transform.position + Vector3.back * 0.6f);
+                    Physics.SyncTransforms();
+                    // The ammo box beside it is taken first, as in play: press again for the throwable.
+                    for (int press = 0; press < 3 && trial.CarriedThrowable != want; press++)
+                        trial.TryInteract();
+                    if (trial.CarriedThrowable != want)
+                    {
+                        Finish(false, $"E beside the {want} did not pick it up (carrying {trial.CarriedThrowable}).");
+                        return;
+                    }
+                    Teleport(controller, new Vector3(0f, 0.09f, 12.6f));
+                    controller.transform.rotation = Quaternion.identity;
+                    throwCrowd.Clear();
+                    bool pipe = step == 500;
+                    foreach (var at in pipe ? new[] { new Vector2(-2f, 22f), new Vector2(2f, 22f), new Vector2(-1f, 24.5f), new Vector2(1f, 24.5f) }
+                                            : new[] { new Vector2(-0.6f, 19.5f), new Vector2(0.6f, 19.5f), new Vector2(0f, 20.1f) })
+                        throwCrowd.Add(trial.SpawnInfected(at.x, at.y, false, InfectedKind.Common, calm: !pipe));
+                    Physics.SyncTransforms();
+                    AimAtPoint(ThrowSpot);
+                    if (trial.TryThrow() == null)
+                    {
+                        Finish(false, $"G did not throw the {want}.");
+                        return;
+                    }
+                    throwAt = Time.time;
+                    step++;
+                    break;
+                }
+                case 501:
+                {
+                    float t = Time.time - throwAt;
+                    AimAtPoint(ThrowSpot + Vector3.up);
+                    RecordDemoFrame("pipe-bomb");
+                    if (t < 2.5f)
+                        break;
+                    if (!lureChecked)
+                    {
+                        lureChecked = true;
+                        int chasing = 0;
+                        foreach (var infected in throwCrowd)
+                            if (infected.ChasingLure)
+                                chasing++;
+                        if (chasing < throwCrowd.Count)
+                        {
+                            Finish(false, $"Only {chasing}/{throwCrowd.Count} commons turned to the pipe bomb.");
+                            return;
+                        }
+                        Debug.Log($"PLATFORM03 PIPE LURE {chasing}/{throwCrowd.Count} chasing");
+                        break;
+                    }
+                    if (t >= Throwable.FuseSeconds - 0.4f && t < Throwable.FuseSeconds && !File.Exists(path.Replace(".png", ".pipe.png")))
+                        Capture(Camera.main, path.Replace(".png", ".pipe.png"));
+                    if (t >= Throwable.FuseSeconds + 0.08f && !File.Exists(path.Replace(".png", ".blast.png")))
+                        Capture(Camera.main, path.Replace(".png", ".blast.png"));
+                    if (t < Throwable.FuseSeconds + 1f)
+                        break;
+                    int dead = throwCrowd.FindAll(infected => infected == null || infected.Dead).Count;
+                    if (dead < throwCrowd.Count)
+                    {
+                        Finish(false, $"Pipe bomb killed {dead}/{throwCrowd.Count} of the lured commons.");
+                        return;
+                    }
+                    Debug.Log($"PLATFORM03 PIPE BLAST killed {dead}/{throwCrowd.Count}");
+                    step = 503;
+                    break;
+                }
+                case 504:
+                {
+                    float t = Time.time - throwAt;
+                    AimAtPoint(ThrowSpot);
+                    RecordDemoFrame("molotov");
+                    if (t >= 2.2f && !File.Exists(path.Replace(".png", ".molotov.png")))
+                        Capture(Camera.main, path.Replace(".png", ".molotov.png"));
+                    int dead = throwCrowd.FindAll(infected => infected == null || infected.Dead).Count;
+                    if (dead == throwCrowd.Count && t >= 2.3f)
+                    {
+                        Capture(Camera.main, path);
+                        Finish(true, $"PLATFORM03 THROWABLE CHECK PASS (molotov burned {dead}/{throwCrowd.Count} in {t:F1}s, player health {trial.Health})");
+                        return;
+                    }
+                    if (t > 7f)
+                        Finish(false, $"Molotov burned {dead}/{throwCrowd.Count} commons in 7 s.");
+                    break;
+                }
+            }
+        }
+
+        static void Teleport(CharacterController controller, Vector3 point)
+        {
+            controller.enabled = false;
+            controller.transform.position = point;
+            controller.enabled = true;
         }
 
         /// <summary>Seconds into a mission check before GIF frames start (-demoStart N, default 6).</summary>

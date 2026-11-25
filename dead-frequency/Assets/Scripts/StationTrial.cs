@@ -208,7 +208,11 @@ namespace ResidualSignal
         public void Say(string speaker, string line) => Signal($"{speaker}: {line}", 3.5f);
 
         /// <summary>First aid from a kit (yours or a teammate's).</summary>
-        public void Heal(int amount) => health = Mathf.Min(100, health + amount);
+        public void Heal(int amount)
+        {
+            health = Mathf.Min(100, health + amount);
+            tempHealth = Mathf.Min(tempHealth, 100f - health);
+        }
 
         /// <summary>Running short: less than two magazines left for the gun in hand.</summary>
         public bool AmmoLow => Current.reserve < Current.capacity * 2;
@@ -323,6 +327,8 @@ namespace ResidualSignal
             };
             SquadMember.All.Add(self);
             SquadCollision.Register(player);
+            PlaceGearAroundSupplies();
+            ArmCarAlarms();
         }
 
         void Update()
@@ -657,7 +663,7 @@ namespace ResidualSignal
                 }
                 var teammate = Input.GetKey(KeyCode.E) && !Downed ? DownedTeammate() : null;
                 var downedBot = Input.GetKey(KeyCode.E) && !Downed && teammate == null ? DownedBot() : null;
-                reviveProgress = teammate != null || downedBot != null ? reviveProgress + Time.deltaTime : 0f;
+                reviveProgress = teammate != null || downedBot != null ? reviveProgress + Time.deltaTime * (Adrenaline ? 2f : 1f) : 0f;
                 if (reviveProgress >= ReviveSeconds)
                 {
                     if (teammate != null) teammate.ReviveRpc();
@@ -676,14 +682,18 @@ namespace ResidualSignal
                     flashlight.enabled = !flashlight.enabled;
                 if (Input.GetKeyDown(KeyCode.R))
                     TryReload();
-                if (Current.automatic ? Input.GetMouseButton(0) : Input.GetMouseButtonDown(0))
+                if (Input.GetKeyDown(KeyCode.G) || Input.GetKeyDown(KeyCode.Alpha3))
+                    TryThrow();
+                if (Input.GetKeyDown(KeyCode.Alpha4))
+                    TryUseMedicine();
+                if (meleeOut || Current.automatic ? Input.GetMouseButton(0) : Input.GetMouseButtonDown(0))
                     TryFire();
                 if (Input.GetKeyDown(KeyCode.Alpha1) && primary >= 0)
                     Equip(primary);
                 if (Input.GetKeyDown(KeyCode.Alpha2))
-                    Equip(0);
-                if (Input.mouseScrollDelta.y != 0 && primary >= 0)
-                    Equip(equipped == 0 ? primary : 0);
+                    EquipSecondary();
+                if (Input.mouseScrollDelta.y != 0)
+                    CycleWeapon();
             }
             return true;
         }
@@ -729,7 +739,7 @@ namespace ResidualSignal
                 transform.position.z >= 8.9f && transform.position.z <= 13.95f;
             float pace = (wading ? 0.72f : 1f) * (carrying != null ? 0.8f : 1f) * Mathf.Lerp(1f, 0.78f, aimBlend);
             Vector3 before = transform.position;
-            player.Move((horizontal * (movementSpeed * pace) + Vector3.up * verticalSpeed) * Time.deltaTime);
+            player.Move((horizontal * (movementSpeed * pace * GearSpeed) + Vector3.up * verticalSpeed) * Time.deltaTime);
             Vector3 travel = transform.position - before;
             travel.y = 0;
             isWalking = player.isGrounded && travel.sqrMagnitude > 0.00005f;
@@ -758,7 +768,7 @@ namespace ResidualSignal
                     MissionSync.Instance?.RequestInteractRpc(transform.position);
                 return true;
             }
-            if (TryScavenge() || TryRevive() || TryLoot() || TryPickUp())
+            if (TryScavenge() || TryRevive() || TryLoot() || TryPickUp() || TryTakeGear())
                 return true;
             return TrySupply();
         }
@@ -918,6 +928,8 @@ namespace ResidualSignal
 
         public bool TryFire()
         {
+            if (meleeOut)
+                return TrySwing();
             var gun = Current;
             if (pinnedBy != null || Downed || carrying != null || launchedByImpact || Time.time < knockLandingAt ||
                 phase is Phase.Complete or Phase.Failed || gun.rounds == 0 || reloadUntil > 0 || raise > 0.35f ||
@@ -925,6 +937,7 @@ namespace ResidualSignal
                 return false;
             gun.rounds--;
             nextShotAt = Time.time + gun.fireInterval;
+            CarAlarm.CheckShot(eyes.transform.position, eyes.transform.forward, range);
             flashUntil = Time.time + 0.06f;
             gun.muzzle.transform.localRotation = Quaternion.Euler(0, 0, Random.Range(0f, 360f));
             gun.muzzle.transform.localScale = Vector3.one * Random.Range(0.55f, 0.9f);
@@ -1040,6 +1053,7 @@ namespace ResidualSignal
         {
             if (!arsenal[index].owned || (index == equipped && arsenal[index].view.gameObject.activeSelf))
                 return;
+            HolsterMelee();
             Current.view.gameObject.SetActive(false);
             Current.muzzle.SetActive(false);
             equipped = index;
@@ -1129,7 +1143,7 @@ namespace ResidualSignal
                 return false;
             pinnedBy = source;
             escapeCount = 0;
-            Signal("덮쳤다! E를 연타해 떨쳐내라", 3f);
+            Signal(source.Kind == InfectedKind.Charger ? "돌진개에 깔렸다! 팀원이 떼어내야 한다" : "덮쳤다! E를 연타해 떨쳐내라", 3f);
             return true;
         }
 
@@ -1139,7 +1153,7 @@ namespace ResidualSignal
             if (!InCombat || Held)
                 return false;
             draggedBy = source;
-            Signal("끌려간다! 끌개를 쏴라", 3f);
+            Signal(source.Kind == InfectedKind.Jockey ? "올라타개가 올라탔다! 팀원이 떼어내야 한다" : "끌려간다! 끌개를 쏴라", 3f);
             return true;
         }
 
@@ -1152,7 +1166,8 @@ namespace ResidualSignal
         /// <summary>Player-side struggle against a pin; also callable by tests.</summary>
         public void StruggleFree()
         {
-            if (pinnedBy != null && ++escapeCount >= escapePresses)
+            // A charger's pummelling can't be struggled out of; only a teammate can stop it.
+            if (pinnedBy != null && !pinnedBy.CarryingOff && ++escapeCount >= escapePresses)
                 pinnedBy.ReleaseHold();
         }
 
@@ -1202,9 +1217,17 @@ namespace ResidualSignal
                     holdDamage %= 1f;
                 }
             }
+            // Being pounded by a charger shakes the view with every slam; a jockey rocks it side to side.
+            if (pinnedBy != null && pinnedBy.Kind == InfectedKind.Charger)
+                shake = Mathf.Max(shake, 0.5f + 0.9f * Mathf.Pow(Mathf.Abs(Mathf.Sin(Time.time * 3.7f)), 6f));
+            if (draggedBy != null && draggedBy.Kind == InfectedKind.Jockey)
+            {
+                impactRoll = Mathf.Sin(Time.time * 6.5f) * 9f;
+                shake = Mathf.Max(shake, 0.35f);
+            }
             if (draggedBy != null)
             {
-                Vector3 pull = draggedBy.transform.position - transform.position;
+                Vector3 pull = draggedBy.PullPoint - transform.position;
                 pull.y = 0;
                 if (pull.magnitude > 1.1f)
                     player.Move((pull.normalized * 2.4f + Vector3.down * 2f) * Time.deltaTime);
@@ -1260,7 +1283,7 @@ namespace ResidualSignal
         public bool TryReload()
         {
             var gun = Current;
-            if (phase is Phase.Complete or Phase.Failed || gun.rounds == gun.capacity || gun.reserve == 0 || reloadUntil > 0)
+            if (meleeOut || phase is Phase.Complete or Phase.Failed || gun.rounds == gun.capacity || gun.reserve == 0 || reloadUntil > 0)
                 return false;
             reloadUntil = Time.time + gun.reloadDuration;
             weaponAudio.PlayOneShot(reloadSound);
@@ -1277,7 +1300,7 @@ namespace ResidualSignal
             recoilPitch = Mathf.Lerp(recoilPitch, 0f, settle);
             recoilYaw = Mathf.Lerp(recoilYaw, 0f, settle);
             fovPunch = Mathf.Lerp(fovPunch, 0f, settle * 1.4f);
-            bool canAim = aimHeld && reloadUntil <= 0f && raise < 0.15f && !Held && !Downed &&
+            bool canAim = aimHeld && !meleeOut && reloadUntil <= 0f && raise < 0.15f && !Held && !Downed &&
                 !launchedByImpact && Time.time >= knockLandingAt && Time.time > shoveStarted + 0.32f;
             aimBlend = Mathf.MoveTowards(aimBlend, canAim ? 1f : 0f, Time.deltaTime * (canAim ? 5.5f : 8f));
             eyes.fieldOfView = ActiveFov;
@@ -1328,6 +1351,7 @@ namespace ResidualSignal
             if (gun.supportHand != null)
                 gun.supportHand.localPosition = gun.supportRest + new Vector3(-drop * 0.035f, -drop * 0.095f, -drop * 0.13f);
             damageFlash = Mathf.MoveTowards(damageFlash, 0, Time.deltaTime * 2.2f);
+            UpdateGear();
         }
 
         void SpawnWave()
@@ -1346,11 +1370,14 @@ namespace ResidualSignal
             nextWave = waveInterval + (underPressure ? 3f : 0f);
             bool fromFarSide = wave % 2 != 0;
             var special = spawnSpecials && !underPressure
-                ? (specialTurn++ % 4) switch
+                ? (specialTurn++ % 7) switch
                 {
                     0 => InfectedKind.Leaper,
-                    1 => InfectedKind.Dragger,
-                    2 => InfectedKind.Caller,
+                    1 => InfectedKind.Spitter,
+                    2 => InfectedKind.Dragger,
+                    3 => InfectedKind.Charger,
+                    4 => InfectedKind.Caller,
+                    5 => InfectedKind.Jockey,
                     _ => InfectedKind.Bloater
                 }
                 : InfectedKind.Common;
@@ -1396,6 +1423,9 @@ namespace ResidualSignal
                 InfectedKind.Dragger => 3,
                 InfectedKind.Bloater => 5,
                 InfectedKind.Caller => 0,
+                InfectedKind.Spitter => 2,
+                InfectedKind.Charger => 4,
+                InfectedKind.Jockey => 1,
                 _ => -1,
             };
             return index >= 0 && index < commonPrefabs.Length && commonPrefabs[index] != null
@@ -1409,6 +1439,7 @@ namespace ResidualSignal
             if (Downed)
                 return;
             damage = Difficulty.Hurt(damage);
+            damage = AbsorbWithTempHealth(damage);
             // ponytail: -perfLog runs are unattended frame-time soaks; the player must outlive them.
             if (PerfLog)
                 damage = 0;
@@ -1510,8 +1541,10 @@ namespace ResidualSignal
             if (loot != null) return $"E · {loot.Label}";
             var pickup = NearbyPickup();
             if (pickup != null) return $"E · {arsenal[pickup.arsenalIndex].label} 줍기";
+            var gear = NearbyGear();
+            if (gear != null) return $"E · {gear.gear.Label()} 줍기";
             if (SupplyReady && Nearby(supply)) return tookSupply ? "E · 탄약 보충" : "E · 보급함 열기";
-            if (InCombat && reloadUntil <= 0 && Current.rounds == 0 && Current.reserve > 0) return "R · 재장전";
+            if (InCombat && !meleeOut && reloadUntil <= 0 && Current.rounds == 0 && Current.reserve > 0) return "R · 재장전";
             if (aimedAtInfected && !Networked && SurvivorBot.All.Count > 0 && FocusTarget == null)
                 return "Q · 분대 집중 사격";
             return null;
@@ -1586,8 +1619,8 @@ namespace ResidualSignal
 
             // Centre: crosshair and whatever is happening to you.
             DrawCrosshair(width * 0.5f, height * 0.5f);
-            string alert = pinnedBy != null ? $"E 연타!  {escapeCount}/{escapePresses}" :
-                draggedBy != null ? "끌개를 쏴라!" : Downed ? "쓰러짐 · 팀원을 기다려라" : null;
+            string alert = pinnedBy != null ? (pinnedBy.CarryingOff ? "돌진개에 깔렸다!" : $"E 연타!  {escapeCount}/{escapePresses}") :
+                draggedBy != null ? (draggedBy.CarryingOff ? "올라타개에 끌려간다!" : "끌개를 쏴라!") : Downed ? "쓰러짐 · 팀원을 기다려라" : null;
             if (alert != null)
                 Text(new Rect(0, height * 0.5f - 90, width, 34), alert, new GUIStyle(caption) { fontSize = 24, fontStyle = FontStyle.Bold });
             if (reviveProgress > 0)
@@ -1616,11 +1649,14 @@ namespace ResidualSignal
 
             float y = height - 86;
             Panel(new Rect(24, y, 194, 62), HudSurface);
-            Text(new Rect(36, y + 4, 64, 32), $"{health}", titleLabel);
+            Text(new Rect(36, y + 4, 64, 32), $"{health + Mathf.CeilToInt(tempHealth)}", titleLabel);
             Text(new Rect(106, y + 7, 82, 26), "체력", statusStyle);
             Panel(new Rect(36, y + 46, 170, 5), new Color(0.22f, 0.28f, 0.28f));
             Panel(new Rect(36, y + 46, 170 * Mathf.Clamp01(health / 100f), 5), health < 35 ? new Color(0.9f, 0.3f, 0.2f) :
                 health < 70 ? HudAccent : new Color(0.55f, 0.85f, 0.65f));
+            // Temporary health (pills, adrenaline): a pale segment after the real bar.
+            if (tempHealth > 0f)
+                Panel(new Rect(36 + 170 * Mathf.Clamp01(health / 100f), y + 46, 170 * Mathf.Clamp01(tempHealth / 100f), 5), new Color(0.85f, 0.88f, 0.86f, 0.85f));
             int mate = 0;
             foreach (var survivor in FindObjectsByType<SurvivorAvatar>(FindObjectsSortMode.None))
             {
@@ -1642,9 +1678,32 @@ namespace ResidualSignal
 
             // Bottom right: ammo.
             Panel(new Rect(width - 218, y, 194, 62), HudSurface);
-            Text(new Rect(width - 206, y + 1, 170, 38), $"{Current.rounds} / {Current.reserve}", ammoLabel);
-            Text(new Rect(width - 206, y + 37, 170, 20), reloadUntil > 0 ? "재장전 중" : Current.label,
+            Text(new Rect(width - 206, y + 1, 170, 38), meleeOut ? "근접" : $"{Current.rounds} / {Current.reserve}", ammoLabel);
+            Text(new Rect(width - 206, y + 37, 170, 20), meleeOut ? melee.gear.Label() : reloadUntil > 0 ? "재장전 중" : Current.label,
                 new GUIStyle(smallLabel) { alignment = TextAnchor.MiddleRight });
+            float slotY = y - 30;
+            if (carriedThrowable != null)
+            {
+                Panel(new Rect(width - 218, slotY, 194, 24), HudSurface);
+                Text(new Rect(width - 206, slotY, 170, 24), $"G  ·  {carriedThrowable.Value.Label()}",
+                    new GUIStyle(smallLabel) { alignment = TextAnchor.MiddleRight });
+                slotY -= 28;
+            }
+            if (carriedMedicine != null)
+            {
+                Panel(new Rect(width - 218, slotY, 194, 24), HudSurface);
+                Text(new Rect(width - 206, slotY, 170, 24), $"4  ·  {carriedMedicine.Value.Label()}",
+                    new GUIStyle(smallLabel) { alignment = TextAnchor.MiddleRight });
+                slotY -= 28;
+            }
+            if (melee != null && !meleeOut)
+            {
+                Panel(new Rect(width - 218, slotY, 194, 24), HudSurface);
+                Text(new Rect(width - 206, slotY, 170, 24), $"2  ·  {melee.gear.Label()}",
+                    new GUIStyle(smallLabel) { alignment = TextAnchor.MiddleRight });
+            }
+            if (Adrenaline)
+                Text(new Rect(36, y - 30, 182, 24), $"아드레날린 {adrenalineUntil - Time.time:F0}초", statusStyle);
 
             DrawFocusMarker(width, height);
             DrawNameTags(width, height);

@@ -58,6 +58,19 @@ namespace ResidualSignal
         [Rpc(SendTo.NotServer)]
         public void HordeRpc(Vector3 entry) => StationTrial.Local?.PlayHorde(entry);
 
+        /// <summary>Someone threw a pipe bomb or molotov: every other peer throws the same one; only the host's copy does damage.</summary>
+        [Rpc(SendTo.NotMe)]
+        public void ThrowRpc(byte kind, Vector3 origin, Vector3 velocity) =>
+            Throwable.Launch((Throwable.Kind)kind, origin, velocity, StationTrial.Local != null ? StationTrial.Local.BoomClip() : null, IsServer);
+
+        /// <summary>Someone set off an alarmed car: it wails for everyone; the host sends the horde.</summary>
+        [Rpc(SendTo.NotMe)]
+        public void CarAlarmRpc(int index)
+        {
+            if (index >= 0 && index < CarAlarm.All.Count)
+                CarAlarm.All[index].Trip(fromNetwork: true);
+        }
+
         void Update()
         {
             var trial = StationTrial.Local;

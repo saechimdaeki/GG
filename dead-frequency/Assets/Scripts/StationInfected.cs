@@ -5,7 +5,7 @@ using UnityEngine.AI;
 namespace ResidualSignal
 {
     /// <summary>Common infected plus four specials; each special has one job that breaks the squad's rhythm.</summary>
-    public enum InfectedKind { Common, Leaper, Dragger, Bloater, Brute, Caller }
+    public enum InfectedKind { Common, Leaper, Dragger, Bloater, Brute, Caller, Spitter, Charger, Jockey }
 
     [RequireComponent(typeof(CharacterController))]
     public sealed partial class StationInfected : NetworkBehaviour
@@ -99,7 +99,7 @@ namespace ResidualSignal
         readonly NetworkVariable<byte> netAttacks = new();
         readonly NetworkVariable<Vector3> netKillDirection = new();
         readonly NetworkVariable<bool> netAlerted = new();
-        static readonly System.Collections.Generic.List<StationInfected> Living = new();
+        internal static readonly System.Collections.Generic.List<StationInfected> Living = new();
         internal static System.Collections.Generic.IReadOnlyList<StationInfected> ActiveInfected => Living;
         bool alerted;
         float nextGroan;
@@ -136,6 +136,8 @@ namespace ResidualSignal
         public bool PreparingCall => callWindup > 0f && !Dead;
         /// <summary>Hunting the squad (as opposed to wandering, unaware).</summary>
         public bool Alerted => Authority ? alerted : netAlerted.Value;
+        /// <summary>Walking to a beeping pipe bomb instead of a survivor.</summary>
+        public bool ChasingLure => target != null && target.body != null && target.body.TryGetComponent<Throwable>(out _);
 
         void Awake()
         {
@@ -267,7 +269,7 @@ namespace ResidualSignal
             physique.React(transform.position + Vector3.up * 1.2f, direction, 30);
             if (IsSpawned)
                 ReactRpc(transform.position + Vector3.up * 1.2f, direction, 30);
-            if (kind == InfectedKind.Leaper || kind == InfectedKind.Dragger)
+            if (kind is InfectedKind.Leaper or InfectedKind.Dragger or InfectedKind.Jockey)
                 Release();
         }
 
@@ -313,6 +315,7 @@ namespace ResidualSignal
                 InfectedKind.Bloater => 60,
                 InfectedKind.Brute => bespokeBoss ? 4500 + 750 * (StationTrial.HumanPlayerCount() - 1) : 850,
                 InfectedKind.Caller => 95,
+                _ when MutantHealth(kind) > 0 => MutantHealth(kind),
                 _ => maximumHealth
             };
             health = Difficulty.InfectedHealth(health);
@@ -437,8 +440,9 @@ namespace ResidualSignal
                 InfectedKind.Bloater => (new Vector3(1.26f, 1.03f, 1.19f), new Color(0.85f, 0.88f, 0.70f)),
                 InfectedKind.Brute => (new Vector3(1.5f, 1.38f, 1.5f), new Color(0.95f, 0.72f, 0.66f)),
                 InfectedKind.Caller => (new Vector3(0.94f, 1.06f, 0.94f), new Color(0.92f, 0.82f, 0.71f)),
-                _ => (Vector3.one, Color.white)
+                _ => MutantLook(kind) ?? (Vector3.one, Color.white)
             };
+            GrowChargerArm();
             // Scale the whole body (collider included): the rig pivot sits far from its mesh, so scaling it alone shifts the model.
             transform.localScale = bespokeBoss ? new Vector3(1.34f, 1.32f, 1.34f) : look.scale;
             if (kind != InfectedKind.Common && !bespokeBoss)
@@ -497,7 +501,9 @@ namespace ResidualSignal
             retarget -= Time.deltaTime;
             if (!holding && leaping <= 0 && chargeWindup <= 0f && throwWindup <= 0f && bossSweep <= 0f && (target == null || !target.Available || retarget <= 0))
             {
-                target = bespokeBoss ? PickBossTarget() : SquadMember.Nearest(transform.position);
+                // A beeping pipe bomb pulls ordinary infected off the survivors, as in Left 4 Dead.
+                var lure = kind == InfectedKind.Common && !IsWeeper ? Throwable.LureNear(transform.position) : null;
+                target = bespokeBoss ? PickBossTarget() : lure ?? SquadMember.Nearest(transform.position);
                 retarget = 0.5f;
             }
             if (target == null)
@@ -534,6 +540,7 @@ namespace ResidualSignal
                 InfectedKind.Leaper => speed * 1.7f,
                 InfectedKind.Bloater => speed * 0.6f,
                 InfectedKind.Brute => speed * 1.25f,
+                InfectedKind.Spitter or InfectedKind.Charger or InfectedKind.Jockey => MutantPace(),
                 _ when crawler => speed * 1.1f,
                 _ when runClip != null => runner ? sprintSpeed * 1.15f : sprintSpeed,
                 _ => runner ? speed * 1.75f : speed
@@ -657,6 +664,9 @@ namespace ResidualSignal
             physique.SetPoseTension(holding || callWindup > 0f ? 1f : 0f);
             physique.ApplyFlinch();
             PoseBossThrowArms();
+            // Clips carry bone scale, so the charger's swollen arm is re-applied after animation every frame.
+            if (chargerArm != null)
+                chargerArm.localScale = Vector3.one * 1.55f;
         }
 
         /// <summary>Special behaviour; returns true when it took over movement this frame.</summary>
@@ -760,6 +770,11 @@ namespace ResidualSignal
                         return true;
                     }
                     return false;
+                case InfectedKind.Spitter or InfectedKind.Charger or InfectedKind.Jockey:
+                    // The plain linecast stops on the body's own hitboxes for these models; use the full sight test.
+                    bool sight = ClearAttackLine(1.2f, out RaycastHit seen);
+                    debugBlock = sight ? "" : $"{seen.collider.name}/{seen.transform.root.name}@{seen.distance:F1}";
+                    return UpdateMutant(toTarget, distance, sight, delta);
                 case InfectedKind.Brute:
                     if (bespokeBoss)
                     {
@@ -855,6 +870,7 @@ namespace ResidualSignal
             if (!holding)
                 return;
             holding = false;
+            LetGoOfRide();
             stagger = 0.22f;
             specialCooldown = 4f;
             if (tether != null)
@@ -937,7 +953,7 @@ namespace ResidualSignal
                 windup = 0;
             callWindup = 0;
             // Any hit on a holder breaks the grip (solo players can still save themselves).
-            if (kind == InfectedKind.Dragger || (kind == InfectedKind.Leaper && Dead))
+            if (kind == InfectedKind.Dragger || (Dead && kind is InfectedKind.Leaper or InfectedKind.Charger or InfectedKind.Jockey))
                 Release();
             if (Dead && kind == InfectedKind.Bloater)
                 mission.Burst(transform.position, burstRadius);

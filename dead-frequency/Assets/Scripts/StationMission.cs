@@ -56,7 +56,8 @@ namespace ResidualSignal
         }
 
         // Off the main walking lines, but where a careless flashlight finds her.
-        static readonly Vector3 CampaignWeeper = new(-3.8f, 0f, 24.5f);
+        // Off the platform: there the power cabinet's flashlight line and the defence's stray rounds woke her every run.
+        static readonly Vector3 CampaignWeeper = new(-3.6f, 0f, 45.5f);
         static readonly Vector3 AnnexWeeper = new(-3.6f, 0f, 45.5f);
         static readonly Vector3 ScavengeWeeper = new(0f, 0f, 3.5f);
 
