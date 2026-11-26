@@ -18,6 +18,10 @@ namespace DesktopTenants
         [DllImport(Lib)] static extern int DB_Windows(float[] buf, int max);
         [DllImport(Lib)] static extern void DB_Refresh();
         [DllImport(Lib)] static extern string DB_ScreenList();
+        [DllImport(Lib)] static extern void DB_Stats(float[] out3);
+
+        /// <summary>[cpu %, memory used GB, memory total GB]; CPU is measured since the last call.</summary>
+        public static void Stats(float[] out3) => DB_Stats(out3);
 
         /// <summary>Covers monitor <paramref name="screen"/> (0 = main, clamped to what is connected).</summary>
         public static bool MakeOverlay(int screen) => DB_MakeOverlay(screen) != 0;
@@ -39,6 +43,7 @@ namespace DesktopTenants
         public static int Windows(float[] buf, int max) => 0;
         public static void Refresh() { }
         public static string ScreenList() => "editor";
+        public static void Stats(float[] o) { o[0] = 0; o[1] = 0; o[2] = 16; }
 #endif
     }
 }

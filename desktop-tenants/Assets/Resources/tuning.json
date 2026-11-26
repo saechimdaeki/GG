@@ -39,9 +39,6 @@
   "tripChance": 0.01,
   "highfiveChance": 0.2,
   "argueChance": 0.15,
-  "rainMin": 180,
-  "rainMax": 420,
-  "rainDuration": 22,
   "roofCapacity": 2,
   "roofJumpOff": 0.6,
   "personalSpace": 22,
@@ -52,5 +49,16 @@
   "drillDuration": 12,
   "antennaFloors": 4,
   "helipadFloors": 5,
-  "bonusCoin": 2000
+  "bonusCoin": 2000,
+  "collectRadius": 34,
+  "autoCollect": 45,
+  "neonFloors": 7,
+  "tickerFloors": 9,
+  "petDelay": 1,
+  "visitChance": 0.25,
+  "coffeeBoost": 30,
+  "tipChance": 0.25,
+  "interestRate": 0.004,
+  "hotCpu": 85,
+  "fullMemory": 0.9
 }

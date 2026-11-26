@@ -54,6 +54,7 @@ namespace DesktopTenants
         public FallResult Fall(Desk d, float dt, float height)
         {
             v.y += d.Tune.gravity * dt;
+            v.x += d.Wind * dt * 0.6f;
             var next = p + v * dt;
             if (v.y > 0 && d.Land(p, next, out var seg))
             {

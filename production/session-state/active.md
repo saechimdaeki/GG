@@ -35,10 +35,10 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-26
 **Branch:** `codex/desktop-tenants-events`
-**Current task:** 데스크톱 세입자 이벤트 5종, 이사 트럭, 옥상 설비 및 창문 조명 후속 PR. 프로젝트 README에 플레이 GIF 6개 추가.
-**Next step:** 일반 플레이에서 이벤트 간격·세입자 반응 확인, 다른 Mac에서 첫 실행과 창 이동 검증.
+**Current task:** 데스크톱 세입자 PR #41에 최신 10층 아파트, 상점가, 옥상 상태판, 날씨 및 주민 이벤트 반영. 게임 오버레이에서 캡처한 GIF 26개로 갤러리 갱신.
+**Next step:** 일반 플레이에서 이벤트 간격과 상점가 성장 속도 확인. 다른 Mac에서 첫 실행과 창 이동 검증.
 **Blocked on:** 없음.
-**Run result:** Unity EditMode 17/17 통과. macOS 빌드 성공. macOS 오버레이에서 새 기능을 캡처.
+**Run result:** Unity EditMode 21/21 통과. macOS 빌드 성공.
 <!-- /CHECKPOINT -->
 
 ---

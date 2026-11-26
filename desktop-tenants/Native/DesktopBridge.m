@@ -123,3 +123,32 @@ int DB_Windows(float *out, int max) {
     CFRelease(list);
     return n;
 }
+
+#import <mach/mach.h>
+#import <sys/sysctl.h>
+
+/// System load for the status board: [cpu %, memory used GB, memory total GB].
+/// CPU is the busy share of all cores since the previous call.
+void DB_Stats(float *out3) {
+    static unsigned long long lastBusy, lastTotal;
+    host_cpu_load_info_data_t cpu;
+    mach_msg_type_number_t n = HOST_CPU_LOAD_INFO_COUNT;
+    if (host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, (host_info_t)&cpu, &n) == KERN_SUCCESS) {
+        unsigned long long busy = (unsigned long long)cpu.cpu_ticks[CPU_STATE_USER] + cpu.cpu_ticks[CPU_STATE_SYSTEM] + cpu.cpu_ticks[CPU_STATE_NICE];
+        unsigned long long total = busy + cpu.cpu_ticks[CPU_STATE_IDLE];
+        out3[0] = total > lastTotal ? 100.0f * (busy - lastBusy) / (total - lastTotal) : 0;
+        lastBusy = busy; lastTotal = total;
+    }
+    vm_statistics64_data_t vm;
+    n = HOST_VM_INFO64_COUNT;
+    vm_size_t page = 0;
+    host_page_size(mach_host_self(), &page);
+    if (host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info64_t)&vm, &n) == KERN_SUCCESS) {
+        double used = ((double)vm.active_count + vm.wire_count + vm.compressor_page_count) * page;
+        out3[1] = (float)(used / 1073741824.0);
+    }
+    unsigned long long mem = 0;
+    size_t len = sizeof(mem);
+    sysctlbyname("hw.memsize", &mem, &len, NULL, 0);
+    out3[2] = (float)(mem / 1073741824.0);
+}

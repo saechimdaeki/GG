@@ -9,12 +9,27 @@ namespace DesktopTenants
     /// </summary>
     public class Director
     {
-        static readonly string[] Events = { "heli", "ufo", "coins", "drill", "fireworks", "heli", "ufo", "coins" };
+        static readonly string[] Events =
+        {
+            "heli", "ufo", "coins", "drill", "fireworks", "blackout", "quake", "birthday", "star",
+            "birds", "icecream", "plane", "meteor", "marathon", "busking", "confession", "meeting",
+            "storm", "snow", "windy", "rainbow",
+            "heli", "ufo", "birds", "icecream", "plane", "busking", "confession",
+        };
 
         readonly Desk d;
         readonly Flyer heli, ufo;
         readonly Truck truck;
         readonly Fireworks fireworks;
+        readonly Limo limo;
+        readonly Flock flock;
+        readonly Van iceVan;
+        readonly GiftPlane plane;
+        readonly Meteors meteors;
+        readonly List<(float at, System.Action act)> script = new List<(float, System.Action)>();
+        float clock;
+        bool racing;
+        float blackoutT, fanT;
         float nextT, drillT, showerT, showerDrop;
         bool nightShowDone;
 
@@ -28,6 +43,11 @@ namespace DesktopTenants
             ufo = new Flyer(desk, Flyer.Kind.Ufo);
             truck = new Truck(desk);
             fireworks = new Fireworks(desk);
+            limo = new Limo(desk);
+            flock = new Flock(desk);
+            iceVan = new Van(desk, Props.IceTruck);
+            plane = new GiftPlane(desk);
+            meteors = new Meteors(desk);
             nextT = forced != null ? 6 : Random.Range(desk.Tune.eventMin, desk.Tune.eventMax);
             pending = forced;
         }
@@ -41,6 +61,26 @@ namespace DesktopTenants
             truck.Tick(dt);
             fireworks.Tick(dt);
             DrillTick(dt);
+            limo.Tick(dt);
+            flock.Tick(dt);
+            iceVan.Tick(dt);
+            plane.Tick(dt);
+            meteors.Tick(dt);
+            RunScript(dt);
+            RaceTick();
+            if (blackoutT > 0 && (blackoutT -= dt) <= 0)
+            {
+                Bubble.Popup("전기 복구 완료!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                foreach (var t in d.Tenants) t.React(t.Type.IsAnimal ? null : "불 들어왔다!", "heart");
+            }
+            // Fans crowd round a visiting celebrity.
+            if (limo.Star && (fanT -= dt) <= 0)
+            {
+                fanT = 2.5f;
+                foreach (var t in d.Tenants)
+                    if (t != limo.Star && Vector2.Distance(t.P, limo.Star.P) < 260 && Random.value < 0.5f)
+                        t.React(t.Type.IsAnimal ? null : TenantBook.Pick(d.Book.fans), "heart");
+            }
             ShowerTick(dt);
 
             // One fireworks show per night, the first time the app sees night-time.
@@ -69,8 +109,139 @@ namespace DesktopTenants
                     foreach (var t in d.Tenants) t.Evacuate(drillT);
                     break;
                 case "fireworks": Fireworks(6f); break;
+                case "blackout":
+                    blackoutT = 15f;
+                    d.StartBlackout(blackoutT);
+                    Bubble.Popup("정전!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants) t.React(t.Type.IsAnimal ? null : TenantBook.Pick(d.Book.blackout), "?");
+                    break;
+                case "quake":
+                    d.Shake(3f);
+                    d.ScatterCoins();
+                    Bubble.Popup("지진 발생!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants) t.Quake();
+                    break;
+                case "birthday":
+                    var hero = d.Tenants[Random.Range(0, d.Tenants.Count)];
+                    Bubble.Popup($"오늘은 {hero.Type.name} 생일!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants)
+                        if (t != hero) t.React(t.Type.IsAnimal ? TenantBook.Pick(t.Type.greet) : TenantBook.Pick(d.Book.birthday), "note", 2.5f);
+                    hero.React(hero.Type.IsAnimal ? TenantBook.Pick(hero.Type.greet) : "다들 고마워요~!", "heart", 3f);
+                    for (int i = 0; i < 3; i++) d.SpawnCoinAt(hero.P - new Vector2(0, hero.Height + 10), 3000);
+                    Fireworks(3f);
+                    break;
+                case "birds": return flock.Start();
+                case "icecream":
+                    if (iceVan.Busy) return false;
+                    float stop = d.ScreenW * 0.4f;
+                    Bubble.Popup("딩동딩동~ 아이스크림 트럭!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    iceVan.Start(stop, 16, () =>
+                    {
+                        foreach (var t in d.Tenants)
+                            t.Gather(iceVan.X + 50, 13, TenantBook.Pick(d.Book.icecream), "heart", 1.6f, false, TenantBook.Pick(d.Book.icecreamDone), 60);
+                    });
+                    break;
+                case "plane":
+                    if (plane.Busy) return false;
+                    plane.Start();
+                    break;
+                case "meteor":
+                    meteors.Show(10);
+                    Bubble.Popup("유성우가 쏟아져요!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants) t.React(t.Type.IsAnimal ? null : TenantBook.Pick(d.Book.wish), "star", 2.5f);
+                    break;
+                case "marathon":
+                    racing = true;
+                    Bubble.Popup("마라톤 대회! 아파트 문 앞까지 1등은?", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants)
+                    {
+                        t.Gather(d.Door.x, 25, null, "sweat", Random.Range(1.6f, 2.8f), false, null, 4);
+                        t.React(t.Type.IsAnimal ? null : TenantBook.Pick(d.Book.marathon), "sweat");
+                    }
+                    Schedule(25, () => racing = false);
+                    break;
+                case "busking":
+                    Tenant singer = null;
+                    foreach (var t in d.Tenants) if (t.Type.special == "dj" || (singer == null && !t.Type.IsAnimal)) singer = t;
+                    if (singer == null) return false;
+                    float spot = d.Town.Buildings.Count > 2 ? d.Town.Buildings[2].X : d.ScreenW * 0.5f;
+                    Bubble.Popup($"{singer.Type.name} 길거리 공연!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    singer.Gather(spot, 16, TenantBook.Pick(d.Book.busking), "note", 1.6f, true, "감사합니다~!", 0);
+                    foreach (var t in d.Tenants) if (t != singer) t.Gather(spot, 16, null, "note", 1.4f, true, null, 90);
+                    break;
+                case "confession":
+                    var people = new List<Tenant>();
+                    foreach (var t in d.Tenants) if (!t.Type.IsAnimal && t.Carriable) people.Add(t);
+                    if (people.Count < 2) return false;
+                    var a = people[Random.Range(0, people.Count)];
+                    people.Remove(a);
+                    var b = people[Random.Range(0, people.Count)];
+                    b.Gather(b.P.x, 12, null, null, 1, false, null, 0);
+                    a.Gather(b.P.x - 20, 12, TenantBook.Pick(d.Book.confess), "heart", 1.4f, false, null, 0);
+                    Schedule(6, () =>
+                    {
+                        if (!b) return;
+                        bool yes = Random.value < 0.75f;
+                        b.React(yes ? TenantBook.Pick(d.Book.accept) : "죄송해요... 친구로 지내요", yes ? "heart" : "sweat", 2.5f);
+                        if (yes) { Fireworks(2.5f); Bubble.Popup("커플 탄생!", Desk.W(b.P - new Vector2(0, 80))); }
+                        else if (a) a.React("...괜찮아요 ㅠㅠ", "sweat", 2.5f);
+                    });
+                    break;
+                case "meeting":
+                    var crowd = new List<Tenant>();
+                    foreach (var t in d.Tenants) if (!t.Type.IsAnimal) crowd.Add(t);
+                    if (crowd.Count < 2) return false;
+                    var chair = crowd[Random.Range(0, crowd.Count)];
+                    Bubble.Popup("반상회 시간입니다", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants) t.Gather(d.Door.x - 90, 18, null, "?", 1.4f, false, null, 80);
+                    for (int i = 0; i < d.Book.meetingChair.Length; i++)
+                    {
+                        string line = d.Book.meetingChair[i];
+                        Schedule(4 + i * 3.2f, () => { if (chair) chair.React(line, null, 2.6f); });
+                        Schedule(5.6f + i * 3.2f, () =>
+                        {
+                            foreach (var t in crowd) if (t && t != chair && Random.value < 0.35f) t.React(TenantBook.Pick(d.Book.meetingCrowd), null, 1.4f);
+                        });
+                    }
+                    break;
+                case "storm": d.Sky.Set(Weather.Kind.Storm, 70); break;
+                case "snow": d.Sky.Set(Weather.Kind.Snow, 90); break;
+                case "windy": d.Sky.Set(Weather.Kind.Windy, 50); break;
+                case "rain": d.Sky.Set(Weather.Kind.Rain, 60); break;
+                case "rainbow": d.Sky.StartRainbow(); break;
+                case "star":
+                    if (limo.Busy || d.Book.star == null) return false;
+                    limo.Start();
+                    Bubble.Popup("연예인 방문! 리무진 도착 중", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    break;
             }
             return true;
+        }
+
+        /// <summary>Runs <paramref name="act"/> after <paramref name="delay"/> seconds.</summary>
+        void Schedule(float delay, System.Action act) => script.Add((clock + delay, act));
+
+        void RunScript(float dt)
+        {
+            clock += dt;
+            for (int i = script.Count - 1; i >= 0; i--)
+                if (script[i].at <= clock) { var act = script[i].act; script.RemoveAt(i); act(); }
+        }
+
+        /// <summary>Marathon: the first tenant to reach the door wins a prize.</summary>
+        void RaceTick()
+        {
+            if (!racing) return;
+            foreach (var t in d.Tenants)
+            {
+                if (!t.Arrived) continue;
+                racing = false;
+                Bubble.Popup($"{t.Type.name} 우승!", Desk.W(t.P - new Vector2(0, 90)));
+                t.React(t.Type.IsAnimal ? TenantBook.Pick(t.Type.greet) : "1등이다!!", "heart", 3f);
+                d.SpawnCoinAt(t.P - new Vector2(0, t.Height + 10), 10000);
+                foreach (var o in d.Tenants) if (o != t) o.Cheer();
+                return;
+            }
         }
 
         /// <summary>A fireworks show; tenants who see it cheer.</summary>
@@ -323,6 +494,79 @@ namespace DesktopTenants
             // A little bounce on the road.
             float bob = phase == Phase.Unload ? 0 : Mathf.Abs(Mathf.Sin(t * 18)) * 1.5f;
             sr.transform.position = Desk.W(new Vector2(x, d.FloorY - bob), 0.2f);
+        }
+    }
+
+    /// <summary>The celebrity's limo: drives in, lets the star out, waits, takes them away again.</summary>
+    public class Limo
+    {
+        enum Phase { Idle, In, Visit, Waiting, Out }
+
+        readonly Desk d;
+        readonly SpriteRenderer sr;
+        readonly float w;
+        Phase phase;
+        float x, t;
+
+        public Tenant Star { get; private set; }
+        public bool Busy => phase != Phase.Idle;
+        float StopX => d.ScreenW * 0.45f;
+
+        public Limo(Desk desk)
+        {
+            d = desk;
+            sr = new GameObject("Limo").AddComponent<SpriteRenderer>();
+            sr.sprite = Props.Make(Props.Limo, desk.Tune.pixel, new Vector2(0.5f, 0));
+            sr.sortingOrder = 12;
+            sr.enabled = false;
+            w = Props.Limo[0].Length * desk.Tune.pixel;
+        }
+
+        public void Start()
+        {
+            x = -w;
+            phase = Phase.In;
+            sr.enabled = true;
+            sr.flipX = false;
+        }
+
+        public void Tick(float dt)
+        {
+            if (phase == Phase.Idle) return;
+            t += dt;
+            switch (phase)
+            {
+                case Phase.In:
+                    x = Mathf.MoveTowards(x, StopX, 260 * dt);
+                    d.ScareFromTruck(x + w / 2, 1);
+                    if (Mathf.Approximately(x, StopX))
+                    {
+                        Star = d.SpawnVisitor(d.Book.star, new Vector2(x + w / 2 + 12, d.FloorY - 4));
+                        phase = Phase.Visit;
+                        t = 0;
+                    }
+                    break;
+                case Phase.Visit:
+                    if (t < 28 && Star) break;
+                    if (Star) Star.LeaveTo(x);
+                    phase = Phase.Waiting;
+                    t = 0;
+                    break;
+                case Phase.Waiting:
+                    if (Star && t < 30) break;
+                    if (Star) d.Remove(Star);
+                    Star = null;
+                    Bubble.Popup("팬 여러분 안녕~", Desk.W(new Vector2(x, d.FloorY - 60)));
+                    phase = Phase.Out;
+                    sr.flipX = true;
+                    break;
+                case Phase.Out:
+                    x = Mathf.MoveTowards(x, -w - 20, 300 * dt);
+                    d.ScareFromTruck(x - w / 2, -1);
+                    if (x <= -w - 19) { phase = Phase.Idle; sr.enabled = false; }
+                    break;
+            }
+            sr.transform.position = Desk.W(new Vector2(x, d.FloorY), 0.2f);
         }
     }
 

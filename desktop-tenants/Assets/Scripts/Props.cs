@@ -11,7 +11,10 @@ namespace DesktopTenants
             { 'k', Pixels.Ink }, { 'b', new Color32(0xd8, 0x40, 0x40, 255) }, { 'g', new Color32(0x90, 0xd8, 0xff, 255) },
             { 's', new Color32(0xb8, 0xc0, 0xd0, 255) }, { 'G', new Color32(0x70, 0xe0, 0x80, 255) }, { 'y', new Color32(0xff, 0xd8, 0x40, 255) },
             { 'w', new Color32(0xf4, 0xf0, 0xe8, 255) }, { 'o', new Color32(0x50, 0x48, 0x58, 255) }, { 'r', new Color32(0xe0, 0x60, 0x40, 255) },
-            { 'R', new Color32(0xff, 0x40, 0x40, 255) },
+            { 'R', new Color32(0xff, 0x40, 0x40, 255) }, { 'P', new Color32(0xff, 0x50, 0xd0, 255) },
+            { 'i', new Color32(0xff, 0xd0, 0xe8, 255) }, { 'c', new Color32(0xe8, 0xb0, 0x60, 255) }, { 'O', new Color32(0xff, 0x90, 0x30, 255) },
+            { '1', new Color32(0xff, 0x50, 0x50, 255) }, { '2', new Color32(0xff, 0xa0, 0x40, 255) }, { '3', new Color32(0xff, 0xe8, 0x50, 255) },
+            { '4', new Color32(0x60, 0xd0, 0x60, 255) }, { '5', new Color32(0x50, 0x90, 0xf0, 255) }, { '6', new Color32(0xa0, 0x60, 0xe0, 255) },
         };
 
         // Helicopter, facing left; two rotor frames. Pivot: centre.
@@ -59,6 +62,78 @@ namespace DesktopTenants
         // Rooftop extras. Pivot: bottom centre (sits on the roof).
         public static readonly string[] Helipad = { "yyyyyyyyyyyyyy", "yykyyyyyyyykyy", "yykkkkkkkkkkyy", "yykyyyyyyyykyy" };
         public static readonly string[] Antenna = { ".R.", ".k.", ".k.", ".k.", ".k.", ".k.", ".k.", "kkk" };
+
+        // "GG" neon sign for tall apartments. Pivot: centre.
+        public static readonly string[] Neon =
+        {
+            "PPPPP.PPPPP", "P.....P....", "P.PPP.P.PPP", "P...P.P...P", "PPPPP.PPPPP",
+        };
+
+        // Black limousine for celebrity visits, facing right. Pivot: bottom centre.
+        public static readonly string[] Limo =
+        {
+            "........oooooooooooo..........",
+            ".......oggggoggggoggo.........",
+            "oooooooooooooooooooooooooooo..",
+            "okkkkkkkkkkkkkkkkkkkkkkkkkkkoo",
+            "okkkkkkkkkkkkkkkkkkkkkkkkkkkky",
+            "oooooooooooooooooooooooooooooo",
+            "...kkk..................kkk...",
+            "...kkk..................kkk...",
+        };
+
+        public static readonly string[] Cloud =
+        {
+            "....wwwww.......", "..wwwwwwwww.....", ".wwwwwwwwwwwww..", "wwwwwwwwwwwwwwww", ".wwwwwwwwwwwwww.", "...wwwwwwwwww...",
+        };
+
+        public static readonly string[] Snowman =
+        {
+            "...kkk...", "...kkk...", "..kkkkk..", "..wwwww..", ".wwkwkww.", ".wwwwOOw.", ".wwwwwww.", "..wwwww..",
+            ".wwwwwww.", "wwwwkwwww", "wwwwwwwww", "wwwwkwwww", ".wwwwwww.",
+        };
+
+        /// <summary>A half-ring of six colour bands. Pivot: bottom centre.</summary>
+        public static string[] Rainbow()
+        {
+            const int r = 32, w = r * 2 + 1;
+            var rows = new string[r];
+            for (int y = 0; y < r; y++)
+            {
+                var row = new char[w];
+                for (int x = 0; x < w; x++)
+                {
+                    float dist = Mathf.Sqrt((x - r) * (x - r) + (r - y) * (r - y));
+                    int band = (int)(r - dist);
+                    row[x] = dist <= r && band < 12 ? (char)('1' + band / 2) : '.';
+                }
+                rows[y] = new string(row);
+            }
+            return rows;
+        }
+
+        /// <summary>Ice-cream van: the moving truck repainted pink with a cone on the side.</summary>
+        public static string[] IceTruck => System.Array.ConvertAll(Truck, r => r.Replace('w', 'i').Replace('y', 'c'));
+
+        // Small plane, facing right. Pivot: centre.
+        public static readonly string[] Plane =
+        {
+            "...b................", "...bb..........kk...", "bbbbbbbbbbbbbbbbbbg.", ".bbbbbbbbbbbbbbbbbbb", "......bbbbbb........",
+        };
+
+        // Pigeon: wings up, wings down, perched. Pivot: bottom centre.
+        public static readonly string[] BirdA = { "s...s", ".sss.", "..s.." };
+        public static readonly string[] BirdB = { ".....", "sssss", "..s.." };
+        public static readonly string[] BirdSit = { "..ss.", ".sssk", ".sss." };
+
+        /// <summary>A repeating zig-zag lightning bolt tile (pivot top) for a tiled SpriteRenderer.</summary>
+        public static Sprite BoltTile(float pixel)
+        {
+            var rows = new[] { "..y....", "...y...", "....y..", "...y...", "..y....", ".y....." };
+            var sp = Pixels.Make(rows, Pal, pixel);
+            sp.texture.wrapMode = TextureWrapMode.Repeat;
+            return Sprite.Create(sp.texture, sp.rect, new Vector2(0.5f, 1f), 1f / pixel, 0, SpriteMeshType.FullRect);
+        }
 
         public static Sprite Make(string[] rows, float pixel, Vector2 pivot) => Pixels.Make(rows, Pal, pixel, pivot);
 

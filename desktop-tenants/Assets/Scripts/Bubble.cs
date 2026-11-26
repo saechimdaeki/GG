@@ -41,6 +41,16 @@ namespace DesktopTenants
             transform.localPosition = home + Vector3.up * Lift;
         }
 
+        /// <summary>The system Korean font every in-world label uses.</summary>
+        public static Font SystemFont
+        {
+            get
+            {
+                if (!font) font = Font.CreateDynamicFontFromOSFont(new[] { "AppleSDGothicNeo-Bold", "Apple SD Gothic Neo", "Arial Unicode MS" }, 64);
+                return font;
+            }
+        }
+
         public static Bubble Create(Transform parent, Vector3 localPos, int order = 20)
         {
             if (!font) font = Font.CreateDynamicFontFromOSFont(new[] { "AppleSDGothicNeo-Bold", "Apple SD Gothic Neo", "Arial Unicode MS" }, 64);

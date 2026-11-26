@@ -6,7 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
-| <img src="desktop-tenants/docs/media/desktop-life.gif" width="260" alt="비 내리는 바탕화면과 픽셀 세입자"> | **[데스크톱 세입자](desktop-tenants/)** | 앱 창을 돌아다니는 픽셀 세입자, 월세 증축, 이사 트럭과 데스크톱 이벤트 (Unity) | macOS Apple Silicon v0.1.0 미리보기 |
+| <img src="desktop-tenants/docs/media/desktop-life.gif" width="260" alt="비 내리는 바탕화면과 픽셀 세입자"> | **[데스크톱 세입자](desktop-tenants/)** | 앱 창을 돌아다니는 픽셀 세입자, 10층 아파트와 상점가, 날씨와 주민 이벤트 (Unity) | macOS Apple Silicon v0.1.0 미리보기 |
 | <img src="cat-chaos/docs/media/cloth.gif" width="260" alt="고양이가 식탁보를 당겨 물건을 떨어뜨리는 장면"> | **[냥난리](cat-chaos/)** | 4분 동안 집을 뒤집고 홈캠 앞에서 시치미를 떼는 3인칭 고양이 물리 샌드박스 (Unity URP) | macOS v0.3.0 플레이테스트 |
 | <img src="dead-frequency/docs/media/approach.gif" width="260" alt="밤의 해림역 광장에서 대합실로 진입"> | **[잔류신호](dead-frequency/)** | 폐역에서 감염체 무리를 뚫고 생존자를 구조하는 1인칭 협동 FPS (Unity HDRP) | 솔로 작전 4종 · 최대 4인 온라인 캠페인 · macOS 로컬 빌드 |
 | <img src="last-train/docs/media/gameplay.gif" width="260" alt="시장 관리동 출입과 수색"> | **[막차까지](last-train/)** | 봉쇄 도시 수색과 다층 건물 탐색, 세 가지 탈출로 (3D 탑다운, Unity) | macOS 로컬 빌드 플레이 가능 |

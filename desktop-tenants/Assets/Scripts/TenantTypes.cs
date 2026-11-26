@@ -35,7 +35,11 @@ namespace DesktopTenants
         public string[] crowded, night, dizzy, angry;
         public string[] mon, tue, wed, thu, fri, sat, sun;
         public string[] morning, lunch, evening;
-        public string[] climb, arrive, ladderFall, rain, peek, trip, stretch;
+        public string[] climb, arrive, ladderFall, rain, peek, trip, stretch, pet, blackout, fans, birthday;
+        public string[] clear, cloudy, storm, snow, windy, rainbow, struck, hot, memfull, wish;
+        public string[] icecream, icecreamDone, meetingChair, meetingCrowd, marathon, confess, accept, birds, busking;
+        /// <summary>The celebrity who visits by limo (not a resident type).</summary>
+        public TenantType star;
         public Convo[] convos, fights;
         public TenantType[] types;
 
