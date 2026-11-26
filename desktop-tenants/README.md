@@ -35,6 +35,19 @@ open -a /path/to/DesktopTenants.app --args --screen 2
 
 [사다리와 창 위 이동](production/qa/evidence/ladder-climb-2026-11-26.jpg) · [옥상과 화면 가장자리](production/qa/evidence/roof-and-top-edge-2026-11-26.jpg) · [두 번째 모니터](production/qa/evidence/screen2-long-walk-ladder-2026-11-26.jpg)
 
+## 새 이벤트와 이사
+
+현재 소스 빌드에서 아래 기능을 플레이할 수 있습니다. 위 다운로드 링크는 v0.1.0 미리보기입니다.
+
+| 기능 | 플레이 GIF |
+| --- | --- |
+| **이사 트럭과 옥상 설비** — 트럭에서 새 세입자가 내리고, 길 앞의 세입자는 뛰어서 피합니다. 층수가 올라가면 옥상에 헬리패드와 안테나가 생깁니다. 창문 조명은 낮과 밤에 다르게 켜집니다. | ![이사 트럭과 옥상 헬리패드, 안테나, 창문 조명](docs/media/moving-truck.gif) |
+| **헬기 택시** — 줄로 세입자를 태워 다른 곳에 내려주고, 헬리패드가 있으면 옥상으로 돌아옵니다. | ![세입자를 태우는 헬기 택시](docs/media/helicopter-taxi.gif) |
+| **UFO** — 광선으로 세입자 한 명을 데려갔다가 다른 장소에 돌려보냅니다. | ![UFO가 세입자를 광선으로 들어 올리는 장면](docs/media/ufo.gif) |
+| **동전 소나기** — 화면 위에서 떨어지는 보너스 동전을 클릭해 월세를 모을 수 있습니다. | ![화면 위에서 떨어지는 보너스 동전](docs/media/coin-shower.gif) |
+| **화재 대피 훈련** — 세입자들이 높은 곳에서 내려와 현관 앞으로 모입니다. | ![현관으로 모이는 세입자들](docs/media/fire-drill.gif) |
+| **불꽃놀이** — 세입자가 환호하고 화면 위에 불꽃이 터집니다. 밤에는 자동으로 한 차례 열립니다. | ![데스크톱 위쪽에서 터지는 불꽃](docs/media/fireworks.gif) |
+
 ## 소스 빌드
 
 Unity 6000.6.9f1과 Xcode Command Line Tools가 필요합니다. 프로젝트의 macOS 플러그인을 다시 만든 후 Unity에서 빌드합니다. Unity 에디터에서는 세입자 시뮬레이션을, macOS 플레이어에서는 데스크톱 오버레이와 앱 창 연동을 실행합니다.

@@ -12,7 +12,7 @@ namespace DesktopTenants
     /// </summary>
     public class Tenant : MonoBehaviour
     {
-        enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held }
+        enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held, Carried }
 
         /// <summary>What two tenants do once they've finished talking.</summary>
         public enum Outcome { None, Dance, HighFive, Argue }
@@ -35,6 +35,7 @@ namespace DesktopTenants
         Outcome outcome;
         string chatLine, quirk;
         float chatDelay, climbX;
+        float evacT;
         float timer, anim, chatCool, holdT, talkCool, rentT, pokeT, lookCool, blinkT = 3, emoteT, happyT, squash, spin, beat, qt;
         Seg climbTo;
         Coin prey;
@@ -60,6 +61,66 @@ namespace DesktopTenants
         {
             var moved = b.p + new Vector2(dx, 0);
             if (d.SegAt(b.on, moved, out var seg)) b.p.x = Mathf.Clamp(moved.x, seg.x0 + 3, seg.x1 - 3);
+        }
+
+        public float Height => h;
+
+        /// <summary>Can be picked up by a helicopter or UFO right now.</summary>
+        public bool Carriable => b.Grounded && s != State.Held && s != State.Carried && evacT <= 0;
+
+        /// <summary>Hooked by a helicopter rope or caught in a UFO beam.</summary>
+        public void Carry(string line)
+        {
+            HideLadder();
+            s = State.Carried;
+            b.on = Body.None;
+            b.v = Vector2.zero;
+            asleepInAir = false;
+            Say(Type.IsCat ? "냐아아앙?!" : Type.IsDog ? "깨갱깨갱!" : line, 2f);
+            Emote("!", 1.2f);
+        }
+
+        /// <summary>Moved by the carrier each frame (feet position).</summary>
+        public void CarryTo(Vector2 feet) => b.p = feet;
+
+        /// <summary>Let go of by the carrier: drop with <paramref name="v"/>.</summary>
+        public void Release(Vector2 v, string line)
+        {
+            if (s != State.Carried) return;
+            s = State.Fall;
+            b.Drop(v);
+            if (!Type.IsAnimal) Say(line, 1.8f);
+        }
+
+        /// <summary>Fire drill: everyone heads down to the front door for <paramref name="seconds"/>.</summary>
+        public void Evacuate(float seconds)
+        {
+            if (s == State.Carried || s == State.Held) return;
+            HideLadder();
+            if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
+            evacT = seconds;
+            Say(Type.IsCat ? "냥?!" : Type.IsDog ? "멍멍멍!" : "대피! 대피!", 1.6f);
+            Emote("sweat", 2f);
+        }
+
+        /// <summary>Fireworks: look up and cheer.</summary>
+        public void Cheer()
+        {
+            if (!b.Grounded || s == State.Sleep) return;
+            happyT = 3f;
+            Emote("heart", 2f);
+            if (Random.value < 0.5f) Say(Type.IsAnimal ? TenantBook.Pick(Type.idle) : "와아~!", 1.6f);
+        }
+
+        /// <summary>The moving truck is coming through: jump out of the way.</summary>
+        public void DodgeTruck(int dir)
+        {
+            if (!b.Grounded || b.on != Surfaces.Floor || s == State.Held || s == State.Carried) return;
+            s = State.Fall;
+            b.Drop(new Vector2(dir * 140, -420));
+            squash = -0.6f;
+            Say(Type.IsCat ? "캬악!" : Type.IsDog ? "왈왈!" : "으악 트럭!", 1.2f);
+            Emote("!", 1f);
         }
 
         public bool CanChat => (s == State.Walk || s == State.Idle) && b.Grounded && chatCool <= 0;
@@ -237,6 +298,7 @@ namespace DesktopTenants
             chatCool -= dt;
             talkCool -= dt;
             pokeT -= dt;
+            evacT -= dt;
             lookCool -= dt;
             emoteT -= dt;
             happyT -= dt;
@@ -248,6 +310,7 @@ namespace DesktopTenants
                 case State.Held: Hold(dt); break;
                 case State.Fall: Falling(dt); break;
                 case State.Climb: Climbing(dt); break;
+                case State.Carried: break;
                 default: Grounded(dt); break;
             }
             Render(dt);
@@ -362,6 +425,8 @@ namespace DesktopTenants
                 squash = -0.4f;
             }
 
+            if (evacT > 0) { Evac(dt, seg); return; }
+
             timer -= dt;
             beat += dt;
             qt += dt;
@@ -399,6 +464,22 @@ namespace DesktopTenants
                     break;
                 case State.Walk: WalkTick(dt, seg); break;
             }
+        }
+
+        /// <summary>Fire drill: off any ledge, then run to the door and wait there, sweating.</summary>
+        void Evac(float dt, Seg seg)
+        {
+            float dx = d.Door.x - b.p.x;
+            dir = dx > 0 ? 1 : -1;
+            if (seg.win != Surfaces.Floor)
+            {
+                s = State.Fall;
+                b.Drop(new Vector2(dir * 120, -220));
+                return;
+            }
+            s = Mathf.Abs(dx) > 50 ? State.Flee : State.Idle;
+            if (s == State.Flee) b.p.x += dir * Mathf.Max(Type.walkSpeed, 40) * 2.2f * dt;
+            if (evacT <= dt) { Enter(State.Idle, 1f); Say(Type.IsAnimal ? null : "휴~ 훈련이었구나", 1.6f); }
         }
 
         void WalkTick(float dt, Seg seg)
@@ -741,6 +822,7 @@ namespace DesktopTenants
                 case State.Flee: return step == 0 ? "walkA" : "walkB";
                 case State.Climb: return (int)(b.p.y / 10) % 2 == 0 ? "climbA" : "climbB";
                 case State.Held: return (int)(anim * 8) % 2 == 0 || animal ? "fall" : "wave";
+                case State.Carried: return "fall";
                 case State.Fall: return asleepInAir ? (animal ? "sleep" : "idle") : "fall";
                 case State.Sleep: return animal ? "sleep" : "idle";
                 case State.Dance: return animal ? (step == 0 ? "walkA" : "idle") : "wave";
@@ -787,6 +869,7 @@ namespace DesktopTenants
                 case State.Sleep: return Face.Sleep;
                 case State.Fall:
                 case State.Held:
+                case State.Carried:
                 case State.Flee:
                 case State.Dizzy: return Face.Shock;
                 case State.Chat when outcome == Outcome.Argue: return Face.Shock;
@@ -819,6 +902,7 @@ namespace DesktopTenants
             else spin = s switch
             {
                 State.Held => Mathf.Sin(anim * 25) * 12,
+                State.Carried => Mathf.Sin(anim * 3) * 14,
                 State.Dizzy => Mathf.Sin(anim * 9) * 10,
                 State.Sleep when !Type.IsAnimal => Mathf.Sin(anim * 1.5f) * 4 - 4,
                 State.Dance => Mathf.Sin(anim * 11) * 8,

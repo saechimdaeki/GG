@@ -10,7 +10,7 @@ namespace DesktopTenants
         public int fps = 30;
         public float pixel = 3f;          // points per art pixel
         public float spawnEvery = 2.5f;
-        public int startFloors = 3, maxFloors = 6, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
+        public int startFloors = 3, maxFloors = 10, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
         public int upgradeBase = 10000;   // cost of the next floor = upgradeBase * floors²
         public float rentMin = 25f, rentMax = 45f;  // seconds between a tenant's rent coins
         public int maxCoins = 40;
@@ -36,6 +36,10 @@ namespace DesktopTenants
         public int roofCapacity = 2;
         public float roofJumpOff = 0.6f;      // chance to hop down on reaching the roof's edge
         public float personalSpace = 22f;     // tenants on one edge keep at least this far apart
+        public float eventMin = 60f, eventMax = 120f; // seconds between random events
+        public float drillDuration = 12f;
+        public int antennaFloors = 4, helipadFloors = 5;
+        public int bonusCoin = 2000;          // value of a coin from the bonus shower
         public float rainMin = 180f, rainMax = 420f, rainDuration = 22f;
         public float gravity = 1800f;
         public float walkSpeed = 28f;

@@ -17,13 +17,14 @@ namespace DesktopTenants
         public void Knock(int dir) => b.Drop(new Vector2(dir * 240, -240));
         public Rect Bounds => new Rect(b.p.x - size, b.p.y - size * 2, size * 2, size * 2);
 
-        public void Init(Desk d, Vector2 at, int value)
+        /// <param name="vel">Launch velocity; default pops it up out of the tenant's hand.</param>
+        public void Init(Desk d, Vector2 at, int value, Vector2? vel = null)
         {
             if (!sprite) sprite = Pixels.Make(Pixels.Coin, Pixels.CoinPalette, d.Tune.pixel);
             Value = value;
             size = 7 * d.Tune.pixel / 2;
             b.p = at;
-            b.Drop(new Vector2(Random.Range(-90f, 90f), -280));
+            b.Drop(vel ?? new Vector2(Random.Range(-90f, 90f), -280));
             sr = gameObject.AddComponent<SpriteRenderer>();
             sr.sprite = sprite;
             sr.sortingOrder = 9;
