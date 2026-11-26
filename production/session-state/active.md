@@ -34,16 +34,25 @@ Task:
 
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-26
-**Branch:** `codex/cat-chaos-v0.3.0`
-**Current task:** 냥난리 v0.3.0. 홈캠, 휴지·식탁보 물기, 상자와 빨래 바구니, 카메라 개선을 macOS 플레이테스트 빌드와 README GIF로 정리.
-**Next step:** PR 리뷰 및 [플레이테스트 #38](https://github.com/saechimdaeki/GG/issues/38)에서 홈캠 안내, 카메라 시야, 소품 조작과 4분 라운드 밸런스 확인.
+**Branch:** `codex/desktop-tenants-v0.1.0`
+**Current task:** 데스크톱 세입자 첫 미리보기. Unity 프로젝트, 앱 창 이동·사다리, 월세·증축, GIF 2개, macOS Apple Silicon ZIP과 SHA-256을 준비.
+**Next step:** PR 리뷰와 다른 Mac에서 다운로드 후 첫 실행 및 일반·최대화 앱 창 이동 플레이테스트.
 **Blocked on:** 없음.
-**Run result:** Unity 6000.6.9f1 macOS arm64 빌드 성공. EditMode 11/11 통과. 서명과 ZIP 무결성 검사 통과.
+**Run result:** EditMode 17/17 통과. macOS arm64 빌드 및 오버레이 실행 확인. ZIP 무결성과 로컬 서명 검증.
 <!-- /CHECKPOINT -->
 
 ---
 
 ## Notes
+
+### 이전 작업 체크포인트
+
+**Updated:** 2026-11-26
+**Branch:** `codex/cat-chaos-v0.3.0`
+**Current task:** 냥난리 v0.3.0. 홈캠, 휴지·식탁보 물기, 상자와 빨래 바구니, 카메라 개선을 macOS 플레이테스트 빌드와 README GIF로 정리.
+**Next step:** PR 리뷰 및 [플레이테스트 #38](https://github.com/saechimdaeki/GG/issues/38)에서 홈캠 안내, 카메라 시야, 소품 조작과 4분 라운드 밸런스 확인.
+**Blocked on:** 없음.
+**Run result:** Unity 6000.6.9f1 macOS arm64 빌드 성공. EditMode 11/11 통과. 서명과 ZIP 무결성 검사 통과.
 
 ### 2026-11-19 막차까지 전투 피드백과 약국 비상함
 
