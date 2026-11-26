@@ -6,9 +6,9 @@
 
 ## 다운로드와 실행
 
-[macOS Apple Silicon용 v0.1.0 미리보기](https://github.com/saechimdaeki/GG/releases/tag/desktop-tenants-v0.1.0)에서 `DesktopTenants-macos-arm64.zip`을 받아 압축을 풀고 `DesktopTenants.app`을 실행하세요. macOS 12 이상이 필요하며 앱은 공증 없이 배포됩니다.
+[macOS Apple Silicon용 v0.2.0 미리보기](https://github.com/saechimdaeki/GG/releases/tag/desktop-tenants-v0.2.0)에서 `DesktopTenants-macos-arm64.zip`을 받아 압축을 풀고 `DesktopTenants.app`을 실행하세요. macOS 12 이상이 필요하며 앱은 공증 없이 배포됩니다.
 
-아래 GIF는 최신 소스 빌드에서 촬영했습니다. v0.1.0 ZIP에는 첫 미리보기 기능이 들어 있습니다.
+아래 GIF는 v0.2.0 미리보기에서 볼 수 있는 기능을 담았습니다. [플레이테스트와 버그 제보](https://github.com/saechimdaeki/GG/issues/42)
 
 ## 최신 소스에서 플레이하기
 
@@ -20,8 +20,7 @@
 
 ## 플레이 GIF
 
-<details>
-<summary>아파트와 상점가 · GIF 3개</summary>
+### 아파트와 상점가
 
 **옥상 상태판**
 
@@ -35,10 +34,7 @@
 
 ![이사 트럭 플레이 장면](docs/media/moving-truck.gif)
 
-</details>
-
-<details>
-<summary>날씨 · GIF 5개</summary>
+### 날씨
 
 **비**
 
@@ -60,10 +56,7 @@
 
 ![무지개 플레이 장면](docs/media/rainbow.gif)
 
-</details>
-
-<details>
-<summary>주민 이벤트 · GIF 7개</summary>
+### 주민 이벤트
 
 **생일**
 
@@ -93,10 +86,7 @@
 
 ![반상회 플레이 장면](docs/media/residents-meeting.gif)
 
-</details>
-
-<details>
-<summary>하늘과 돌발 이벤트 · GIF 10개</summary>
+### 하늘과 돌발 이벤트
 
 **헬기 택시**
 
@@ -137,8 +127,6 @@
 **유성우**
 
 ![유성우 플레이 장면](docs/media/meteor-shower.gif)
-
-</details>
 
 ## 소스 빌드
 
