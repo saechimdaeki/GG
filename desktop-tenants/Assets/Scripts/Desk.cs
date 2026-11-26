@@ -550,6 +550,24 @@ namespace DesktopTenants
             coins.Add(c);
         }
 
+        /// <summary>What a chance meeting turns into: each outcome gets its slice of one roll (see tuning.json).</summary>
+        Tenant.Outcome PickOutcome(Tenant a, Tenant b)
+        {
+            bool people = !a.Type.IsAnimal && !b.Type.IsAnimal;
+            bool petPair = a.Type.IsAnimal != b.Type.IsAnimal && (a.Type.IsCat || a.Type.IsDog || b.Type.IsCat || b.Type.IsDog);
+            float r = Random.value;
+            if ((r -= Tune.danceChance) < 0) return Tenant.Outcome.Dance;
+            if ((r -= Tune.highfiveChance) < 0) return Tenant.Outcome.HighFive;
+            if (petPair && (r -= Tune.petChance) < 0) return Tenant.Outcome.Pet;
+            if (!people) return (r -= Tune.tagChance) < 0 ? Tenant.Outcome.Tag : Tenant.Outcome.None;
+            if ((r -= Tune.argueChance) < 0) return Tenant.Outcome.Argue;
+            if ((r -= Tune.rpsChance) < 0) return Tenant.Outcome.Rps;
+            if ((r -= Tune.hugChance) < 0) return Tenant.Outcome.Hug;
+            if ((r -= Tune.tagChance) < 0) return Tenant.Outcome.Tag;
+            if ((r -= Tune.shareChance) < 0) return Tenant.Outcome.Share;
+            return Tenant.Outcome.None;
+        }
+
         void StartChats()
         {
             for (int i = 0; i < tenants.Count; i++)
@@ -559,11 +577,7 @@ namespace DesktopTenants
                     if (a.CanChat && b.CanChat && a.On == b.On && Mathf.Abs(a.P.x - b.P.x) < 28)
                     {
                         bool people = !a.Type.IsAnimal && !b.Type.IsAnimal;
-                        float r = Random.value;
-                        var outcome = r < Tune.danceChance ? Tenant.Outcome.Dance
-                            : (r -= Tune.danceChance) < Tune.highfiveChance ? Tenant.Outcome.HighFive
-                            : r - Tune.highfiveChance < Tune.argueChance && people ? Tenant.Outcome.Argue
-                            : Tenant.Outcome.None;
+                        var outcome = PickOutcome(a, b);
                         // Scripted two-liners (a squabble when they're going to argue); otherwise both greet.
                         // Either way the second speaker waits for the first bubble before answering.
                         var lines = outcome == Tenant.Outcome.Argue ? Book.fights : Book.convos;
@@ -701,7 +715,7 @@ namespace DesktopTenants
                 for (int j = i + 1; j < tenants.Count; j++)
                 {
                     Tenant a = tenants[i], b = tenants[j];
-                    if (!a.Free || !b.Free || a.On != b.On) continue;
+                    if (!a.Free || !b.Free || a.On != b.On || a.Hugging || b.Hugging) continue;
                     float dx = b.P.x - a.P.x, gap = Tune.personalSpace;
                     if (Mathf.Abs(dx) >= gap) continue;
                     float push = (gap - Mathf.Abs(dx)) * 0.25f * (dx >= 0 ? 1 : -1);

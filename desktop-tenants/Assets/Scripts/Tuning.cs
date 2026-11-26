@@ -27,7 +27,7 @@ namespace DesktopTenants
         public int crowdedWindows = 14;
         public float specialChance = 0.35f;   // idle → signature action (phone, pushups, ...)
         public float sitChance = 0.35f;       // reaching an edge → sit with legs dangling
-        public float danceChance = 0.4f;      // a chat turns into a dance
+        public float danceChance = 0.12f;      // a chat turns into a dance
         public float dizzySpeed = 1100f;      // landing faster than this (pt/s) → dizzy
         public int pokeLimit = 3;             // pokes within a few seconds before a tenant gets angry and runs
         public float sharedLineChance = 0.45f; // chatter about the real weekday / time instead of own lines
@@ -39,6 +39,8 @@ namespace DesktopTenants
         public float peekChance = 0.3f;       // reaching an edge → look down
         public float tripChance = 0.01f;      // per second while walking
         public float highfiveChance = 0.2f, argueChance = 0.15f; // chat outcomes besides dancing
+        public float rpsChance = 0.12f, hugChance = 0.08f, tagChance = 0.1f, shareChance = 0.08f; // more chat outcomes
+        public float petChance = 0.5f;        // a person meeting a cat or dog pets it
         public int roofCapacity = 2;
         public float roofJumpOff = 0.6f;      // chance to hop down on reaching the roof's edge
         public float personalSpace = 22f;     // tenants on one edge keep at least this far apart

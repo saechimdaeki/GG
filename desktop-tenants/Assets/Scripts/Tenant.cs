@@ -15,12 +15,14 @@ namespace DesktopTenants
         enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held, Carried, Visit, Inside, Leave, Gather, Riding }
 
         /// <summary>What two tenants do once they've finished talking.</summary>
-        public enum Outcome { None, Dance, HighFive, Argue }
+        public enum Outcome { None, Dance, HighFive, Argue, Hug, Rps, Tag, Share, Pet }
 
         static readonly string[] Count = { "하나!", "둘!", "셋!", "넷!", "다섯!", "여섯!", "일곱!", "여덟!", "아홉!", "열!" };
-        static readonly string[] PersonQuirks = { "stretch", "sneeze", "stretch", "sneeze" };
-        static readonly string[] CatQuirks = { "catstretch", "groomfast" };
-        static readonly string[] DogQuirks = { "zoomies", "wagfast" };
+        static readonly string[] PersonQuirks = { "stretch", "sneeze", "juggle", "shadowbox", "spin", "jumpjack", "hiccup", "meditate", "lookup" };
+        static readonly string[] CatQuirks = { "catstretch", "groomfast", "tailchase", "loaf", "pounce" };
+        static readonly string[] DogQuirks = { "zoomies", "wagfast", "rollover", "dig", "howl" };
+        static readonly string[] OtherQuirks = { "stretch", "sneeze", "spin", "jumpjack", "hiccup" };
+        static readonly string[] Hands = { "가위!", "바위!", "보!" };
         static Dictionary<string, Sprite> emoteSprites;
         static Sprite ladderTile;
 
@@ -44,6 +46,15 @@ namespace DesktopTenants
         Seg climbTo;
         Coin prey;
         Tenant chase, partner;
+        int hand;       // rock-paper-scissors pick
+        bool pairLead;  // started the pair action (says the opening line)
+        string laterLine; float laterT;
+
+        /// <summary>Says <paramref name="line"/> after <paramref name="delay"/> seconds (a punchline after a beat).</summary>
+        void DelayedSay(string line, float delay) { laterLine = line; laterT = delay; }
+
+        /// <summary>Hugging someone: personal-space pushes would pull them apart.</summary>
+        public bool Hugging => s == State.Quirk && quirk == "hug";
         readonly List<(Seg to, float lo, float hi)> climbOptions = new List<(Seg, float, float)>();
 
         readonly Dictionary<(string, Face), Sprite> frames = new Dictionary<(string, Face), Sprite>();
@@ -700,7 +711,7 @@ namespace DesktopTenants
                     float roll = Random.value;
                     if (roll < sleepChance) Enter(State.Sleep, Random.Range(T.sleepMin, T.sleepMax));
                     else if ((roll -= sleepChance) < T.specialChance) StartSpecial();
-                    else if ((roll -= T.specialChance) < T.quirkChance) StartQuirk(Pick(Type.IsCat ? CatQuirks : Type.IsDog ? DogQuirks : PersonQuirks));
+                    else if ((roll -= T.specialChance) < T.quirkChance) StartQuirk(Pick(Type.IsCat ? CatQuirks : Type.IsDog ? DogQuirks : Type.IsAnimal ? OtherQuirks : PersonQuirks));
                     else { Enter(State.Walk, Random.Range(T.walkMin, T.walkMax)); dir = Random.value < 0.5f ? -1 : 1; Chatter(); }
                     break;
                 case State.Sleep:
@@ -900,6 +911,14 @@ namespace DesktopTenants
                 case Outcome.HighFive:
                     StartQuirk("highfive");
                     break;
+                case Outcome.Hug: StartPair("hug", "hug"); break;
+                case Outcome.Rps: StartPair("rps", "rps"); break;
+                case Outcome.Tag: StartPair("tagIt", "tagRun"); break;
+                case Outcome.Share: StartPair("share", "thanks"); break;
+                case Outcome.Pet:
+                    if (Type.IsAnimal) StartPair("purr", "petting");
+                    else StartPair("petting", "purr");
+                    break;
                 case Outcome.Argue:
                     Enter(State.Walk, Random.Range(2f, 4f));
                     dir = partner && partner.P.x > b.p.x ? -1 : 1;
@@ -993,6 +1012,21 @@ namespace DesktopTenants
 
         // ---------------------------------------------------------------- quirks: short everyday actions
 
+        /// <summary>
+        /// Starts a two-person action: this tenant does <paramref name="mine"/> and pulls the partner (still
+        /// in the chat) into <paramref name="theirs"/> at the same moment, so the halves stay in step.
+        /// </summary>
+        void StartPair(string mine, string theirs)
+        {
+            bool join = partner && partner.s == State.Chat && partner.partner == this;
+            if (join) { partner.pairLead = false; partner.StartQuirk(theirs); }
+            pairLead = true;
+            StartQuirk(mine);
+            if (join) partner.timer = timer;
+        }
+
+        bool PartnerDoing(string q) => partner && partner.s == State.Quirk && partner.quirk == q;
+
         void StartQuirk(string name)
         {
             Enter(State.Quirk, 2f);
@@ -1013,11 +1047,36 @@ namespace DesktopTenants
                 case "groomfast": timer = 2f; break;
                 case "picnic": timer = Random.Range(4f, 7f); happyT = timer; Emote("heart", 2f); break;
                 case "tickle": timer = 1.2f; happyT = 1.5f; squash = -0.4f; break;
+                // ---- solo, people
+                case "juggle": timer = 3.5f; Say(Pick(new[] { "저글링 보실래요?", "하나 둘 셋~", "떨어뜨리면 안 돼..." }), 1.6f); Emote("star", 3f); break;
+                case "shadowbox": timer = 3f; Say(Pick(new[] { "슉! 슉슉!", "원투! 원투!", "오늘도 단련!" }), 1.4f); break;
+                case "spin": timer = 2f; Say(Pick(new[] { "빙그르르~", "돌아라 돌아라~", "삐릭- 회전 모드" }), 1.2f); break;
+                case "jumpjack": timer = 3f; Say(Pick(new[] { "하나! 둘! 하나! 둘!", "국민체조 시작!", "몸풀기~" }), 1.6f); break;
+                case "hiccup": timer = 3.2f; beat = 0; break;
+                case "meditate": timer = Random.Range(4f, 6f); Say(Pick(new[] { "옴~", "마음의 평화...", "(명상 중)" }), 1.8f); break;
+                case "lookup": timer = 2.6f; Say(d.Raining ? Pick(new[] { "비 언제 그치지", "우산 챙길걸..." }) : Pick(new[] { "구름 예쁘다~", "하늘 맑다", "저 구름 고양이 닮았다" }), 1.8f); Emote("?", 1.2f); break;
+                // ---- solo, animals
+                case "tailchase": timer = 2.4f; Say("냥냥냥?!", 1.2f); Emote("star", 2f); break;
+                case "loaf": timer = Random.Range(4f, 7f); Say("(식빵 굽는 중)", 1.6f); happyT = timer; break;
+                case "pounce": timer = 1.6f; quirkHit = false; Say("(엉덩이 씰룩씰룩)", 1f); break;
+                case "rollover": timer = 1.6f; Say("(데굴)", 1f); Emote("heart", 1.4f); happyT = 1.6f; break;
+                case "dig": timer = 2.4f; Say("(파바바박)", 1.2f); Emote("sweat", 2f); break;
+                case "howl": timer = 2.4f; Say("아우우우~~", 2f); Emote("note", 2f); break;
+                // ---- pairs (see StartPair)
+                case "hug": timer = 3f; quirkHit = false; if (pairLead) Say(Pick(new[] { "이리 와~ 안아줄게", "오늘 수고했어!", "보고 싶었어~" }), 1.6f); break;
+                case "rps": timer = 3.4f; quirkHit = false; hand = Random.Range(0, 3); if (pairLead) Say("가위바위보 하자!", 1.2f); break;
+                case "tagIt": timer = 5f; Say("술래잡기! 내가 술래~", 1.4f); break;
+                case "tagRun": timer = 5f; Emote("!", 1f); break;
+                case "share": timer = 2.4f; Say(Pick(new[] { "이거 같이 먹을래?", "간식 나눠줄게~", "하나 먹어봐!" }), 1.6f); Emote("steam", 1.6f); break;
+                case "thanks": timer = 2.4f; quirkHit = false; break;
+                case "petting": timer = 2.8f; Say(Pick(new[] { "착하다~ 착해", "쓰담쓰담", "누가 이렇게 귀여워?" }), 1.6f); break;
+                case "purr": timer = 2.8f; happyT = 2.8f; Emote("heart", 2.4f); if (Type.IsCat) Say("그르릉~", 1.4f); else if (Type.IsDog) Say("(꼬리 붕붕)", 1.4f); break;
             }
         }
 
         void QuirkTick(float dt, Seg seg)
         {
+            if (laterLine != null && (laterT -= dt) <= 0) { Say(laterLine, 1.4f); laterLine = null; }
             switch (quirk)
             {
                 case "sneeze":
@@ -1031,6 +1090,79 @@ namespace DesktopTenants
                 case "zoomies":
                     if (beat > 0.55f) { beat = 0; dir = -dir; squash = -0.4f; }
                     if (!Walk(dt, seg, 3.2f)) return;
+                    break;
+                case "spin":
+                case "tailchase":
+                    if (beat > 0.12f) { beat = 0; dir = -dir; }
+                    break;
+                case "jumpjack":
+                    squash = Mathf.Sin(qt * 12) * 0.4f;
+                    break;
+                case "hiccup":
+                    if (beat > 0.8f) { beat = 0; squash = 0.6f; Say("딸꾹!", 0.6f); }
+                    break;
+                case "shadowbox":
+                    b.p.x += Mathf.Sin(qt * 16) * 20 * dt;
+                    break;
+                case "pounce":
+                    if (!quirkHit && qt > 0.8f)
+                    {
+                        quirkHit = true;
+                        s = State.Fall;
+                        b.Drop(new Vector2(dir * 170, -200));
+                        squash = -0.6f;
+                        Say("냥!", 0.8f);
+                        return;
+                    }
+                    break;
+                case "dig":
+                    if (!quirkHit && qt > 2f)
+                    {
+                        quirkHit = true;
+                        if (Random.value < 0.3f) { d.SpawnCoin(b.p - new Vector2(0, h * 0.5f), Mathf.Max(1, Type.rent / 2)); Say("멍! (뭔가 찾았다)", 1.4f); Emote("!", 1f); }
+                    }
+                    break;
+                case "hug":
+                    if (!partner) break;
+                    dir = partner.P.x > b.p.x ? 1 : -1;
+                    if (Mathf.Abs(partner.P.x - b.p.x) > 13 && partner.On == b.on) { if (!Walk(dt, seg, 1.1f)) return; }
+                    else if (!quirkHit) { quirkHit = true; squash = 0.4f; happyT = 2f; Emote("heart", 2f); if (!pairLead) Say("꼬옥~", 1.2f); }
+                    break;
+                case "rps":
+                    if (!quirkHit && qt > 1.2f && PartnerDoing("rps"))
+                    {
+                        quirkHit = true;
+                        int r = (hand - partner.hand + 3) % 3;
+                        Say(Hands[hand], 0.9f);
+                        if (r == 1) { happyT = 1.8f; squash = -0.5f; Emote("star", 1.5f); DelayedSay(Pick(new[] { "이겼다~!", "예스!", "내가 이김ㅋ" }), 1f); }
+                        else if (r == 2) { Emote("sweat", 1.5f); DelayedSay(Pick(new[] { "으악 졌다", "한 판 더!", "에이~" }), 1f); }
+                        else if (pairLead) DelayedSay("비겼네!", 1f);
+                    }
+                    break;
+                case "tagIt":
+                    if (!PartnerDoing("tagRun")) { timer = 0; break; }
+                    dir = partner.P.x > b.p.x ? 1 : -1;
+                    if (partner.On == b.on && Mathf.Abs(partner.P.x - b.p.x) < 12)
+                    {
+                        Say("잡았다!", 1.2f);
+                        happyT = 1.5f;
+                        partner.Say("으악 잡혔다!", 1.2f);
+                        partner.squash = 0.6f;
+                        partner.Enter(State.Idle, 1.5f);
+                        timer = 0;
+                        break;
+                    }
+                    if (!Walk(dt, seg, 1.7f)) return;
+                    if (timer <= dt) Say("헥헥... 못 잡겠다", 1.4f);
+                    break;
+                case "tagRun":
+                    if (!PartnerDoing("tagIt")) { timer = 0; break; }
+                    dir = partner.P.x > b.p.x ? -1 : 1;
+                    happyT = 0.5f;
+                    if (!Walk(dt, seg, 1.9f)) return;
+                    break;
+                case "thanks":
+                    if (!quirkHit && qt > 1.3f) { quirkHit = true; Say(Pick(new[] { "고마워! 냠냠", "와 맛있다!", "역시 너밖에 없어" }), 1.4f); Emote("heart", 1.4f); happyT = 1.5f; }
                     break;
             }
             if (timer <= 0) Enter(State.Idle, Random.Range(T.idleMin, T.idleMax));
@@ -1189,6 +1321,9 @@ namespace DesktopTenants
 
         // ---------------------------------------------------------------- presentation
 
+        /// <summary>Person dance: arm up, other arm, step, wave — cycled so a dance actually moves.</summary>
+        static readonly string[] DanceMoves = { "wave", "climbB", "walkA", "climbA", "walkB", "idle" };
+
         string PoseNow()
         {
             bool animal = Type.IsAnimal;
@@ -1200,19 +1335,35 @@ namespace DesktopTenants
                 case State.Visit:
                 case State.Leave:
                 case State.Flee: return step == 0 ? "walkA" : "walkB";
-                case State.Gather: return !gatherArrived ? (step == 0 ? "walkA" : "walkB") : gatherDance && !animal ? "wave" : "idle";
+                case State.Gather: return !gatherArrived ? (step == 0 ? "walkA" : "walkB") : gatherDance && !animal ? DanceMoves[(int)(anim * 3) % DanceMoves.Length] : "idle";
                 case State.Climb: return (int)(b.p.y / 10) % 2 == 0 ? "climbA" : "climbB";
                 case State.Held: return (int)(anim * 8) % 2 == 0 || animal ? "fall" : "wave";
                 case State.Carried: return "fall";
                 case State.Riding: return animal ? "idle" : "fall";
                 case State.Fall: return asleepInAir ? (animal ? "sleep" : "idle") : "fall";
                 case State.Sleep: return animal ? "sleep" : "idle";
-                case State.Dance: return animal ? (step == 0 ? "walkA" : "idle") : "wave";
+                case State.Dance: return animal ? (step == 0 ? "walkA" : "idle") : DanceMoves[(int)(anim * 4) % DanceMoves.Length];
                 case State.Chat: return chatLine == null && timer > 2f && !animal ? "wave" : "idle";
                 case State.Sit: return "sit";
                 case State.Quirk:
                     switch (quirk)
                     {
+                        case "juggle": return (int)(anim * 6) % 2 == 0 ? "wave" : "climbB";
+                        case "shadowbox": return (int)(anim * 8) % 2 == 0 ? "climbA" : "climbB";
+                        case "jumpjack": return (int)(qt * 12 / Mathf.PI) % 2 == 0 ? "fall" : "idle";
+                        case "hug": return quirkHit && !animal ? "fall" : step == 0 ? "walkA" : "walkB";
+                        case "rps": return quirkHit ? (happyT > 0 ? "fall" : "wave") : (int)(anim * 6) % 2 == 0 ? "wave" : "idle";
+                        case "tailchase":
+                        case "tagIt":
+                        case "tagRun": return (int)(anim * 10) % 2 == 0 ? "walkA" : "walkB";
+                        case "share": return animal ? "idle" : "wave";
+                        case "thanks": return quirkHit && !animal ? "fall" : "idle";
+                        case "petting": return !animal && (int)(anim * 5) % 2 == 0 ? "wave" : "idle";
+                        case "loaf": return "sleep";
+                        case "pounce": return quirkHit ? "fall" : (int)(anim * 8) % 2 == 0 ? "walkA" : "idle";
+                        case "rollover": return "fall";
+                        case "dig": return (int)(anim * 12) % 2 == 0 ? "walkA" : "idle";
+                        case "purr": return Type.IsDog ? ((int)(anim * 10) % 2 == 0 ? "wag" : "idle") : "idle";
                         case "stretch": return "fall";
                         case "trip": return "fall";
                         case "wave":
@@ -1271,6 +1422,9 @@ namespace DesktopTenants
                 case State.Quirk when quirk == "stretch": return Face.Yawn;
                 case State.Quirk when quirk == "sneeze": return quirkHit ? Face.Shock : Face.Blink;
                 case State.Quirk when quirk == "trip": return Face.Shock;
+                case State.Quirk when quirk == "meditate" || quirk == "loaf": return Face.Blink;
+                case State.Quirk when quirk == "spin" || quirk == "tailchase" || quirk == "tagRun" || quirk == "juggle" || quirk == "jumpjack" || quirk == "hug" || quirk == "howl": return Face.Happy;
+                case State.Quirk when quirk == "hiccup": return beat < 0.2f ? Face.Shock : Face.Normal;
             }
             if (happyT > 0) return Face.Happy;
             return blinkT < 0 ? Face.Blink : Face.Normal;
@@ -1278,7 +1432,8 @@ namespace DesktopTenants
 
         void Render(float dt)
         {
-            transform.position = Desk.W(b.p);
+            float lift = s == State.Quirk && quirk == "meditate" ? Mathf.Min(qt * 8, 6) + Mathf.Sin(anim * 2) * 2 : 0;
+            transform.position = Desk.W(b.p - new Vector2(0, lift));
             bool shown = s != State.Inside;
             body.enabled = shown;
             if (!shown) { emote.enabled = zzz.enabled = false; return; }
@@ -1305,6 +1460,10 @@ namespace DesktopTenants
                 State.Quirk when quirk == "peek" => -dir * 22,
                 State.Quirk when quirk == "stretch" => Mathf.Sin(anim * 4) * 5,
                 State.Quirk when quirk == "tickle" => Mathf.Sin(anim * 40) * 10,
+                State.Quirk when quirk == "rollover" => -dir * Mathf.Min(qt / 1.2f, 1) * 360,
+                State.Quirk when quirk == "howl" || quirk == "lookup" => dir * 14,
+                State.Quirk when quirk == "dig" => -dir * 18,
+                State.Quirk when quirk == "meditate" => Mathf.Sin(anim * 2) * 3,
                 State.Walk when Type.kind == "penguin" => Mathf.Sin(anim * 9) * 9,
                 State.Special when Type.special == "cry" => Mathf.Sin(anim * 20) * 5,
                 _ => 0,
