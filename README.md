@@ -6,6 +6,7 @@
 
 | 화면 | 게임 | 장르 | 상태 |
 |---|---|---|---|
+| <img src="desktop-tenants/docs/media/desktop-life.gif" width="260" alt="비 내리는 바탕화면과 픽셀 세입자"> | **[데스크톱 세입자](desktop-tenants/)** | 앱 창을 돌아다니는 픽셀 세입자와 월세로 증축하는 데스크톱 생활 게임 (Unity) | macOS Apple Silicon v0.1.0 미리보기 |
 | <img src="cat-chaos/docs/media/cloth.gif" width="260" alt="고양이가 식탁보를 당겨 물건을 떨어뜨리는 장면"> | **[냥난리](cat-chaos/)** | 4분 동안 집을 뒤집고 홈캠 앞에서 시치미를 떼는 3인칭 고양이 물리 샌드박스 (Unity URP) | macOS v0.3.0 플레이테스트 |
 | <img src="dead-frequency/docs/media/approach.gif" width="260" alt="밤의 해림역 광장에서 대합실로 진입"> | **[잔류신호](dead-frequency/)** | 폐역에서 감염체 무리를 뚫고 생존자를 구조하는 1인칭 협동 FPS (Unity HDRP) | 솔로 작전 4종 · 최대 4인 온라인 캠페인 · macOS 로컬 빌드 |
 | <img src="last-train/docs/media/gameplay.gif" width="260" alt="시장 관리동 출입과 수색"> | **[막차까지](last-train/)** | 봉쇄 도시 수색과 다층 건물 탐색, 세 가지 탈출로 (3D 탑다운, Unity) | macOS 로컬 빌드 플레이 가능 |
@@ -34,6 +35,8 @@ godot
 
 **냥난리** — [macOS 플레이테스트 v0.3.0](https://github.com/saechimdaeki/GG/releases/tag/cat-chaos-v0.3.0)에서 `CatChaos-mac.zip`을 받습니다. Apple Silicon Mac에서 압축을 풀어 `CatChaos.app`을 실행합니다. [조작과 플레이 GIF](cat-chaos/README.md)
 
+**데스크톱 세입자** — [macOS Apple Silicon 미리보기 v0.1.0](https://github.com/saechimdaeki/GG/releases/tag/desktop-tenants-v0.1.0)에서 `DesktopTenants-macos-arm64.zip`을 받습니다. [조작과 플레이 GIF](desktop-tenants/README.md)
+
 **잔류신호** — [GitHub Releases](https://github.com/saechimdaeki/GG/releases)의 **잔류신호 macOS 플레이테스트**에서 `ResidualSignal-mac.zip`을 받습니다. 소스 실행은 Unity 6000.6.9f1을 사용합니다. Unity Hub에서 `dead-frequency`를 열고 `Platform03` 씬을 실행합니다. [실행·조작·플레이 GIF](dead-frequency/README.md)
 
 **슬롯 던전** (Unity 6000.6.9f1) — Unity Hub → Add → `reel-dungeon` 폴더로 열거나, 명령줄로 맥 빌드:
@@ -46,7 +49,7 @@ open Builds/Mac/ReelDungeon.app
 
 ## 개발
 
-- 잔류신호·슬롯 던전·막차까지는 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
+- 데스크톱 세입자·잔류신호·슬롯 던전·막차까지는 Unity 6000.6.9f1 (C#), 나머지는 Godot 4.7.2 (GDScript)
 - 푸시마다 게임별 자동 테스트가 돕니다 (`.github/workflows/smoke.yml`). 슬롯 던전은 Mac 러너에서 EditMode 테스트를 돌립니다
 - 버전 태그를 푸시하면 게임 패키지가 릴리스에 올라가고, 지난 태그 이후 `feat:`/`fix:` 커밋이 게임별 [패치노트 이슈](https://github.com/saechimdaeki/GG/issues?q=label%3Apatch-notes)로 등록됩니다 (`.github/workflows/release.yml`)
 

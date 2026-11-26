@@ -112,3 +112,10 @@
 - [x] 홈캠, 휴지·식탁보 물기, 상자 숨기, 빨래 바구니, 막판 배율과 카메라 개선.
 - [x] v0.3.0 Apple Silicon macOS 빌드 및 ZIP 검증, Unity EditMode 11/11 통과, README에 신규 플레이 GIF 추가.
 - [ ] v0.3.0 실플레이에서 홈캠 안내, 벽 근처 시야와 소품 조작 확인 ([#38](https://github.com/saechimdaeki/GG/issues/38)).
+
+## 데스크톱 세입자 (Unity)
+
+- [x] macOS 데스크톱 오버레이, 앱 창과 사다리·옥상 이동, 멀티 모니터 선택.
+- [x] 12종 세입자, 월세 수집과 증축, 자동 저장.
+- [x] v0.1.0 Apple Silicon 빌드와 README GIF 2개, EditMode 17/17 통과.
+- [ ] 다른 Apple Silicon Mac에서 다운로드 후 첫 실행과 일반·최대화 창 이동 확인.
