@@ -34,10 +34,10 @@ Task:
 
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-26
-**Branch:** `feat/desktop-tenants`
-**Current task:** 주민 상호작용과 이벤트 7종, 성장 비용 및 저장 처리 변경을 PR로 정리.
-**Next step:** 새 이벤트와 후반 성장 속도를 macOS 실기에서 확인.
-**Run result:** Unity EditMode 24/24 통과.
+**Branch:** `codex/desktop-tenants-chat-outcomes`
+**Current task:** 주민 만남 행동 5종 추가 및 춤 빈도 조정을 후속 PR로 정리.
+**Next step:** macOS 일반 플레이에서 만남 행동 전환과 발생 빈도, 후반 성장 속도를 확인.
+**Run result:** Unity EditMode 26/26 통과.
 <!-- /CHECKPOINT -->
 
 ---
