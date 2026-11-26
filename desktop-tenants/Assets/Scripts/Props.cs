@@ -135,6 +135,48 @@ namespace DesktopTenants
             return Sprite.Create(sp.texture, sp.rect, new Vector2(0.5f, 1f), 1f / pixel, 0, SpriteMeshType.FullRect);
         }
 
+        /// <summary>An easel holding a small random painting (sky, hill, sun). Pivot: bottom centre.</summary>
+        public static string[] Easel(int seed)
+        {
+            var rnd = new System.Random(seed);
+            char sky = "bgy"[rnd.Next(3)], hill = "GLc"[rnd.Next(3)], sun = "yRw"[rnd.Next(3)];
+            int sunX = 2 + rnd.Next(5), hillY = 4 + rnd.Next(2);
+            var rows = new List<string>();
+            rows.Add("oooooooooo");
+            for (int y = 1; y < 8; y++)
+            {
+                var r = new char[10];
+                for (int x = 0; x < 10; x++)
+                    r[x] = x == 0 || x == 9 ? 'o' : (y == 2 && (x == sunX || x == sunX + 1)) ? sun : y >= hillY + (x % 3 == 0 ? 0 : 1) ? hill : sky;
+                rows.Add(new string(r));
+            }
+            rows.Add("oooooooooo");
+            rows.Add("...t..t...");
+            rows.Add("..t....t..");
+            rows.Add(".t......t.");
+            return rows.ToArray();
+        }
+
+        public static Dictionary<char, Color> EaselPalette => new Dictionary<char, Color>
+        {
+            { 'o', new Color32(0x7a, 0x50, 0x30, 255) }, { 't', new Color32(0x8a, 0x5a, 0x34, 255) }, { 'b', new Color32(0x80, 0xc0, 0xff, 255) },
+            { 'g', new Color32(0xff, 0xc0, 0x90, 255) }, { 'y', new Color32(0xff, 0xe0, 0x80, 255) }, { 'G', new Color32(0x60, 0xc0, 0x60, 255) },
+            { 'L', new Color32(0x40, 0x90, 0x70, 255) }, { 'c', new Color32(0xc0, 0x90, 0x60, 255) }, { 'R', new Color32(0xff, 0x60, 0x40, 255) },
+            { 'w', Color.white },
+        };
+
+        // A friendly ghost. Pivot: centre.
+        public static readonly string[] Ghost =
+        {
+            "..wwwww..", ".wwwwwww.", "wwkwwwkww", "wwwwwwwww", "wwwkkkwww", "wwwwwwwww", "wwwwwwwww", "w.ww.ww.w",
+        };
+
+        // A parcel. Pivot: bottom centre.
+        public static readonly string[] Box = { "ccccccc", "cccyccc", "yyyyyyy", "cccyccc", "cccyccc", "ccccccc" };
+
+        /// <summary>Fish-shaped-bun van: the truck in brown with an orange logo.</summary>
+        public static string[] FoodTruck => System.Array.ConvertAll(Truck, r => r.Replace('w', 'c').Replace('y', 'O'));
+
         public static Sprite Make(string[] rows, float pixel, Vector2 pivot) => Pixels.Make(rows, Pal, pixel, pivot);
 
         /// <summary>A 1-pixel-wide vertical tile (rope or tractor beam) for a tiled SpriteRenderer.</summary>

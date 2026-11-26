@@ -216,7 +216,7 @@
     "sleepChance": 0,
     "sleepFall": false,
     "jumper": false,
-    "rent": 20000,
+    "rent": 5000,
     "special": "selfie",
     "idle": [
       "다들 안녕~",
@@ -352,6 +352,221 @@
     "신청곡 받아요!",
     "박수 주세요!"
   ],
+  "home": [
+    "역시 집이 최고",
+    "한숨 잤다~",
+    "라면 먹고 왔어요",
+    "씻고 나왔어요"
+  ],
+  "piggyRider": [
+    "목마다~!",
+    "이랴 이랴!",
+    "높다 높아!"
+  ],
+  "piggyCarrier": [
+    "무거워요!",
+    "내려와요...",
+    "허리 나가요!"
+  ],
+  "tickle": [
+    "ㅋㅋㅋ 간지러워요!",
+    "으하하 그만!",
+    "히히히"
+  ],
+  "treated": [
+    "고맙습니다!",
+    "와 맛있다",
+    "헤헤 감사해요"
+  ],
+  "scolded": [
+    "넵! 죄송해요",
+    "내려갈게요...",
+    "아 네네"
+  ],
+  "admire": [
+    "와 잘 그렸다",
+    "이거 얼마예요?",
+    "미술관 가야겠는데"
+  ],
+  "ghost": [
+    "으악 유령!!",
+    "살려줘!",
+    "귀신이다!"
+  ],
+  "unbox": [
+    "언박싱!",
+    "뭐가 들었지?",
+    "택배 왔다!"
+  ],
+  "movie": [
+    "팝콘 어딨어?",
+    "이거 무슨 영화야?",
+    "재밌다!"
+  ],
+  "movieEnd": [
+    "재밌었다!",
+    "2편 언제 나와요?",
+    "감동이야..."
+  ],
+  "bbq": [
+    "고기 굽는 냄새!",
+    "한 점만요!",
+    "쌈 싸 먹자"
+  ],
+  "snowball": [
+    "받아라!",
+    "눈싸움이다!",
+    "에잇!"
+  ],
+  "snowHit": [
+    "으악 차가워!",
+    "반칙이야!",
+    "복수한다!"
+  ],
+  "bungeo": [
+    "붕어빵 주세요!",
+    "팥으로요!",
+    "슈크림이요!"
+  ],
+  "bungeoDone": [
+    "따끈따끈하다",
+    "겨울엔 붕어빵이지",
+    "하나 더 먹을까"
+  ],
+  "strays": [
+    {
+      "name": "길냥이 까망",
+      "kind": "cat",
+      "hair": "#2a2a2a",
+      "shirt": "#2a2a2a",
+      "pants": "#2a2a2a",
+      "walkSpeed": 42,
+      "sleepChance": 0.3,
+      "rent": 0,
+      "special": "groom",
+      "scale": 1,
+      "idle": [
+        "냥",
+        "야옹"
+      ],
+      "fling": [
+        "캬악!"
+      ],
+      "bonk": [
+        "냥?"
+      ],
+      "land": [
+        "냥"
+      ],
+      "poke": [
+        "하악"
+      ],
+      "greet": [
+        "냐옹~"
+      ],
+      "held": [
+        "냥냥!"
+      ],
+      "pay": [
+        "냥"
+      ],
+      "act": [
+        "(그루밍)"
+      ],
+      "jump": [
+        "냥!"
+      ],
+      "jumper": true
+    },
+    {
+      "name": "길냥이 삼색",
+      "kind": "cat",
+      "hair": "#e8a050",
+      "shirt": "#f0f0f0",
+      "pants": "#e8a050",
+      "walkSpeed": 38,
+      "sleepChance": 0.3,
+      "rent": 0,
+      "special": "groom",
+      "scale": 1,
+      "idle": [
+        "냐아",
+        "골골"
+      ],
+      "fling": [
+        "냐앙!"
+      ],
+      "bonk": [
+        "냥?"
+      ],
+      "land": [
+        "냥"
+      ],
+      "poke": [
+        "냥?"
+      ],
+      "greet": [
+        "냐옹~"
+      ],
+      "held": [
+        "냥!"
+      ],
+      "pay": [
+        "냥"
+      ],
+      "act": [
+        "(그루밍)"
+      ],
+      "jump": [
+        "냥!"
+      ],
+      "jumper": true
+    },
+    {
+      "name": "길냥이 고등어",
+      "kind": "cat",
+      "hair": "#8a8a8a",
+      "shirt": "#8a8a8a",
+      "pants": "#8a8a8a",
+      "walkSpeed": 40,
+      "sleepChance": 0.3,
+      "rent": 0,
+      "special": "groom",
+      "scale": 1,
+      "idle": [
+        "애옹",
+        "냥냥"
+      ],
+      "fling": [
+        "캬!"
+      ],
+      "bonk": [
+        "냥?"
+      ],
+      "land": [
+        "냥"
+      ],
+      "poke": [
+        "하악"
+      ],
+      "greet": [
+        "냐옹~"
+      ],
+      "held": [
+        "냥!"
+      ],
+      "pay": [
+        "냥"
+      ],
+      "act": [
+        "(그루밍)"
+      ],
+      "jump": [
+        "냥!"
+      ],
+      "jumper": true
+    }
+  ],
   "types": [
     {
       "name": "김대리",
@@ -363,7 +578,7 @@
       "sleepChance": 0.15,
       "sleepFall": false,
       "jumper": false,
-      "rent": 3000,
+      "rent": 1500,
       "idle": [
         "커피 마시고 싶다",
         "칼퇴 가능?",
@@ -411,7 +626,9 @@
       "acc": "#c84050",
       "gear": [
         "tie"
-      ]
+      ],
+      "scale": 1,
+      "treat": ""
     },
     {
       "name": "박잠만",
@@ -423,7 +640,7 @@
       "sleepChance": 0.75,
       "sleepFall": true,
       "jumper": false,
-      "rent": 2000,
+      "rent": 1000,
       "idle": [
         "졸려...",
         "5분만...",
@@ -460,7 +677,9 @@
       ],
       "skin": "#f4c8a0",
       "acc": "#22222a",
-      "gear": []
+      "gear": [],
+      "scale": 1,
+      "treat": ""
     },
     {
       "name": "최근육",
@@ -472,7 +691,7 @@
       "sleepChance": 0.05,
       "sleepFall": false,
       "jumper": true,
-      "rent": 4000,
+      "rent": 2000,
       "idle": [
         "하나 둘!",
         "오늘 하체 날",
@@ -512,7 +731,9 @@
       "act": [],
       "skin": "#f4c8a0",
       "acc": "#22222a",
-      "gear": []
+      "gear": [],
+      "scale": 1,
+      "treat": ""
     },
     {
       "name": "치즈",
@@ -524,7 +745,7 @@
       "sleepChance": 0.4,
       "sleepFall": false,
       "jumper": true,
-      "rent": 1000,
+      "rent": 500,
       "idle": [
         "냥",
         "애옹",
@@ -565,7 +786,9 @@
       ],
       "skin": "#f4c8a0",
       "acc": "#22222a",
-      "gear": []
+      "gear": [],
+      "scale": 1,
+      "treat": ""
     },
     {
       "name": "이구독",
@@ -577,7 +800,7 @@
       "sleepChance": 0.1,
       "sleepFall": false,
       "jumper": false,
-      "rent": 5000,
+      "rent": 2500,
       "idle": [
         "구독 좋아요!",
         "오늘 콘텐츠 뭐하지",
@@ -617,7 +840,9 @@
       ],
       "skin": "#f4c8a0",
       "acc": "#22222a",
-      "gear": []
+      "gear": [],
+      "scale": 1,
+      "treat": ""
     },
     {
       "name": "정할매",
@@ -629,7 +854,7 @@
       "sleepChance": 0.35,
       "sleepFall": false,
       "jumper": false,
-      "rent": 8000,
+      "rent": 4000,
       "idle": [
         "아이고 허리야",
         "밥은 먹었나",
@@ -670,7 +895,9 @@
       "acc": "#22222a",
       "gear": [
         "longhair"
-      ]
+      ],
+      "scale": 1,
+      "treat": "옛다, 사탕 먹어라"
     },
     {
       "skin": "#f4c8a0",
@@ -691,7 +918,7 @@
       "pants": "#7a4a2e",
       "walkSpeed": 45,
       "sleepChance": 0.3,
-      "rent": 1500,
+      "rent": 800,
       "special": "wag",
       "idle": [
         "멍!",
@@ -721,7 +948,9 @@
       ],
       "pay": [
         "(뼈다귀를 두고 갔다)"
-      ]
+      ],
+      "scale": 1,
+      "treat": ""
     },
     {
       "skin": "#f4c8a0",
@@ -745,7 +974,7 @@
       "pants": "#40404a",
       "walkSpeed": 30,
       "sleepChance": 0.05,
-      "rent": 6000,
+      "rent": 3000,
       "special": "dj",
       "idle": [
         "비트 주세요",
@@ -775,7 +1004,9 @@
       ],
       "pay": [
         "공연비 들어왔다"
-      ]
+      ],
+      "scale": 1,
+      "treat": ""
     },
     {
       "skin": "#f4c8a0",
@@ -799,7 +1030,7 @@
       "pants": "#3a3a48",
       "walkSpeed": 24,
       "sleepChance": 0.1,
-      "rent": 5000,
+      "rent": 2500,
       "special": "cook",
       "idle": [
         "간이 좀 싱겁네",
@@ -829,7 +1060,9 @@
       ],
       "pay": [
         "식대 정산이요"
-      ]
+      ],
+      "scale": 1,
+      "treat": "이것 좀 맛봐요!"
     },
     {
       "skin": "#f4c8a0",
@@ -854,7 +1087,7 @@
       "pants": "#30304a",
       "walkSpeed": 32,
       "sleepChance": 0.2,
-      "rent": 1000,
+      "rent": 500,
       "special": "game",
       "idle": [
         "학원 가기 싫다",
@@ -884,7 +1117,9 @@
       ],
       "pay": [
         "용돈 아껴서 냈어요"
-      ]
+      ],
+      "scale": 1,
+      "treat": ""
     },
     {
       "skin": "#f4c8a0",
@@ -906,7 +1141,7 @@
       "pants": "#5a4030",
       "walkSpeed": 40,
       "sleepChance": 0.05,
-      "rent": 4000,
+      "rent": 2000,
       "special": "deliver",
       "idle": [
         "오늘 물량 실화냐",
@@ -936,7 +1171,9 @@
       ],
       "pay": [
         "택배비 정산이요"
-      ]
+      ],
+      "scale": 1,
+      "treat": ""
     },
     {
       "skin": "#8ae070",
@@ -958,7 +1195,7 @@
       "pants": "#40306a",
       "walkSpeed": 26,
       "sleepChance": 0.1,
-      "rent": 7000,
+      "rent": 3500,
       "special": "teleport",
       "idle": [
         "지구인 관찰 중",
@@ -988,6 +1225,329 @@
       ],
       "pay": [
         "우주 화폐 환전함"
+      ],
+      "scale": 1,
+      "treat": ""
+    },
+    {
+      "skin": "#f4c8a0",
+      "acc": "#60f080",
+      "gear": [],
+      "sleepFall": false,
+      "jumper": false,
+      "jump": [],
+      "act": [
+        "슝~ 수거 완료",
+        "동전 흡입 모드"
+      ],
+      "scale": 1,
+      "treat": "",
+      "name": "청소로봇 깔끔이",
+      "kind": "robot",
+      "hair": "#d0d8e8",
+      "shirt": "#d0d8e8",
+      "pants": "#5a6070",
+      "walkSpeed": 34,
+      "sleepChance": 0.15,
+      "rent": 1500,
+      "special": "vacuum",
+      "idle": [
+        "삐빅",
+        "청소 모드 가동",
+        "먼지 감지",
+        "배터리 87%"
+      ],
+      "fling": [
+        "시스템 오류!",
+        "삐-삐-삐!"
+      ],
+      "bonk": [
+        "충돌 감지"
+      ],
+      "land": [
+        "자세 복구 완료"
+      ],
+      "poke": [
+        "삐빅? 사용자 인식",
+        "청소 중입니다"
+      ],
+      "greet": [
+        "안녕하세요 인간",
+        "삐빅 반갑습니다"
+      ],
+      "held": [
+        "바퀴가 허공에서 돌아요"
+      ],
+      "pay": [
+        "관리비 자동 이체"
+      ]
+    },
+    {
+      "skin": "#f4c8a0",
+      "acc": "#ffa030",
+      "gear": [],
+      "sleepFall": false,
+      "jumper": false,
+      "jump": [],
+      "act": [
+        "슈우웅~",
+        "배 썰매 출발!"
+      ],
+      "scale": 1,
+      "treat": "",
+      "name": "펭귄 뒤뚱이",
+      "kind": "penguin",
+      "hair": "#2a2a38",
+      "shirt": "#2a2a38",
+      "pants": "#2a2a38",
+      "walkSpeed": 22,
+      "sleepChance": 0.2,
+      "rent": 1200,
+      "special": "slide",
+      "idle": [
+        "뒤뚱뒤뚱",
+        "여기 너무 따뜻해...",
+        "생선 먹고 싶다"
+      ],
+      "fling": [
+        "펭귄은 못 날아요!!",
+        "꾸악!"
+      ],
+      "bonk": [
+        "꾸엑"
+      ],
+      "land": [
+        "착지는 배로!"
+      ],
+      "poke": [
+        "꾸악?",
+        "간지러워요"
+      ],
+      "greet": [
+        "꾸악~",
+        "안녕 친구"
+      ],
+      "held": [
+        "펭귄 날다!"
+      ],
+      "pay": [
+        "(정어리를 두고 갔다)"
+      ]
+    },
+    {
+      "skin": "#f4c8a0",
+      "acc": "#ffffff",
+      "gear": [],
+      "sleepFall": false,
+      "jumper": false,
+      "jump": [],
+      "act": [
+        "응애~ 응애~",
+        "으앙 맘마!"
+      ],
+      "scale": 0.72,
+      "treat": "",
+      "name": "아기 뭉치",
+      "kind": "person",
+      "hair": "#f0c060",
+      "shirt": "#ffb0c8",
+      "pants": "#ffffff",
+      "walkSpeed": 10,
+      "sleepChance": 0.45,
+      "rent": 500,
+      "special": "cry",
+      "idle": [
+        "까르르",
+        "빠빠",
+        "맘마!",
+        "아부부"
+      ],
+      "fling": [
+        "응애애애!!",
+        "으앙!"
+      ],
+      "bonk": [
+        "응...애?"
+      ],
+      "land": [
+        "까르르!"
+      ],
+      "poke": [
+        "꺄르륵",
+        "으앙?"
+      ],
+      "greet": [
+        "빠이빠이~",
+        "아부"
+      ],
+      "held": [
+        "꺄아~ 높다!"
+      ],
+      "pay": [
+        "(장난감을 두고 갔다)"
+      ]
+    },
+    {
+      "skin": "#f4c8a0",
+      "acc": "#2a3050",
+      "gear": [
+        "cap"
+      ],
+      "sleepFall": false,
+      "jumper": false,
+      "jump": [],
+      "act": [
+        "삑! 순찰 중",
+        "거기 위험해요!"
+      ],
+      "scale": 1,
+      "treat": "",
+      "name": "경비 김씨",
+      "kind": "person",
+      "hair": "#5a5a5a",
+      "shirt": "#3a4a7a",
+      "pants": "#2a3050",
+      "walkSpeed": 30,
+      "sleepChance": 0.05,
+      "rent": 2500,
+      "special": "patrol",
+      "idle": [
+        "이상 무!",
+        "오늘도 평화롭구만",
+        "순찰 시간이다"
+      ],
+      "fling": [
+        "근무 중이라고!",
+        "어이쿠!"
+      ],
+      "bonk": [
+        "모자가 날아갔네"
+      ],
+      "land": [
+        "이상 무!"
+      ],
+      "poke": [
+        "무슨 일 있어요?",
+        "신분증 좀 봅시다"
+      ],
+      "greet": [
+        "수고하십니다~",
+        "밤길 조심해요"
+      ],
+      "held": [
+        "경비를 들면 어떡해!"
+      ],
+      "pay": [
+        "관리비 받아 왔어요"
+      ]
+    },
+    {
+      "skin": "#f4c8a0",
+      "acc": "#22222a",
+      "gear": [
+        "cap",
+        "tie"
+      ],
+      "sleepFall": false,
+      "jumper": false,
+      "jump": [],
+      "act": [
+        "짠!",
+        "얍! 수리수리 마수리"
+      ],
+      "scale": 1,
+      "treat": "",
+      "name": "마술사 짠",
+      "kind": "person",
+      "hair": "#2a2a2a",
+      "shirt": "#7a2ad8",
+      "pants": "#22222a",
+      "walkSpeed": 26,
+      "sleepChance": 0.1,
+      "rent": 3500,
+      "special": "magic",
+      "idle": [
+        "손은 눈보다 빠르다",
+        "카드 한 장 뽑아 보세요",
+        "마술은 타이밍"
+      ],
+      "fling": [
+        "이건 마술이 아니야!",
+        "아브라카다브라!"
+      ],
+      "bonk": [
+        "트릭 실패..."
+      ],
+      "land": [
+        "짜잔~!"
+      ],
+      "poke": [
+        "카드 뽑으셨나요?",
+        "비둘기 나와라 얍!"
+      ],
+      "greet": [
+        "짠! 안녕하세요",
+        "오늘의 관객이시군요"
+      ],
+      "held": [
+        "공중부양 마술!"
+      ],
+      "pay": [
+        "모자에서 월세가 나왔어요"
+      ]
+    },
+    {
+      "skin": "#f4c8a0",
+      "acc": "#c83a3a",
+      "gear": [
+        "cap"
+      ],
+      "sleepFall": false,
+      "jumper": false,
+      "jump": [],
+      "act": [
+        "슥슥 쓱쓱",
+        "이번 건 걸작이다"
+      ],
+      "scale": 1,
+      "treat": "",
+      "name": "화가 붓질이",
+      "kind": "person",
+      "hair": "#c87a3a",
+      "shirt": "#f0e0a0",
+      "pants": "#4a5a8a",
+      "walkSpeed": 22,
+      "sleepChance": 0.2,
+      "rent": 2000,
+      "special": "paint",
+      "idle": [
+        "영감이 안 와...",
+        "저 창문 구도 좋다",
+        "색감 미쳤다"
+      ],
+      "fling": [
+        "내 팔레트!",
+        "예술은 폭발이다!"
+      ],
+      "bonk": [
+        "새로운 영감이..."
+      ],
+      "land": [
+        "이 각도 좋다"
+      ],
+      "poke": [
+        "모델 해 주실래요?",
+        "그림 사실래요?"
+      ],
+      "greet": [
+        "오늘 빛이 좋네요",
+        "그림 그리러 왔어요"
+      ],
+      "held": [
+        "구도가 바뀐다!"
+      ],
+      "pay": [
+        "그림 팔았어요!"
       ]
     }
   ]

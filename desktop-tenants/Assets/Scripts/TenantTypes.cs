@@ -13,11 +13,16 @@ namespace DesktopTenants
         public float walkSpeed = 28, sleepChance = 0.2f;
         public bool sleepFall, jumper;
         public int rent = 3000;
-        /// <summary>Signature action: phone, yawn, pushup, groom, selfie, sing, wag, dj, cook, game, deliver or teleport.</summary>
+        /// <summary>Drawn at this size (the baby is smaller).</summary>
+        public float scale = 1;
+        /// <summary>When set, this tenant sometimes gives a snack to someone nearby, saying this.</summary>
+        public string treat;
+        /// <summary>Signature action: phone, yawn, pushup, groom, selfie, sing, wag, dj, cook, game, deliver, teleport, vacuum, slide, cry, patrol, magic or paint.</summary>
         public string special;
         public string[] idle, fling, bonk, land, poke, greet, held, pay, jump, act;
         public bool IsCat => kind == "cat";
         public bool IsDog => kind == "dog";
+        public bool IsRobot => kind == "robot";
         /// <summary>Animals don't talk about weekdays or sit on ledges.</summary>
         public bool IsAnimal => kind != "person";
 
@@ -41,6 +46,9 @@ namespace DesktopTenants
         /// <summary>The celebrity who visits by limo (not a resident type).</summary>
         public TenantType star;
         public Convo[] convos, fights;
+        public string[] home, piggyRider, piggyCarrier, tickle, treated, scolded, admire, ghost, unbox, movie, movieEnd, bbq, snowball, snowHit, bungeo, bungeoDone;
+        /// <summary>Stray cats that drop by for the cat-gathering event.</summary>
+        public TenantType[] strays;
         public TenantType[] types;
 
         public static TenantBook Load() => JsonUtility.FromJson<TenantBook>(Resources.Load<TextAsset>("tenants").text);

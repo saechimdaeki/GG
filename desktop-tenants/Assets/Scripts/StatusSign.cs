@@ -28,7 +28,18 @@ namespace DesktopTenants
         readonly SpriteRenderer[] cpuBar = new SpriteRenderer[Segs], memBar = new SpriteRenderer[Segs];
         readonly Dictionary<Weather.Kind, Sprite> icons = new Dictionary<Weather.Kind, Sprite>();
         readonly Sprite rainbowIcon;
-        float cpu, memShare;
+        float cpu, memShare, msgT;
+        readonly TextMesh msg;
+
+        /// <summary>A notice is currently replacing the clock row.</summary>
+        public bool ShowingMessage => msgT > 0;
+
+        /// <summary>Shows <paramref name="text"/> across the top row for <paramref name="seconds"/> (house prices, news).</summary>
+        public void Message(string text, float seconds)
+        {
+            msg.text = text;
+            msgT = seconds;
+        }
         bool hot;
 
         public StatusSign(Desk desk)
@@ -47,6 +58,7 @@ namespace DesktopTenants
             icon.transform.localPosition = new Vector3(8 * px, -8 * px, 0);
 
             time = Text("--:--", Amber, 12, TextAnchor.MiddleLeft, new Vector2(15, 8));
+            msg = Text("", Yellow, 11, TextAnchor.MiddleCenter, new Vector2(BoardW / 2, 8));
             cpuLabel = Text("CPU", Green, 10, TextAnchor.MiddleLeft, new Vector2(3, 16.5f));
             memLabel = Text("MEM", Cyan, 10, TextAnchor.MiddleLeft, new Vector2(3, 22.5f));
             cpuText = Text("0%", Green, 10, TextAnchor.MiddleRight, new Vector2(BoardW - 2.5f, 16.5f));
@@ -197,8 +209,13 @@ namespace DesktopTenants
 
             bool lit = !blackout;
             bool blinkOff = hot && Mathf.Repeat(Time.time, 0.6f) < 0.25f;
-            foreach (var t in new[] { time, cpuLabel, memLabel, cpuText, memText }) t.gameObject.SetActive(lit);
-            icon.enabled = lit;
+            msgT -= dt;
+            bool notice = msgT > 0;
+            foreach (var t in new[] { cpuLabel, memLabel, cpuText, memText }) t.gameObject.SetActive(lit);
+            time.gameObject.SetActive(lit && !notice);
+            icon.enabled = lit && !notice;
+            // Notices blink gently so they read as fresh news.
+            msg.gameObject.SetActive(lit && notice && Mathf.Repeat(Time.time, 0.9f) < 0.75f);
             foreach (var s in cpuBar) s.enabled = lit && !blinkOff;
             foreach (var s in memBar) s.enabled = lit;
             cpuText.color = cpuLabel.color = hot ? Red : Green;

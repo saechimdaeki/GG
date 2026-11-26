@@ -38,6 +38,8 @@ namespace DesktopTenants
         SpriteRenderer house;
         Bubble moneyLabel, houseTip;
         bool overlay, clickThrough = true, wasDown;
+        /// <summary>Started with --floors/--town: nothing is written to the save.</summary>
+        bool playtest;
         string forcedWeather;
         float spawnT, logT, refreshT, quitAt, houseW, houseH;
         int money, floors, screen;
@@ -75,7 +77,7 @@ namespace DesktopTenants
         public bool Raining => Sky != null && Sky.Wet;
 
         int Capacity => floors * Tune.tenantsPerFloor;
-        int UpgradeCost => Tune.upgradeBase * floors * floors;
+        int UpgradeCost => Tune.ApartmentCost(floors);
         int UnlockedTypes => Mathf.Clamp(Tune.startTypes + Tune.typesPerFloor * (floors - Tune.startFloors), 1, Book.types.Length);
         Rect HouseBounds => new Rect(Door.x - houseW / 2, FloorY - houseH, houseW, houseH);
 
@@ -101,7 +103,7 @@ namespace DesktopTenants
             floors = PlayerPrefs.GetInt("floors", Tune.startFloors);
             // --floors N: jump straight to an N-floor building (playtesting all tenant types).
             int fi = System.Array.IndexOf(args, "--floors");
-            if (fi >= 0 && fi + 1 < args.Length && int.TryParse(args[fi + 1], out var fl)) floors = Mathf.Clamp(fl, 1, Tune.maxFloors);
+            if (fi >= 0 && fi + 1 < args.Length && int.TryParse(args[fi + 1], out var fl)) { floors = Mathf.Clamp(fl, 1, Tune.maxFloors); playtest = true; }
 
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = Tune.fps;
@@ -128,12 +130,14 @@ namespace DesktopTenants
             ticker = Bubble.Create(house.transform, Vector3.zero, 4);
             BuildHouse();
             Town = new Town(this);
+            Home = new Building { Def = new LotDef { id = "home", name = "집", visit = Book.home }, W = 0 };
             // --town N[:L]: playtest with N town buildings at level L.
             int ti = System.Array.IndexOf(args, "--town");
             if (ti >= 0 && ti + 1 < args.Length)
             {
                 var parts = args[ti + 1].Split(':');
                 if (int.TryParse(parts[0], out var count)) Town.DevBuild(count, parts.Length > 1 && int.TryParse(parts[1], out var lv) ? lv : 1);
+                playtest = true;
             }
             // --event NAME: fire one event a few seconds in (heli, ufo, coins, drill, fireworks).
             int ei = System.Array.IndexOf(args, "--event");
@@ -202,9 +206,12 @@ namespace DesktopTenants
 
         void Save()
         {
-            PlayerPrefs.SetInt("money", money);
-            PlayerPrefs.SetInt("floors", floors);
-            PlayerPrefs.Save();
+            if (!playtest)
+            {
+                PlayerPrefs.SetInt("money", money);
+                PlayerPrefs.SetInt("floors", floors);
+                PlayerPrefs.Save();
+            }
             moneyLabel.Say(Won(money), 0);
         }
 
@@ -250,10 +257,12 @@ namespace DesktopTenants
             if (hoverTown) Town.Hover(Mouse, money);
             else Town.RefreshSigns();
             PetCheck(hoverT, dt);
+            TickleCheck(hoverT, dt);
+            Paintings(dt);
             HandleClicks(hoverT, hoverH, ref holding);
             if (hoverTown && MouseDown && !wasDownTown)
             {
-                int spent = Town.Click(Mouse, money);
+                int spent = Town.Click(Mouse, money, !playtest);
                 if (spent > 0) { money -= spent; Save(); director.Fireworks(2.5f); }
             }
             wasDownTown = MouseDown;
@@ -291,6 +300,7 @@ namespace DesktopTenants
             cam.transform.position = new Vector3(ScreenW / 2, -ScreenH / 2, -10);
             Door = new Vector2(ScreenW - 140, FloorY);
             house.transform.position = W(Door, 1);
+            if (Home != null) Home.X = Door.x;
             pad.enabled = HasHelipad;
             pad.transform.position = W(new Vector2(Door.x, RoofY), 0.9f);
             antenna.enabled = floors >= Tune.antennaFloors;
@@ -389,6 +399,105 @@ namespace DesktopTenants
                 if (t.Type.special == "teleport") t.Cheer();
         }
 
+        /// <summary>The apartment's own front door, enterable like a shop ("going home").</summary>
+        public Building Home { get; private set; }
+
+        /// <summary>The apartment door if <paramref name="p"/> is within <paramref name="range"/> of it.</summary>
+        public Building HomeNear(Vector2 p, float range) =>
+            Mathf.Abs(Door.x - p.x) < range && Mathf.Abs(FloorY - p.y) < 60 ? Home : null;
+
+        /// <summary>A free tenant whose head is right under <paramref name="p"/> (for piggyback rides).</summary>
+        public Tenant HeadAt(Tenant faller, Vector2 p)
+        {
+            foreach (var t in tenants)
+            {
+                if (t == faller || !t.Free || t.HasRider || t.Type.scale < 0.9f) continue;
+                float top = t.P.y - t.Height;
+                if (Mathf.Abs(t.P.x - p.x) < t.Width * 0.35f && p.y >= top - 2 && p.y <= top + 10) return t;
+            }
+            return null;
+        }
+
+        /// <summary>The nearest free person (not an animal) to <paramref name="from"/> within <paramref name="range"/>.</summary>
+        public Tenant NearestPerson(Tenant from, float range)
+        {
+            Tenant best = null;
+            foreach (var t in tenants)
+            {
+                float dist = Vector2.Distance(t.P, from.P);
+                if (t != from && !t.Type.IsAnimal && t.Free && dist < range) { best = t; range = dist; }
+            }
+            return best;
+        }
+
+        /// <summary>The baby cried: the nearest grown-up comes over and soothes them.</summary>
+        public void Comfort(Tenant baby)
+        {
+            Tenant best = null;
+            float range = 600;
+            foreach (var t in tenants)
+            {
+                float dist = Vector2.Distance(t.P, baby.P);
+                if (t != baby && !t.Type.IsAnimal && t.Type.scale >= 0.9f && t.Carriable && dist < range) { best = t; range = dist; }
+            }
+            if (best == null) return;
+            best.Gather(baby.P.x + 16, 6, "아이고 우리 아기~", "heart", 1.8f, false, null, 0);
+            comforter = (best, baby);
+        }
+
+        (Tenant who, Tenant baby) comforter;
+
+        readonly List<(SpriteRenderer r, float until, Vector2 p)> paintings = new List<(SpriteRenderer, float, Vector2)>();
+        float admireT;
+
+        /// <summary>The painter leaves a finished picture on an easel at <paramref name="at"/> for a while.</summary>
+        public void PlacePainting(Vector2 at, int on)
+        {
+            var r = new GameObject("Painting").AddComponent<SpriteRenderer>();
+            r.sprite = Pixels.Make(Props.Easel(Random.Range(0, 9999)), Props.EaselPalette, Tune.pixel);
+            r.sortingOrder = 6;
+            r.transform.position = W(at, 0.4f);
+            paintings.Add((r, Time.time + 50, at));
+        }
+
+        void Paintings(float dt)
+        {
+            for (int i = paintings.Count - 1; i >= 0; i--)
+                if (Time.time > paintings[i].until) { Destroy(paintings[i].r.gameObject); paintings.RemoveAt(i); }
+            if ((admireT -= dt) > 0 || paintings.Count == 0) return;
+            admireT = 3;
+            foreach (var (_, _, p) in paintings)
+                foreach (var t in tenants)
+                    if (!t.Type.IsAnimal && t.Free && Vector2.Distance(t.P, p) < 45 && Random.value < 0.5f)
+                        t.React(TenantBook.Pick(Book.admire), "heart");
+            // The crying baby's comforter arrived.
+            if (comforter.who && comforter.baby && comforter.who.Arrived) { comforter.baby.Soothe(); comforter = default; }
+        }
+
+        Vector2 lastMouse;
+        float tickleT;
+
+        /// <summary>Wiggling the cursor quickly over a tenant tickles them.</summary>
+        void TickleCheck(Tenant hover, float dt)
+        {
+            float speed = (Mouse - lastMouse).magnitude / Mathf.Max(dt, 0.001f);
+            lastMouse = Mouse;
+            if (hover == null || MouseDown || speed < 600) { tickleT = Mathf.Max(0, tickleT - dt); return; }
+            if ((tickleT += dt) < 0.35f) return;
+            tickleT = 0;
+            hover.Tickle();
+        }
+
+        public StatusSign Board => board;
+
+        /// <summary>A parcel falling from the top of the screen at <paramref name="x"/>.</summary>
+        public void DropBox(float x)
+        {
+            var c = new GameObject("Parcel").AddComponent<Coin>();
+            c.Init(this, new Vector2(x, TopY + 50), Tune.boxValue, new Vector2(Random.Range(-30f, 30f), 60), true);
+            coins.Add(c);
+        }
+
         /// <summary>A coin dropped at <paramref name="at"/> (shop takings, tips, gifts).</summary>
         public void SpawnCoinAt(Vector2 at, int value)
         {
@@ -481,7 +590,11 @@ namespace DesktopTenants
                 var c = coins[i];
                 c.Tick(this, dt, Sign);
                 if (!c.Collecting && (Vector2.Distance(Mouse, c.P - new Vector2(0, 10)) < Tune.collectRadius || c.Age > Tune.autoCollect))
-                    c.Collect();
+                    Open(c, null);
+                // Tenants walking past a parcel open it.
+                if (c.IsBox && !c.Collecting && c.On != Body.None)
+                    foreach (var t in tenants)
+                        if (t.Free && t.On == c.On && Mathf.Abs(t.P.x - c.P.x) < 12) { Open(c, t); break; }
                 if (!c.Arrived) continue;
                 gained += c.Value;
                 coins.RemoveAt(i);
@@ -493,27 +606,42 @@ namespace DesktopTenants
             Save();
         }
 
+        void Open(Coin c, Tenant opener)
+        {
+            c.Collect();
+            if (!c.IsBox) return;
+            Bubble.Popup("언박싱!", W(c.P - new Vector2(0, 30)));
+            if (opener) opener.React(opener.Type.IsAnimal ? null : TenantBook.Pick(Book.unbox), "heart");
+        }
+
         void HandleClicks(Tenant hoverT, bool hoverH, ref bool holding)
         {
             bool pressed = MouseDown && !wasDown;
             wasDown = MouseDown;
-            if (hoverH && !houseTip.Visible)
-                houseTip.Say(floors >= Tune.maxFloors ? "최고층이에요!" : $"{floors + 1}층 증축 {Won(UpgradeCost)} (클릭)", 1.5f);
+            if (hoverH && board != null && !board.ShowingMessage)
+                HouseSay(floors >= Tune.maxFloors ? "최고층이에요!" : $"{floors + 1}층 증축 {Won(UpgradeCost)}", 1.5f);
             if (!pressed) return;
             if (hoverT) { hoverT.Grab(Mouse); holding = true; }
             else if (hoverH) Upgrade();
         }
 
+        /// <summary>House notices (upgrade price, completion) scroll on the rooftop billboard.</summary>
+        void HouseSay(string text, float seconds)
+        {
+            if (board != null) board.Message(text, seconds);
+            else houseTip.Say(text, seconds);
+        }
+
         void Upgrade()
         {
-            if (floors >= Tune.maxFloors) { houseTip.Say("더는 못 올려요!"); return; }
+            if (floors >= Tune.maxFloors) { HouseSay("더는 못 올려요!", 2f); return; }
             int cost = UpgradeCost;
-            if (money < cost) { houseTip.Say($"{Won(cost - money)} 더 필요해요"); return; }
+            if (money < cost) { HouseSay($"{Won(cost - money)} 부족", 2f); return; }
             money -= cost;
             floors++;
             BuildHouse();
             Save();
-            houseTip.Say($"뚝딱! {floors}층 완공", 2.5f);
+            HouseSay($"뚝딱! {floors}층 완공", 3f);
             bool wider = Pixels.HouseCols(floors) > Pixels.HouseCols(floors - 1);
             Bubble.Popup(floors == Tune.helipadFloors ? "옥상 헬기장 오픈!" : floors == Tune.antennaFloors ? "옥상에 안테나 설치!" : wider ? "옆으로 확장 공사 완료!" : "새 세입자 모집 중!", W(Door - new Vector2(0, houseH + 60)));
             director.Fireworks(4f);
