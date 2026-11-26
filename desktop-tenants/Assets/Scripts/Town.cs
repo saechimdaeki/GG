@@ -36,7 +36,6 @@ namespace DesktopTenants
         public readonly List<(float x0, float x1, float topFromFloor)> Tops = new List<(float, float, float)>();
 
         public float DoorX => X + W * 0.22f;
-        public int UpgradeCost => Def.cost * Level;
         public string Title => Def.name + new string('★', Level);
     }
 
@@ -127,7 +126,7 @@ namespace DesktopTenants
                 if (b.Def.id == "bank")
                 {
                     // The bank pays interest on savings instead of takings.
-                    int interest = Mathf.Clamp((int)(d.Money * d.Tune.interestRate * b.Level), 500, 30000);
+                    int interest = Mathf.Clamp((int)(d.Money * d.Tune.interestRate * b.Level), 300, d.Tune.interestCap);
                     d.SpawnCoinAt(new Vector2(b.DoorX, d.FloorY - 20), interest);
                     b.Sign.Say("이자 지급!", 1.5f);
                 }
@@ -202,29 +201,29 @@ namespace DesktopTenants
             if (tip.Visible) return;
             if (OverLot(p)) tip.Say($"{NextLot.name} 짓기 ₩{NextLot.cost:N0} (클릭)", 1.5f);
             var b = At(p);
-            if (b != null) b.Sign.Say(b.Level >= Building.MaxLevel ? b.Title + " 최고 등급" : $"{b.Title} → 업그레이드 ₩{b.UpgradeCost:N0}", 1.5f);
+            if (b != null) b.Sign.Say(b.Level >= Building.MaxLevel ? b.Title + " 최고 등급" : $"{b.Title} → 업그레이드 ₩{d.Tune.ShopUpgradeCost(b.Def.cost, b.Level):N0}", 1.5f);
         }
 
         /// <summary>Click on the lot or a building. Returns the money spent (0 if nothing bought).</summary>
-        public int Click(Vector2 p, int money)
+        public int Click(Vector2 p, int money, bool save = true)
         {
             if (OverLot(p))
             {
                 var def = NextLot;
                 if (money < def.cost) { tip.Say($"₩{def.cost - money:N0} 더 필요해요", 1.6f); return 0; }
                 Add(def, 1);
-                Save();
+                if (save) Save();
                 Bubble.Popup($"{def.name} 오픈!", Desk.W(new Vector2(buildings[buildings.Count - 1].X, d.FloorY - 80)));
                 return def.cost;
             }
             var b = At(p);
             if (b == null) return 0;
             if (b.Level >= Building.MaxLevel) { b.Sign.Say(b.Title + " 최고 등급", 1.5f); return 0; }
-            int cost = b.UpgradeCost;
+            int cost = d.Tune.ShopUpgradeCost(b.Def.cost, b.Level);
             if (money < cost) { b.Sign.Say($"₩{cost - money:N0} 더 필요해요", 1.6f); return 0; }
             b.Level++;
             Draw(b);
-            Save();
+            if (save) Save();
             Bubble.Popup($"{b.Def.name} 리모델링!", Desk.W(new Vector2(b.X, d.FloorY - b.H - 30)));
             return cost;
         }

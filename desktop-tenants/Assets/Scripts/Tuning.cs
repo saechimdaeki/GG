@@ -11,8 +11,12 @@ namespace DesktopTenants
         public float pixel = 3f;          // points per art pixel
         public float spawnEvery = 2.5f;
         public int startFloors = 3, maxFloors = 10, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
-        public int upgradeBase = 10000;   // cost of the next floor = upgradeBase * floors²
-        public float rentMin = 25f, rentMax = 45f;  // seconds between a tenant's rent coins
+        public int upgradeBase = 50000;       // cost of the first extra floor (from startFloors)
+        public float upgradeGrowth = 2.3f;    // each further floor costs this many times the last
+        public float shopUpgradeGrowth = 2.5f; // shop level n→n+1 costs lot price × growth^n
+        public int birthdayGift = 1000, marathonPrize = 3000;
+        public int interestCap = 10000;
+        public float rentMin = 40f, rentMax = 70f;  // seconds between a tenant's rent coins
         public int maxCoins = 40;
         public float collectRadius = 34f;     // mouse this close to a coin picks it up
         public float autoCollect = 45f;       // coins left this long collect themselves
@@ -43,10 +47,11 @@ namespace DesktopTenants
         public int antennaFloors = 4, helipadFloors = 5, neonFloors = 7, tickerFloors = 9;
         public float petDelay = 1f;
         public float tipChance = 0.25f;
-        public float interestRate = 0.004f;   // bank interest per payout, per level, on current money       // a petted tenant leaves a small tip           // cursor resting on a tenant this long pets them
+        public float interestRate = 0.002f;   // bank interest per payout, per level, on current money       // a petted tenant leaves a small tip           // cursor resting on a tenant this long pets them
         public float visitChance = 0.25f;     // idle on the floor → go into a shop / the park
         public float coffeeBoost = 30f;       // seconds of faster walking after the cafe
-        public int bonusCoin = 2000;          // value of a coin from the bonus shower
+        public int bonusCoin = 600;
+        public int boxValue = 1200;           // what a delivery-event parcel turns into          // value of a coin from the bonus shower
         public float hotCpu = 85f;            // CPU % that makes tenants sweat (sustained ~6s)
         public float fullMemory = 0.9f;       // memory use share that makes tenants complain
         public float gravity = 1800f;
@@ -59,6 +64,14 @@ namespace DesktopTenants
         public float idleMin = 1.5f, idleMax = 4f;
         public float walkMin = 3f, walkMax = 9f;
         public float sleepMin = 6f, sleepMax = 14f;
+
+        /// <summary>Price of adding the next floor to a building that has <paramref name="floors"/>.</summary>
+        public int ApartmentCost(int floors) => Round(upgradeBase * Mathf.Pow(upgradeGrowth, floors - startFloors));
+
+        /// <summary>Price of taking a shop bought for <paramref name="lotCost"/> from <paramref name="level"/> to the next.</summary>
+        public int ShopUpgradeCost(int lotCost, int level) => Round(lotCost * Mathf.Pow(shopUpgradeGrowth, level));
+
+        static int Round(float won) => Mathf.Max(1000, Mathf.RoundToInt(won / 1000f) * 1000);
 
         public static Tuning Load()
         {

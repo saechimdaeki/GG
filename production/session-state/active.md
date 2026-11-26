@@ -34,11 +34,10 @@ Task:
 
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-26
-**Branch:** `codex/desktop-tenants-open-gallery`
-**Current task:** 데스크톱 세입자 v0.2.0 macOS 미리보기 게시, 플레이테스트 #42 등록, README에서 GIF 26개 상시 표시.
-**Next step:** 일반 플레이에서 이벤트 간격과 상점가 성장 속도 확인. 다른 Mac에서 첫 실행과 창 이동 검증.
-**Blocked on:** 없음.
-**Run result:** Unity EditMode 21/21 통과. macOS 빌드 성공.
+**Branch:** `feat/desktop-tenants`
+**Current task:** 주민 상호작용과 이벤트 7종, 성장 비용 및 저장 처리 변경을 PR로 정리.
+**Next step:** 새 이벤트와 후반 성장 속도를 macOS 실기에서 확인.
+**Run result:** Unity EditMode 24/24 통과.
 <!-- /CHECKPOINT -->
 
 ---
@@ -46,6 +45,13 @@ Task:
 ## Notes
 
 ### 이전 작업 체크포인트
+
+**Updated:** 2026-11-26
+**Branch:** `codex/desktop-tenants-open-gallery`
+**Current task:** 데스크톱 세입자 v0.2.0 macOS 미리보기 게시, 플레이테스트 #42 등록, README에서 GIF 26개 상시 표시.
+**Next step:** 일반 플레이에서 이벤트 간격과 상점가 성장 속도 확인. 다른 Mac에서 첫 실행과 창 이동 검증.
+**Blocked on:** 없음.
+**Run result:** Unity EditMode 21/21 통과. macOS 빌드 성공.
 
 **Updated:** 2026-11-26
 **Branch:** `codex/cat-chaos-v0.3.0`

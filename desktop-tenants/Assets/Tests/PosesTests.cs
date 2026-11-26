@@ -16,6 +16,8 @@ public class PosesTests
             foreach (var pose in PersonPoses) AssertPainted(Poses.Pose(pose, face, "person", AllGear), pose, face);
             foreach (var pose in CatPoses) AssertPainted(Poses.Pose(pose, face, "cat"), "cat " + pose, face);
             foreach (var pose in DogPoses) AssertPainted(Poses.Pose(pose, face, "dog"), "dog " + pose, face);
+            foreach (var pose in new[] { "idle", "walkA", "walkB", "sleep", "fall" }) AssertPainted(Poses.Pose(pose, face, "robot"), "robot " + pose, face);
+            foreach (var pose in new[] { "idle", "walkA", "walkB", "sleep", "fall", "slide" }) AssertPainted(Poses.Pose(pose, face, "penguin"), "penguin " + pose, face);
         }
     }
 

@@ -14,6 +14,8 @@ namespace DesktopTenants
             "heli", "ufo", "coins", "drill", "fireworks", "blackout", "quake", "birthday", "star",
             "birds", "icecream", "plane", "meteor", "marathon", "busking", "confession", "meeting",
             "storm", "snow", "windy", "rainbow",
+            "ghost", "boxes", "strays", "movie", "bbq", "snowball", "bungeo",
+            "boxes", "strays", "bbq", "movie",
             "heli", "ufo", "birds", "icecream", "plane", "busking", "confession",
         };
 
@@ -26,6 +28,10 @@ namespace DesktopTenants
         readonly Van iceVan;
         readonly GiftPlane plane;
         readonly Meteors meteors;
+        readonly Ghost ghost;
+        readonly Snowballs snowballs;
+        readonly Van foodVan;
+        float boxT;
         readonly List<(float at, System.Action act)> script = new List<(float, System.Action)>();
         float clock;
         bool racing;
@@ -48,6 +54,9 @@ namespace DesktopTenants
             iceVan = new Van(desk, Props.IceTruck);
             plane = new GiftPlane(desk);
             meteors = new Meteors(desk);
+            ghost = new Ghost(desk);
+            snowballs = new Snowballs(desk);
+            foodVan = new Van(desk, Props.FoodTruck);
             nextT = forced != null ? 6 : Random.Range(desk.Tune.eventMin, desk.Tune.eventMax);
             pending = forced;
         }
@@ -66,6 +75,10 @@ namespace DesktopTenants
             iceVan.Tick(dt);
             plane.Tick(dt);
             meteors.Tick(dt);
+            ghost.Tick(dt);
+            snowballs.Tick(dt);
+            foodVan.Tick(dt);
+            if (boxT > 0 && (boxT -= dt) % 0.6f < dt) d.DropBox(Random.Range(60f, d.ScreenW - 60f));
             RunScript(dt);
             RaceTick();
             if (blackoutT > 0 && (blackoutT -= dt) <= 0)
@@ -127,7 +140,7 @@ namespace DesktopTenants
                     foreach (var t in d.Tenants)
                         if (t != hero) t.React(t.Type.IsAnimal ? TenantBook.Pick(t.Type.greet) : TenantBook.Pick(d.Book.birthday), "note", 2.5f);
                     hero.React(hero.Type.IsAnimal ? TenantBook.Pick(hero.Type.greet) : "다들 고마워요~!", "heart", 3f);
-                    for (int i = 0; i < 3; i++) d.SpawnCoinAt(hero.P - new Vector2(0, hero.Height + 10), 3000);
+                    for (int i = 0; i < 3; i++) d.SpawnCoinAt(hero.P - new Vector2(0, hero.Height + 10), d.Tune.birthdayGift);
                     Fireworks(3f);
                     break;
                 case "birds": return flock.Start();
@@ -204,6 +217,54 @@ namespace DesktopTenants
                         });
                     }
                     break;
+                case "ghost":
+                    if (ghost.Busy) return false;
+                    ghost.Start();
+                    Bubble.Popup("으스스... 유령이 나타났다! (마우스로 쫓아내기)", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    break;
+                case "boxes":
+                    boxT = 4.5f;
+                    Bubble.Popup("택배 대란! 상자가 쏟아져요", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    break;
+                case "strays":
+                    if (d.Book.strays == null || d.Book.strays.Length == 0) return false;
+                    Bubble.Popup("길고양이 모임", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    var cats = new List<Tenant>();
+                    for (int i = 0; i < d.Book.strays.Length; i++)
+                        cats.Add(d.SpawnVisitor(d.Book.strays[i], new Vector2(20 + i * 30, d.FloorY - 30)));
+                    foreach (var t in d.Tenants) if (t.Type.IsCat && !t.Visitor) t.Gather(140, 30, null, "heart", 1.8f, false, null, 60);
+                    foreach (var t in d.Tenants) if (t.Type.IsDog) t.React("멍멍! (흥분)", "!");
+                    Schedule(35, () => { foreach (var c in cats) if (c) c.LeaveTo(-60); });
+                    break;
+                case "movie":
+                    d.Board?.Message("오늘의 영화 상영 중 ▶", 22);
+                    Bubble.Popup("옥상 광고판 영화 상영!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants)
+                        t.Gather(d.Door.x - 30, 22, TenantBook.Pick(d.Book.movie), "heart", 1.4f, false, TenantBook.Pick(d.Book.movieEnd), 110);
+                    break;
+                case "bbq":
+                    Tenant cook = null;
+                    foreach (var t in d.Tenants) if (t.Type.special == "cook") cook = t;
+                    float grill = d.Town.Buildings.Count > 2 ? d.Town.Buildings[2].X : d.Door.x - 160;
+                    Bubble.Popup("바베큐 파티!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foreach (var t in d.Tenants)
+                        t.Gather(grill, 16, t == cook ? "고기 굽습니다~" : TenantBook.Pick(d.Book.bbq), t == cook ? "steam" : "heart", 1.5f, t == cook, t == cook ? "다 같이 먹어요!" : "배부르다~", 80);
+                    Schedule(16, () => { foreach (var t in d.Tenants) if (t) t.Treat(); });
+                    break;
+                case "snowball":
+                    if (d.Sky.Now != Weather.Kind.Snow) d.Sky.Set(Weather.Kind.Snow, 60);
+                    Bubble.Popup("눈싸움 시작!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    snowballs.Start(20);
+                    break;
+                case "bungeo":
+                    if (foodVan.Busy) return false;
+                    Bubble.Popup("붕어빵 트럭 왔어요~", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70)));
+                    foodVan.Start(d.ScreenW * 0.3f, 16, () =>
+                    {
+                        foreach (var t in d.Tenants)
+                            t.Gather(foodVan.X + 50, 13, TenantBook.Pick(d.Book.bungeo), "heart", 1.6f, false, TenantBook.Pick(d.Book.bungeoDone), 60);
+                    });
+                    break;
                 case "storm": d.Sky.Set(Weather.Kind.Storm, 70); break;
                 case "snow": d.Sky.Set(Weather.Kind.Snow, 90); break;
                 case "windy": d.Sky.Set(Weather.Kind.Windy, 50); break;
@@ -238,7 +299,7 @@ namespace DesktopTenants
                 racing = false;
                 Bubble.Popup($"{t.Type.name} 우승!", Desk.W(t.P - new Vector2(0, 90)));
                 t.React(t.Type.IsAnimal ? TenantBook.Pick(t.Type.greet) : "1등이다!!", "heart", 3f);
-                d.SpawnCoinAt(t.P - new Vector2(0, t.Height + 10), 10000);
+                d.SpawnCoinAt(t.P - new Vector2(0, t.Height + 10), d.Tune.marathonPrize);
                 foreach (var o in d.Tenants) if (o != t) o.Cheer();
                 return;
             }

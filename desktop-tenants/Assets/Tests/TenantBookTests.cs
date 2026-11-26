@@ -5,14 +5,14 @@ using UnityEngine;
 
 public class TenantBookTests
 {
-    static readonly string[] Specials = { "phone", "yawn", "pushup", "groom", "selfie", "sing", "wag", "dj", "cook", "game", "deliver", "teleport" };
+    static readonly string[] Specials = { "phone", "yawn", "pushup", "groom", "selfie", "sing", "wag", "dj", "cook", "game", "deliver", "teleport", "vacuum", "slide", "cry", "patrol", "magic", "paint" };
 
     [Test]
     public void EveryType_HasLookRentAndCoreLines()
     {
         var book = TenantBook.Load();
 
-        Assert.GreaterOrEqual(book.types.Length, 12);
+        Assert.GreaterOrEqual(book.types.Length, 18);
         foreach (var t in book.types)
         {
             Assert.IsTrue(ColorUtility.TryParseHtmlString(t.hair, out _), t.name + " hair");
@@ -22,7 +22,7 @@ public class TenantBookTests
                 Assert.IsNotEmpty(lines, t.name + " is missing a line set");
             if (t.jumper) Assert.IsNotEmpty(t.jump, t.name + " jumps but has no jump line");
             CollectionAssert.Contains(Specials, t.special, t.name + " special");
-            CollectionAssert.Contains(new[] { "person", "cat", "dog" }, t.kind, t.name + " kind");
+            CollectionAssert.Contains(new[] { "person", "cat", "dog", "robot", "penguin" }, t.kind, t.name + " kind");
         }
     }
 

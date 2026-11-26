@@ -8,7 +8,10 @@ namespace DesktopTenants
     /// </summary>
     public class Coin : MonoBehaviour
     {
-        static Sprite sprite;
+        static Sprite sprite, boxSprite;
+
+        /// <summary>A parcel from the delivery-box event rather than a coin: opening it is an unboxing.</summary>
+        public bool IsBox { get; private set; }
         readonly Body b = new Body();
         SpriteRenderer sr;
         float size, t;
@@ -34,15 +37,17 @@ namespace DesktopTenants
         public Rect Bounds => new Rect(b.p.x - size, b.p.y - size * 2, size * 2, size * 2);
 
         /// <param name="vel">Launch velocity; default pops it up out of the tenant's hand.</param>
-        public void Init(Desk d, Vector2 at, int value, Vector2? vel = null)
+        public void Init(Desk d, Vector2 at, int value, Vector2? vel = null, bool box = false)
         {
             if (!sprite) sprite = Pixels.Make(Pixels.Coin, Pixels.CoinPalette, d.Tune.pixel);
+            if (!boxSprite) boxSprite = Props.Make(Props.Box, d.Tune.pixel, new Vector2(0.5f, 0));
+            IsBox = box;
             Value = value;
             size = 7 * d.Tune.pixel / 2;
             b.p = at;
             b.Drop(vel ?? new Vector2(Random.Range(-90f, 90f), -280));
             sr = gameObject.AddComponent<SpriteRenderer>();
-            sr.sprite = sprite;
+            sr.sprite = box ? boxSprite : sprite;
             sr.sortingOrder = 9;
         }
 

@@ -72,6 +72,28 @@ namespace DesktopTenants
             ["fall"] = new[] { "........cccc", ".......kcccE", ".......kccccx", "c.......cccc", ".cccccccccc.", "c.cccccccc.c", "c..........c", "............" },
         };
 
+        // Robot vacuum: a dome on wheels with one eye. c body, k accent light, E eye.
+        static readonly Dictionary<string, string[]> Robot = new Dictionary<string, string[]>
+        {
+            ["idle"] = new[] { "....kk.....", "...cccc....", ".ccccEccc..", "ccccccccccc", "cpppppppppc", ".oo.....oo." },
+            ["walkA"] = new[] { "....kk.....", "...cccc....", ".ccccEccc..", "ccccccccccc", "cpppppppppc", ".o.o...o.o." },
+            ["walkB"] = new[] { "...k.k.....", "...cccc....", ".ccccEccc..", "ccccccccccc", "cpppppppppc", "..oo...oo.." },
+            ["sleep"] = new[] { "...........", "...cccc....", ".cccc-ccc..", "ccccccccccc", "cpppppppppc", ".oo.....oo." },
+            ["fall"] = new[] { "..k...k....", "...cccc....", ".ccccEccc..", "ccccccccccc", "cpppppppppc", "o.o.....o.o" },
+        };
+
+        // Penguin, facing right. c black, w belly, k beak and feet, E eye.
+        static readonly Dictionary<string, string[]> Penguin = new Dictionary<string, string[]>
+        {
+            ["idle"] = new[] { "...ccc...", "..ccccc..", "..cccEc..", "..ccccckk", ".cccwwwc.", "ccwwwwwcc", "c.wwwwwc.", "..wwwww..", "..wwwww..", "...www...", "..kk.kk.." },
+            ["walkA"] = new[] { "...ccc...", "..ccccc..", "..cccEc..", "..ccccckk", ".cccwwwc.", "ccwwwwwcc", "c.wwwwwc.", "..wwwww..", "..wwwww..", "...www...", ".kk...kk." },
+            ["walkB"] = new[] { "...ccc...", "..ccccc..", "..cccEc..", "..ccccckk", ".cccwwwc.", "ccwwwwwcc", "c.wwwwwc.", "..wwwww..", "..wwwww..", "...www...", "...kkk..." },
+            ["sleep"] = new[] { "...ccc...", "..ccccc..", "..ccc-c..", "..ccccckk", ".cccwwwc.", "ccwwwwwcc", "c.wwwwwc.", "..wwwww..", "..wwwww..", "...www...", "..kk.kk.." },
+            ["fall"] = new[] { "...ccc...", "c.ccccc.c", "c.cccEc.c", ".cccccckk", "..ccwwwc.", "..wwwwwc.", "..wwwwww.", "..wwwww..", "..wwwww..", "...www...", ".kk...kk." },
+            // Belly slide.
+            ["slide"] = new[] { ".........ccc..", "......ccccEck.", "ccwwwwwwwccckk", "kcwwwwwwwwcc..", "..cccccccc...." },
+        };
+
         // Accessories painted over person poses (rows from the top of the head; '.' keeps what is there).
         // k = the type's accent colour, w = white, h = hair.
         static readonly Dictionary<string, string[]> Gear = new Dictionary<string, string[]>
@@ -86,7 +108,14 @@ namespace DesktopTenants
             ["backpack"] = new[] { "", "", "", "", "", "", "kk.........", "kk.........", "kk........." },
         };
 
-        static Dictionary<string, string[]> Of(string kind) => kind == "cat" ? Cat : kind == "dog" ? Dog : Person;
+        static Dictionary<string, string[]> Of(string kind) => kind switch
+        {
+            "cat" => Cat,
+            "dog" => Dog,
+            "robot" => Robot,
+            "penguin" => Penguin,
+            _ => Person,
+        };
 
         /// <summary>Pivot for the "sit" pose: two rows of legs dangle below the edge.</summary>
         public static readonly Vector2 SitPivot = new Vector2(0.5f, 2f / 12f);
