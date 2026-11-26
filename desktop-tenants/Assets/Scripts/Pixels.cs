@@ -56,11 +56,17 @@ namespace DesktopTenants
 
         public static readonly string[] Zzz = { "wwww", "..w.", ".w..", "wwww" };
 
-        /// <summary>A walk-up apartment with <paramref name="floors"/> floors: roof, brick walls, lit windows, a door.</summary>
+        /// <summary>Window columns across the apartment: it gets wider as it gets taller.</summary>
+        public static int HouseCols(int floors) => 3 + (floors - 1) / 3;
+
+        /// <summary>
+        /// A walk-up apartment with <paramref name="floors"/> floors and <see cref="HouseCols"/> window
+        /// columns: roof, brick walls, lit windows, a door in the middle of the ground floor.
+        /// </summary>
         public static string[] House(int floors)
         {
-            const int W = 26;
-            int H = 6 + floors * 7 + 3;
+            int cols = HouseCols(floors), W = 7 * cols + 5, H = 6 + floors * 7 + 3;
+            int door0 = W / 2 - 2;
             var rows = new string[H];
             for (int y = 0; y < H; y++)
             {
@@ -75,9 +81,9 @@ namespace DesktopTenants
                         c = 'b';
                         int f = (y - 6) / 7, k = (y - 6) % 7;
                         bool winRow = f < floors && k >= 2 && k <= 5;
-                        bool winCol = (x >= 4 && x <= 7) || (x >= 11 && x <= 14) || (x >= 18 && x <= 21);
+                        bool winCol = x >= 4 && (x - 4) % 7 <= 3 && (x - 4) / 7 < cols;
                         if (winRow && winCol) c = 'y';
-                        if (y >= H - 6 && x >= 11 && x <= 14) c = 'd';
+                        if (y >= H - 6 && x >= door0 && x <= door0 + 3) c = 'd';
                     }
                     r[x] = c;
                 }

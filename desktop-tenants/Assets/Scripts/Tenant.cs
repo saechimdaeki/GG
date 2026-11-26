@@ -12,7 +12,7 @@ namespace DesktopTenants
     /// </summary>
     public class Tenant : MonoBehaviour
     {
-        enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held }
+        enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held, Carried, Visit, Inside, Leave, Gather }
 
         /// <summary>What two tenants do once they've finished talking.</summary>
         public enum Outcome { None, Dance, HighFive, Argue }
@@ -35,6 +35,11 @@ namespace DesktopTenants
         Outcome outcome;
         string chatLine, quirk;
         float chatDelay, climbX;
+        float evacT, boostT, petCool, visitX, leaveX;
+        Building visiting;
+
+        /// <summary>A guest (celebrity) rather than a resident.</summary>
+        public bool Visitor { get; set; }
         float timer, anim, chatCool, holdT, talkCool, rentT, pokeT, lookCool, blinkT = 3, emoteT, happyT, squash, spin, beat, qt;
         Seg climbTo;
         Coin prey;
@@ -53,7 +58,7 @@ namespace DesktopTenants
         public bool Held => s == State.Held;
         public Bubble Bubble => bubble;
         /// <summary>Standing around (not talking, dancing, climbing or being carried): may be nudged aside.</summary>
-        public bool Free => b.Grounded && (s == State.Idle || s == State.Walk || s == State.Sleep || s == State.Sit || s == State.Quirk || s == State.Special);
+        public bool Free => b.Grounded && (s == State.Idle || s == State.Walk || s == State.Sleep || s == State.Sit || s == State.Quirk || s == State.Special || s == State.Gather);
 
         /// <summary>Shuffle sideways by <paramref name="dx"/> points, staying on the current edge.</summary>
         public void Nudge(float dx)
@@ -62,8 +67,196 @@ namespace DesktopTenants
             if (d.SegAt(b.on, moved, out var seg)) b.p.x = Mathf.Clamp(moved.x, seg.x0 + 3, seg.x1 - 3);
         }
 
+        public float Height => h;
+
+        /// <summary>Can be picked up by a helicopter or UFO right now.</summary>
+        public bool Carriable => b.Grounded && s != State.Held && s != State.Carried && s != State.Inside && s != State.Leave && evacT <= 0;
+
+        /// <summary>Hooked by a helicopter rope or caught in a UFO beam.</summary>
+        public void Carry(string line)
+        {
+            HideLadder();
+            s = State.Carried;
+            b.on = Body.None;
+            b.v = Vector2.zero;
+            asleepInAir = false;
+            Say(Type.IsCat ? "냐아아앙?!" : Type.IsDog ? "깨갱깨갱!" : line, 2f);
+            Emote("!", 1.2f);
+        }
+
+        /// <summary>Moved by the carrier each frame (feet position).</summary>
+        public void CarryTo(Vector2 feet) => b.p = feet;
+
+        /// <summary>Let go of by the carrier: drop with <paramref name="v"/>.</summary>
+        public void Release(Vector2 v, string line)
+        {
+            if (s != State.Carried) return;
+            s = State.Fall;
+            b.Drop(v);
+            if (!Type.IsAnimal) Say(line, 1.8f);
+        }
+
+        /// <summary>The cursor rested on them: enjoy it, sometimes leave a tip.</summary>
+        public void Pet()
+        {
+            if (petCool > 0 || s == State.Inside || s == State.Held || s == State.Carried) return;
+            petCool = 4;
+            happyT = 2.5f;
+            squash = -0.35f;
+            Emote("heart", 2f);
+            Say(Type.IsCat ? "골골골~" : Type.IsDog ? "헥헥 좋아요!" : TenantBook.Pick(d.Book.pet), 1.6f);
+            if (Random.value < d.Tune.tipChance) { d.SpawnCoinAt(b.p - new Vector2(0, h), Type.rent / 2); Say("이거 팁이에요!", 1.4f); }
+        }
+
+        /// <summary>A line and emote from outside (events): ignored while inside a shop.</summary>
+        public void React(string line, string emoteName, float seconds = 1.8f)
+        {
+            if (s == State.Inside) return;
+            if (line != null) Say(line, seconds);
+            if (emoteName != null) Emote(emoteName, seconds);
+        }
+
+        /// <summary>Earthquake: everyone standing gets bounced.</summary>
+        public void Quake()
+        {
+            if (!b.Grounded || s == State.Inside) return;
+            HideLadder();
+            s = State.Fall;
+            b.Drop(new Vector2(Random.Range(-120f, 120f), Random.Range(-320f, -180f)));
+            tumbling = Random.value < 0.5f;
+            Say(Type.IsCat ? "냐아앙!" : Type.IsDog ? "깨갱!" : Random.value < 0.5f ? "지진이다!" : "으아아 흔들려!", 1.4f);
+            Emote("!", 1f);
+        }
+
+        /// <summary>A guest's visit is over: walk to <paramref name="x"/> on the floor and go.</summary>
+        public void LeaveTo(float x)
+        {
+            leaveX = x;
+            if (s == State.Inside) ComeOut();
+            if (b.Grounded) Enter(State.Leave, 30);
+            else leavePending = true;
+        }
+
+        bool leavePending;
+
+        // ---------------------------------------------------------------- events from the sky and the town
+
+        /// <summary>Hit by lightning: dazed and smoking.</summary>
+        public void Struck(string line)
+        {
+            if (!b.Grounded || s == State.Inside) return;
+            HideLadder();
+            Enter(State.Dizzy, 2.4f);
+            squash = 0.9f;
+            Emote("star", 2.4f);
+            Say(Type.IsCat ? "냐갸갹!" : Type.IsDog ? "깨개갱!" : line, 1.8f);
+        }
+
+        /// <summary>A gust lifts them off whatever they stood on.</summary>
+        public void BlownAway(float wind)
+        {
+            if (!b.Grounded || s == State.Inside || s == State.Gather) return;
+            HideLadder();
+            s = State.Fall;
+            b.Drop(new Vector2(wind * 0.9f, -180));
+            tumbling = true;
+            Say(Type.IsCat ? "냐아아~" : Type.IsDog ? "멍멍멍!" : "으아아 바람!", 1.4f);
+            Emote("!", 1f);
+        }
+
+        float gatherX, gatherSpeed;
+        bool gatherDance, gatherArrived;
+        string gatherLine, gatherEndLine, gatherEmote;
+
+        /// <summary>Reached the spot of the current gathering.</summary>
+        public bool Arrived => s == State.Gather && gatherArrived;
+
+        /// <summary>
+        /// Go to <paramref name="x"/> on the floor for an event (ice cream van, meeting, race, busking),
+        /// say <paramref name="line"/> on arrival, stay until <paramref name="seconds"/> are up, then say <paramref name="endLine"/>.
+        /// </summary>
+        public void Gather(float x, float seconds, string line, string emoteName, float speedMul = 1.3f, bool dance = false, string endLine = null, float spread = 40)
+        {
+            if (s == State.Held || s == State.Carried || s == State.Inside || Visitor) return;
+            HideLadder();
+            if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
+            gatherX = x + Random.Range(-spread, spread);
+            gatherSpeed = speedMul;
+            gatherDance = dance;
+            gatherArrived = false;
+            gatherLine = Type.IsAnimal ? null : line;
+            gatherEndLine = Type.IsAnimal ? null : endLine;
+            gatherEmote = emoteName;
+            if (b.Grounded) Enter(State.Gather, seconds);
+            else { gatherPending = seconds; }
+        }
+
+        float gatherPending;
+
+        void GatherTick(float dt, Seg seg)
+        {
+            if (seg.win != Surfaces.Floor)
+            {
+                // Hop down to street level first.
+                dir = gatherX > b.p.x ? 1 : -1;
+                s = State.Fall;
+                b.Drop(new Vector2(dir * 120, -220));
+                gatherPending = timer;
+                return;
+            }
+            if (!gatherArrived)
+            {
+                float dx = gatherX - b.p.x;
+                dir = dx > 0 ? 1 : -1;
+                b.p.x += dir * Mathf.Min(Mathf.Abs(dx), Mathf.Max(Type.walkSpeed, 30) * gatherSpeed * dt);
+                if (Mathf.Abs(dx) < 3)
+                {
+                    gatherArrived = true;
+                    if (gatherLine != null) Say(gatherLine, 2f);
+                    if (gatherEmote != null) Emote(gatherEmote, Mathf.Min(timer, 4f));
+                }
+            }
+            else if (gatherDance && beat > 0.3f) { beat = 0; dir = -dir; squash = -0.35f; }
+            if (timer <= 0)
+            {
+                if (gatherEndLine != null) Say(gatherEndLine, 1.8f);
+                Enter(State.Idle, 1.5f);
+            }
+        }
+
+        /// <summary>Fire drill: everyone heads down to the front door for <paramref name="seconds"/>.</summary>
+        public void Evacuate(float seconds)
+        {
+            if (s == State.Carried || s == State.Held) return;
+            HideLadder();
+            if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
+            evacT = seconds;
+            Say(Type.IsCat ? "냥?!" : Type.IsDog ? "멍멍멍!" : "대피! 대피!", 1.6f);
+            Emote("sweat", 2f);
+        }
+
+        /// <summary>Fireworks: look up and cheer.</summary>
+        public void Cheer()
+        {
+            if (!b.Grounded || s == State.Sleep) return;
+            happyT = 3f;
+            Emote("heart", 2f);
+            if (Random.value < 0.5f) Say(Type.IsAnimal ? TenantBook.Pick(Type.idle) : "와아~!", 1.6f);
+        }
+
+        /// <summary>The moving truck is coming through: jump out of the way.</summary>
+        public void DodgeTruck(int dir)
+        {
+            if (!b.Grounded || b.on != Surfaces.Floor || s == State.Held || s == State.Carried) return;
+            s = State.Fall;
+            b.Drop(new Vector2(dir * 140, -420));
+            squash = -0.6f;
+            Say(Type.IsCat ? "캬악!" : Type.IsDog ? "왈왈!" : "으악 트럭!", 1.2f);
+            Emote("!", 1f);
+        }
+
         public bool CanChat => (s == State.Walk || s == State.Idle) && b.Grounded && chatCool <= 0;
-        public Rect Bounds => new Rect(b.p.x - w / 2 - 4, b.p.y - h - 4, w + 8, h + 8);
+        public Rect Bounds => s == State.Inside ? Rect.zero : new Rect(b.p.x - w / 2 - 4, b.p.y - h - 4, w + 8, h + 8);
 
         public void Init(Desk desk, TenantType type, Vector2 at)
         {
@@ -237,6 +430,9 @@ namespace DesktopTenants
             chatCool -= dt;
             talkCool -= dt;
             pokeT -= dt;
+            evacT -= dt;
+            boostT -= dt;
+            petCool -= dt;
             lookCool -= dt;
             emoteT -= dt;
             happyT -= dt;
@@ -248,6 +444,7 @@ namespace DesktopTenants
                 case State.Held: Hold(dt); break;
                 case State.Fall: Falling(dt); break;
                 case State.Climb: Climbing(dt); break;
+                case State.Carried: break;
                 default: Grounded(dt); break;
             }
             Render(dt);
@@ -265,6 +462,13 @@ namespace DesktopTenants
             s = State.Fall;
             squash = -0.6f;
             if (poke) Poked();
+            else if (d.Town.DoorNear(b.p, 26) is Building door && b.v.magnitude < 600)
+            {
+                // Dropped at a shop door: in they go.
+                b.p = new Vector2(door.DoorX, d.FloorY);
+                b.Stand(d, d.FloorSeg);
+                GoInside(door);
+            }
             else
             {
                 b.Drop(Vector2.ClampMagnitude(b.v, T.throwMax));
@@ -362,6 +566,10 @@ namespace DesktopTenants
                 squash = -0.4f;
             }
 
+            if (leavePending) { leavePending = false; Enter(State.Leave, 30); }
+            if (gatherPending > 0) { float left = gatherPending; gatherPending = 0; Enter(State.Gather, left); }
+            if (evacT > 0 && s != State.Inside) { Evac(dt, seg); return; }
+
             timer -= dt;
             beat += dt;
             qt += dt;
@@ -388,6 +596,9 @@ namespace DesktopTenants
                     if (timer > 0) break;
                     float sleepChance = d.Night ? Mathf.Max(Type.sleepChance, 0.6f) : Type.sleepChance;
                     if (d.Raining) sleepChance = 0;
+                    var shop = seg.win == Surfaces.Floor && !Visitor ? d.Town.PickVisit(Type) : null;
+                    if (shop != null && d.Raining && shop.Def.HasDoor) { StartVisit(shop, Type.IsAnimal ? null : "비 피하자!"); break; }
+                    if (shop != null && Random.value < T.visitChance) { StartVisit(shop); break; }
                     float roll = Random.value;
                     if (roll < sleepChance) Enter(State.Sleep, Random.Range(T.sleepMin, T.sleepMax));
                     else if ((roll -= sleepChance) < T.specialChance) StartSpecial();
@@ -398,7 +609,94 @@ namespace DesktopTenants
                     if (timer <= 0 || d.Raining) Enter(State.Idle, Random.Range(T.idleMin, T.idleMax));
                     break;
                 case State.Walk: WalkTick(dt, seg); break;
+                case State.Visit: VisitTick(dt, seg); break;
+                case State.Inside:
+                    if (timer <= 0 || evacT > 0) { ComeOut(); Enter(State.Idle, 1.2f); }
+                    break;
+                case State.Leave: LeaveTick(dt, seg); break;
+                case State.Gather: GatherTick(dt, seg); break;
             }
+        }
+
+        // ---------------------------------------------------------------- town: shops and the park
+
+        /// <summary>Head for a shop door (or a spot in the park).</summary>
+        void StartVisit(Building place, string line = null)
+        {
+            visiting = place;
+            visitX = place.Def.HasDoor ? place.DoorX : place.X + Random.Range(-place.W * 0.3f, place.W * 0.3f);
+            Enter(State.Visit, Mathf.Abs(visitX - b.p.x) / (Type.walkSpeed * 1.2f) + 4f);
+            dir = visitX > b.p.x ? 1 : -1;
+            if (line != null) Say(line, 1.5f);
+        }
+
+        void VisitTick(float dt, Seg seg)
+        {
+            if (seg.win != Surfaces.Floor || visiting == null) { Enter(State.Idle, 1f); return; }
+            float dx = visitX - b.p.x;
+            dir = dx > 0 ? 1 : -1;
+            b.p.x += dir * Mathf.Min(Mathf.Abs(dx), Type.walkSpeed * 1.2f * dt);
+            if (Mathf.Abs(dx) > 2) { if (timer <= 0) Enter(State.Idle, 1f); return; }
+            if (visiting.Def.HasDoor) GoInside(visiting);
+            else
+            {
+                // The park: a picnic on the spot.
+                StartQuirk("picnic");
+                Say(TenantBook.Pick(visiting.Def.visit), 1.8f);
+            }
+        }
+
+        /// <summary>Disappears through <paramref name="place"/>'s door for a few seconds.</summary>
+        void GoInside(Building place)
+        {
+            visiting = place;
+            b.p.x = place.DoorX;
+            Enter(State.Inside, Random.Range(4f, 8f));
+            bubble.Hide();
+        }
+
+        /// <summary>Steps back out of the shop with whatever they went in for.</summary>
+        void ComeOut()
+        {
+            var place = visiting;
+            visiting = null;
+            if (place == null) return;
+            squash = -0.4f;
+            happyT = 1.5f;
+            Say(Type.IsAnimal ? TenantBook.Pick(Type.idle) : TenantBook.Pick(place.Def.visit), 1.8f);
+            switch (place.Def.id)
+            {
+                case "cafe": boostT = T.coffeeBoost; Emote("flash", 0.8f); break;
+                case "gym": Emote("sweat", 1.8f); break;
+                case "karaoke": Emote("note", 2.5f); break;
+                default: Emote("heart", 1.5f); break;
+            }
+            if (place.Def.income > 0) d.SpawnCoinAt(new Vector2(place.DoorX, d.FloorY - 20), place.Def.income * place.Level / 2);
+        }
+
+        void LeaveTick(float dt, Seg seg)
+        {
+            if (seg.win != Surfaces.Floor) { s = State.Fall; b.Drop(new Vector2(dir * 100, -200)); leavePending = true; return; }
+            float dx = leaveX - b.p.x;
+            dir = dx > 0 ? 1 : -1;
+            b.p.x += dir * Mathf.Min(Mathf.Abs(dx), Type.walkSpeed * 1.5f * dt);
+            if (Mathf.Abs(dx) < 4 || timer <= 0) d.Remove(this);
+        }
+
+        /// <summary>Fire drill: off any ledge, then run to the door and wait there, sweating.</summary>
+        void Evac(float dt, Seg seg)
+        {
+            float dx = d.Door.x - b.p.x;
+            dir = dx > 0 ? 1 : -1;
+            if (seg.win != Surfaces.Floor)
+            {
+                s = State.Fall;
+                b.Drop(new Vector2(dir * 120, -220));
+                return;
+            }
+            s = Mathf.Abs(dx) > 50 ? State.Flee : State.Idle;
+            if (s == State.Flee) b.p.x += dir * Mathf.Max(Type.walkSpeed, 40) * 2.2f * dt;
+            if (evacT <= dt) { Enter(State.Idle, 1f); Say(Type.IsAnimal ? null : "휴~ 훈련이었구나", 1.6f); }
         }
 
         void WalkTick(float dt, Seg seg)
@@ -407,7 +705,7 @@ namespace DesktopTenants
             if (Type.IsCat) HuntCoins(seg);
             if (Type.IsDog) ChaseCats();
             if (!Type.IsAnimal && Random.value < T.tripChance * dt) { StartQuirk("trip"); return; }
-            float speed = d.Raining && !Type.IsDog ? 1.7f : 1f;
+            float speed = (d.Raining && !Type.IsDog ? 1.7f : 1f) * (boostT > 0 ? 1.6f : 1f);
             if (!Walk(dt, seg, speed)) return;
             if (timer <= 0) { Enter(State.Idle, Random.Range(T.idleMin, T.idleMax)); Chatter(); }
         }
@@ -599,6 +897,7 @@ namespace DesktopTenants
                 case "wagfast": timer = 2f; happyT = 2f; Emote("heart", 1.5f); break;
                 case "catstretch": timer = 2f; Say("냐아아~", 1.2f); break;
                 case "groomfast": timer = 2f; break;
+                case "picnic": timer = Random.Range(4f, 7f); happyT = timer; Emote("heart", 2f); break;
             }
         }
 
@@ -738,9 +1037,13 @@ namespace DesktopTenants
             {
                 case State.Walk:
                 case State.Approach:
+                case State.Visit:
+                case State.Leave:
                 case State.Flee: return step == 0 ? "walkA" : "walkB";
+                case State.Gather: return !gatherArrived ? (step == 0 ? "walkA" : "walkB") : gatherDance && !animal ? "wave" : "idle";
                 case State.Climb: return (int)(b.p.y / 10) % 2 == 0 ? "climbA" : "climbB";
                 case State.Held: return (int)(anim * 8) % 2 == 0 || animal ? "fall" : "wave";
+                case State.Carried: return "fall";
                 case State.Fall: return asleepInAir ? (animal ? "sleep" : "idle") : "fall";
                 case State.Sleep: return animal ? "sleep" : "idle";
                 case State.Dance: return animal ? (step == 0 ? "walkA" : "idle") : "wave";
@@ -787,11 +1090,13 @@ namespace DesktopTenants
                 case State.Sleep: return Face.Sleep;
                 case State.Fall:
                 case State.Held:
+                case State.Carried:
                 case State.Flee:
                 case State.Dizzy: return Face.Shock;
                 case State.Chat when outcome == Outcome.Argue: return Face.Shock;
                 case State.Chat:
                 case State.Dance: return Face.Happy;
+                case State.Gather when gatherDance: return Face.Happy;
                 case State.Special when Type.special == "yawn": return Face.Yawn;
                 case State.Special when Type.special == "sing" || Type.special == "dj" || Type.special == "cook": return Face.Happy;
                 case State.Quirk when quirk == "stretch": return Face.Yawn;
@@ -805,6 +1110,9 @@ namespace DesktopTenants
         void Render(float dt)
         {
             transform.position = Desk.W(b.p);
+            bool shown = s != State.Inside;
+            body.enabled = shown;
+            if (!shown) { emote.enabled = zzz.enabled = false; return; }
             anim += dt;
             body.sprite = Frame(PoseNow(), FaceNow());
             if (Mathf.Abs(b.v.x) > 1 && s == State.Fall) dir = b.v.x > 0 ? 1 : -1;
@@ -819,6 +1127,7 @@ namespace DesktopTenants
             else spin = s switch
             {
                 State.Held => Mathf.Sin(anim * 25) * 12,
+                State.Carried => Mathf.Sin(anim * 3) * 14,
                 State.Dizzy => Mathf.Sin(anim * 9) * 10,
                 State.Sleep when !Type.IsAnimal => Mathf.Sin(anim * 1.5f) * 4 - 4,
                 State.Dance => Mathf.Sin(anim * 11) * 8,

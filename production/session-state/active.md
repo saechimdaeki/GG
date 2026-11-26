@@ -34,11 +34,11 @@ Task:
 
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-26
-**Branch:** `codex/desktop-tenants-v0.1.0`
-**Current task:** 데스크톱 세입자 첫 미리보기. Unity 프로젝트, 앱 창 이동·사다리, 월세·증축, GIF 2개, macOS Apple Silicon ZIP과 SHA-256을 준비.
-**Next step:** PR 리뷰와 다른 Mac에서 다운로드 후 첫 실행 및 일반·최대화 앱 창 이동 플레이테스트.
+**Branch:** `codex/desktop-tenants-events`
+**Current task:** 데스크톱 세입자 PR #41에 최신 10층 아파트, 상점가, 옥상 상태판, 날씨 및 주민 이벤트 반영. 게임 오버레이에서 캡처한 GIF 26개로 갤러리 갱신.
+**Next step:** 일반 플레이에서 이벤트 간격과 상점가 성장 속도 확인. 다른 Mac에서 첫 실행과 창 이동 검증.
 **Blocked on:** 없음.
-**Run result:** EditMode 17/17 통과. macOS arm64 빌드 및 오버레이 실행 확인. ZIP 무결성과 로컬 서명 검증.
+**Run result:** Unity EditMode 21/21 통과. macOS 빌드 성공.
 <!-- /CHECKPOINT -->
 
 ---

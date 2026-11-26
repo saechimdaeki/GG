@@ -10,10 +10,12 @@ namespace DesktopTenants
         public int fps = 30;
         public float pixel = 3f;          // points per art pixel
         public float spawnEvery = 2.5f;
-        public int startFloors = 3, maxFloors = 6, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
+        public int startFloors = 3, maxFloors = 10, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
         public int upgradeBase = 10000;   // cost of the next floor = upgradeBase * floors²
         public float rentMin = 25f, rentMax = 45f;  // seconds between a tenant's rent coins
         public int maxCoins = 40;
+        public float collectRadius = 34f;     // mouse this close to a coin picks it up
+        public float autoCollect = 45f;       // coins left this long collect themselves
         public float lineChance = 0.35f;  // chance of idle chatter when a tenant changes activity
         public float chatCooldown = 20f;
         public float jumpChance = 0.25f;  // per second while walking, for jumper types
@@ -36,7 +38,17 @@ namespace DesktopTenants
         public int roofCapacity = 2;
         public float roofJumpOff = 0.6f;      // chance to hop down on reaching the roof's edge
         public float personalSpace = 22f;     // tenants on one edge keep at least this far apart
-        public float rainMin = 180f, rainMax = 420f, rainDuration = 22f;
+        public float eventMin = 60f, eventMax = 120f; // seconds between random events
+        public float drillDuration = 12f;
+        public int antennaFloors = 4, helipadFloors = 5, neonFloors = 7, tickerFloors = 9;
+        public float petDelay = 1f;
+        public float tipChance = 0.25f;
+        public float interestRate = 0.004f;   // bank interest per payout, per level, on current money       // a petted tenant leaves a small tip           // cursor resting on a tenant this long pets them
+        public float visitChance = 0.25f;     // idle on the floor → go into a shop / the park
+        public float coffeeBoost = 30f;       // seconds of faster walking after the cafe
+        public int bonusCoin = 2000;          // value of a coin from the bonus shower
+        public float hotCpu = 85f;            // CPU % that makes tenants sweat (sustained ~6s)
+        public float fullMemory = 0.9f;       // memory use share that makes tenants complain
         public float gravity = 1800f;
         public float walkSpeed = 28f;
         public float holdSpeed = 500f;    // window moving faster than this (pt/s) throws tenants off
