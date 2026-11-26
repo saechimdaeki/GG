@@ -1175,6 +1175,7 @@ namespace DesktopTenants
             Enter(State.Special, Random.Range(3f, 6f));
             switch (Type.special)
             {
+                case "photo": Say(TenantBook.Pick(Type.act), 1.8f); break;
                 case "selfie": Say("찰칵!", 1.2f); Emote("flash", 0.3f); break;
                 case "sing": Emote("note", timer); Say(TenantBook.Pick(Type.act)); break;
                 case "pushup": break;
@@ -1184,6 +1185,7 @@ namespace DesktopTenants
                     Say(TenantBook.Pick(Type.act), 2f);
                     d.Party(this, 260, timer);
                     break;
+                case "bake":
                 case "cook": Emote("steam", timer); Say(TenantBook.Pick(Type.act), 1.8f); break;
                 case "game": Say(TenantBook.Pick(Type.act), 1.8f); break;
                 case "vacuum": timer = 6f; Say(TenantBook.Pick(Type.act), 1.4f); break;
@@ -1277,6 +1279,18 @@ namespace DesktopTenants
             switch (Type.special)
             {
                 case "pushup" when reps > 1: Say("후... 개운하다", 1.5f); Emote("sweat", 1.5f); break;
+                case "photo":
+                    Say("찰칵! 이웃들과 한 컷", 1.8f);
+                    Emote("flash", 0.35f);
+                    foreach (var neighbor in d.Tenants)
+                        if (neighbor != this && neighbor.On == On && neighbor.Carriable &&
+                            Mathf.Abs(neighbor.P.x - P.x) < 140)
+                            neighbor.React(neighbor.Type.IsAnimal ? null : "김치!", "heart");
+                    break;
+                case "bake":
+                    Say("갓 구운 소금빵 나눠 드려요!", 1.8f);
+                    d.Feed(this, 220);
+                    break;
                 case "cook": Say("다 됐어요~ 드세요!", 1.8f); d.Feed(this, 220); break;
                 case "paint": d.PlacePainting(b.p + new Vector2(dir * 18, 0), b.on); Say("완성! 걸작이다", 1.6f); happyT = 1.5f; break;
                 case "cry": Say("까르르", 1.2f); break;
@@ -1383,8 +1397,10 @@ namespace DesktopTenants
                         case "groom": return (int)(anim * 3) % 2 == 0 ? "groom" : "idle";
                         case "phone":
                         case "game":
+                        case "photo":
                         case "selfie": return "phone";
                         case "wag": return (int)(anim * 8) % 2 == 0 ? "wag" : "idle";
+                        case "bake":
                         case "cook": return (int)(anim * 5) % 2 == 0 ? "wave" : "idle";
                         case "dj": return (int)(anim * 3) % 2 == 0 ? "wave" : "idle";
                         case "deliver":

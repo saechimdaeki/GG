@@ -17,7 +17,7 @@ namespace DesktopTenants
         public float scale = 1;
         /// <summary>When set, this tenant sometimes gives a snack to someone nearby, saying this.</summary>
         public string treat;
-        /// <summary>Signature action: phone, yawn, pushup, groom, selfie, sing, wag, dj, cook, game, deliver, teleport, vacuum, slide, cry, patrol, magic or paint.</summary>
+        /// <summary>Signature action: phone, yawn, pushup, groom, selfie, sing, wag, dj, cook, game, deliver, teleport, vacuum, slide, cry, patrol, magic, paint, bake or photo.</summary>
         public string special;
         public string[] idle, fling, bonk, land, poke, greet, held, pay, jump, act;
         public bool IsCat => kind == "cat";

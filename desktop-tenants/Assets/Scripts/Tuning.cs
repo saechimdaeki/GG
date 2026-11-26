@@ -15,6 +15,7 @@ namespace DesktopTenants
         public float upgradeGrowth = 2.3f;    // each further floor costs this many times the last
         public float shopUpgradeGrowth = 2.5f; // shop level n→n+1 costs lot price × growth^n
         public int birthdayGift = 1000, marathonPrize = 3000;
+        public int neighborhoodReward = 2400;
         public int interestCap = 10000;
         public float rentMin = 40f, rentMax = 70f;  // seconds between a tenant's rent coins
         public int maxCoins = 40;

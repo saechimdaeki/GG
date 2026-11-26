@@ -15,6 +15,7 @@ namespace DesktopTenants
             "birds", "icecream", "plane", "meteor", "marathon", "busking", "confession", "meeting",
             "storm", "snow", "windy", "rainbow",
             "ghost", "boxes", "strays", "movie", "bbq", "snowball", "bungeo",
+            "flea", "photo", "lantern",
             "boxes", "strays", "bbq", "movie",
             "heli", "ufo", "birds", "icecream", "plane", "busking", "confession",
         };
@@ -31,6 +32,7 @@ namespace DesktopTenants
         readonly Ghost ghost;
         readonly Snowballs snowballs;
         readonly Van foodVan;
+        readonly NeighborhoodEvent neighborhood;
         float boxT;
         readonly List<(float at, System.Action act)> script = new List<(float, System.Action)>();
         float clock;
@@ -57,6 +59,7 @@ namespace DesktopTenants
             ghost = new Ghost(desk);
             snowballs = new Snowballs(desk);
             foodVan = new Van(desk, Props.FoodTruck);
+            neighborhood = new NeighborhoodEvent(desk);
             nextT = forced != null ? 6 : Random.Range(desk.Tune.eventMin, desk.Tune.eventMax);
             pending = forced;
         }
@@ -78,6 +81,7 @@ namespace DesktopTenants
             ghost.Tick(dt);
             snowballs.Tick(dt);
             foodVan.Tick(dt);
+            neighborhood.Tick(dt);
             if (boxT > 0 && (boxT -= dt) % 0.6f < dt) d.DropBox(Random.Range(60f, d.ScreenW - 60f));
             RunScript(dt);
             RaceTick();
@@ -113,6 +117,9 @@ namespace DesktopTenants
             Debug.Log("[event] " + name);
             switch (name)
             {
+                case "flea": return neighborhood.Start(NeighborhoodEvent.Kind.FleaMarket);
+                case "photo": return neighborhood.Start(NeighborhoodEvent.Kind.PhotoBooth);
+                case "lantern": return neighborhood.Start(NeighborhoodEvent.Kind.LanternStand);
                 case "heli": return heli.Start();
                 case "ufo": return ufo.Start();
                 case "coins": showerT = 6f; showerDrop = 0; Bubble.Popup("보너스 데이! 동전을 주워요!", Desk.W(new Vector2(d.ScreenW / 2, d.TopY + 70))); break;
