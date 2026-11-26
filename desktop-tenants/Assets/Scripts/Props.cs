@@ -17,6 +17,24 @@ namespace DesktopTenants
             { '4', new Color32(0x60, 0xd0, 0x60, 255) }, { '5', new Color32(0x50, 0x90, 0xf0, 255) }, { '6', new Color32(0xa0, 0x60, 0xe0, 255) },
         };
 
+        public static readonly string[] FleaMarket =
+        {
+            "....yyyyy....", "...ybybyby...", "..ybybybyby..", ".kkkkkkkkkkk.", "..c.......c..",
+            "..c.gg.ww.c..", "..c.gg.PP.c..", ".ccccccccccc.", "..cOOOOOOOc..", "..k.......k..",
+        };
+
+        public static readonly string[] PhotoBooth =
+        {
+            "...kkkkkkk...", "..kgggggggk..", "..kggwwwggk..", "..kggwwwggk..", "..kgggggggk..",
+            "..ksssssssk..", "..kssyysssk..", "..ksssssssk..", "..kkkkkkkkk..", "....k...k....",
+        };
+
+        public static readonly string[] LanternStand =
+        {
+            ".....kkk.....", "....kOOOk....", "...kOyyyOk...", "...kOyyyOk...", "....kOOOk....",
+            ".....kkk.....", "......c......", "......c......", "...ccccccc...", "...kkkkkkk...",
+        };
+
         // Helicopter, facing left; two rotor frames. Pivot: centre.
         static readonly string[] HeliBody =
         {

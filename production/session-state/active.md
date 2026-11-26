@@ -33,11 +33,11 @@ Task:
 <!-- /STATUS -->
 
 <!-- CHECKPOINT -->
-**Updated:** 2026-11-26
-**Branch:** `codex/desktop-tenants-chat-outcomes`
-**Current task:** 주민 만남 행동 5종 추가 및 춤 빈도 조정을 후속 PR로 정리.
-**Next step:** macOS 일반 플레이에서 만남 행동 전환과 발생 빈도, 후반 성장 속도를 확인.
-**Run result:** Unity EditMode 26/26 통과.
+**Updated:** 2026-11-27
+**Branch:** `codex/desktop-tenants-neighborhood`
+**Current task:** 커서로 참여하는 동네 행사 3종, 그림 감상, 제빵사와 사진사 행동 추가.
+**Next step:** 일반 플레이에서 행사 위치와 안내, 주민 반응 빈도를 확인.
+**Run result:** Unity EditMode 27/27 통과. macOS Apple Silicon 빌드 성공 및 새 행사 3종의 실제 커서 참여 확인.
 <!-- /CHECKPOINT -->
 
 ---

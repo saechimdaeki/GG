@@ -448,7 +448,8 @@ namespace DesktopTenants
         (Tenant who, Tenant baby) comforter;
 
         readonly List<(SpriteRenderer r, float until, Vector2 p)> paintings = new List<(SpriteRenderer, float, Vector2)>();
-        float admireT;
+        float admireT, paintingHoverT;
+        SpriteRenderer hoveredPainting;
 
         /// <summary>The painter leaves a finished picture on an easel at <paramref name="at"/> for a while.</summary>
         public void PlacePainting(Vector2 at, int on)
@@ -464,6 +465,7 @@ namespace DesktopTenants
         {
             for (int i = paintings.Count - 1; i >= 0; i--)
                 if (Time.time > paintings[i].until) { Destroy(paintings[i].r.gameObject); paintings.RemoveAt(i); }
+            InspectPainting(dt);
             if ((admireT -= dt) > 0 || paintings.Count == 0) return;
             admireT = 3;
             foreach (var (_, _, p) in paintings)
@@ -472,6 +474,34 @@ namespace DesktopTenants
                         t.React(TenantBook.Pick(Book.admire), "heart");
             // The crying baby's comforter arrived.
             if (comforter.who && comforter.baby && comforter.who.Arrived) { comforter.baby.Soothe(); comforter = default; }
+        }
+
+        void InspectPainting(float dt)
+        {
+            SpriteRenderer target = null;
+            Vector3 cursor = W(Mouse);
+            for (int i = paintings.Count - 1; i >= 0; i--)
+            {
+                var sprite = paintings[i].r;
+                var bounds = sprite.bounds;
+                if (cursor.x < bounds.min.x || cursor.x > bounds.max.x ||
+                    cursor.y < bounds.min.y || cursor.y > bounds.max.y) continue;
+                target = sprite;
+                break;
+            }
+
+            if (target != hoveredPainting)
+            {
+                hoveredPainting = target;
+                paintingHoverT = 0;
+            }
+            if (!target || MouseDown || paintingHoverT >= Tune.petDelay) return;
+            paintingHoverT += dt;
+            if (paintingHoverT < Tune.petDelay) return;
+            Bubble.Popup("오늘의 작품 잘 보고 가요!", target.bounds.center + Vector3.up * 35);
+            foreach (var tenant in tenants)
+                if (!tenant.Type.IsAnimal && tenant.Carriable && Vector2.Distance(tenant.P, Mouse) < 110)
+                    tenant.React(TenantBook.Pick(Book.admire), "star");
         }
 
         Vector2 lastMouse;

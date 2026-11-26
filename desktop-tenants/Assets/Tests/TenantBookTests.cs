@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class TenantBookTests
 {
-    static readonly string[] Specials = { "phone", "yawn", "pushup", "groom", "selfie", "sing", "wag", "dj", "cook", "game", "deliver", "teleport", "vacuum", "slide", "cry", "patrol", "magic", "paint" };
+    static readonly string[] Specials = { "phone", "yawn", "pushup", "groom", "selfie", "sing", "wag", "dj", "cook", "game", "deliver", "teleport", "vacuum", "slide", "cry", "patrol", "magic", "paint", "bake", "photo" };
 
     [Test]
     public void EveryType_HasLookRentAndCoreLines()
@@ -23,6 +23,20 @@ public class TenantBookTests
             if (t.jumper) Assert.IsNotEmpty(t.jump, t.name + " jumps but has no jump line");
             CollectionAssert.Contains(Specials, t.special, t.name + " special");
             CollectionAssert.Contains(new[] { "person", "cat", "dog", "robot", "penguin" }, t.kind, t.name + " kind");
+        }
+    }
+
+    [Test]
+    public void NewResidents_UnlockWithinTheApartmentFloorLimit()
+    {
+        var book = TenantBook.Load();
+        var tuning = Tuning.Load();
+        int maxTypes = tuning.startTypes + tuning.typesPerFloor * (tuning.maxFloors - tuning.startFloors);
+
+        foreach (string action in new[] { "bake", "photo" })
+        {
+            int index = Array.FindIndex(book.types, type => type.special == action);
+            Assert.That(index, Is.InRange(0, maxTypes - 1), action);
         }
     }
 
