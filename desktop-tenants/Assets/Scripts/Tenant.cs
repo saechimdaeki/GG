@@ -232,7 +232,8 @@ namespace DesktopTenants
         /// </summary>
         public void Gather(float x, float seconds, string line, string emoteName, float speedMul = 1.3f, bool dance = false, string endLine = null, float spread = 40)
         {
-            if (s == State.Held || s == State.Carried || s == State.Inside || Visitor) return;
+            if (s == State.Held || s == State.Carried || s == State.Inside || s == State.Travel ||
+                touring || arrivalFloor != Body.None || Visitor || d.DisplayAt(P) != 0) return;
             HideLadder();
             if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
             gatherX = x + Random.Range(-spread, spread);
@@ -250,6 +251,7 @@ namespace DesktopTenants
 
         void GatherTick(float dt, Seg seg)
         {
+            if (d.DisplayAt(P) != 0) { Enter(State.Idle, 0.8f); return; }
             if (seg.win != Surfaces.Floor)
             {
                 // Hop down to street level first.
@@ -282,7 +284,7 @@ namespace DesktopTenants
         /// <summary>Fire drill: everyone heads down to the front door for <paramref name="seconds"/>.</summary>
         public void Evacuate(float seconds)
         {
-            if (s == State.Carried || s == State.Held) return;
+            if (s == State.Carried || s == State.Held || s == State.Travel || arrivalFloor != Body.None) return;
             HideLadder();
             if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
             evacT = seconds;
@@ -310,7 +312,7 @@ namespace DesktopTenants
             Emote("!", 1f);
         }
 
-        public bool CanChat => !touring && (s == State.Walk || s == State.Idle) && b.Grounded && chatCool <= 0;
+        public bool CanChat => !touring && arrivalFloor == Body.None && (s == State.Walk || s == State.Idle) && b.Grounded && chatCool <= 0;
         public Rect Bounds => s == State.Inside ? Rect.zero : new Rect(b.p.x - w / 2 - 4, b.p.y - h - 4, w + 8, h + 8);
 
         public void Init(Desk desk, TenantType type, Vector2 at)
@@ -424,6 +426,7 @@ namespace DesktopTenants
             s = State.Held;
             grab = b.p - mouse;
             holdStart = mouse;
+            arrivalFloor = Body.None;
             dragDisplay = d.DisplayAt(mouse, 0);
             holdT = 0;
             b.v = Vector2.zero;
@@ -596,6 +599,21 @@ namespace DesktopTenants
                     tumbling = false;
                     if (asleepInAir) { Enter(State.Sleep, Random.Range(T.sleepMin, T.sleepMax)); asleepInAir = false; break; }
                     if (fleeOnLand) { fleeOnLand = false; Flee(d.Mouse); break; }
+                    if (arrivalFloor != Body.None)
+                    {
+                        if (b.on == arrivalFloor)
+                        {
+                            Enter(State.Walk, 0);
+                            break;
+                        }
+                        if (d.TryDisplayByFloor(arrivalFloor, out var street) && street.Bounds.Contains(P))
+                        {
+                            b.Drop(Vector2.zero);
+                            b.p.y += 2;
+                            break;
+                        }
+                        arrivalFloor = Body.None;
+                    }
                     if (impact > T.dizzySpeed)
                     {
                         Enter(State.Dizzy, 1.8f);
@@ -643,7 +661,8 @@ namespace DesktopTenants
         bool touring, approachingSeam, tourCrossesGap;
         float tourDeparture, tourCooldown;
         Vector2 tourArrival, tourEdge;
-        int tourSourceFloor;
+        int tourSourceFloor, arrivalFloor = Body.None;
+        float arrivalTarget;
 
         void Flee(Vector2 from)
         {
@@ -655,6 +674,7 @@ namespace DesktopTenants
         {
             s = next;
             touring = false;
+            if (next != State.Walk) arrivalFloor = Body.None;
             timer = seconds;
             reps = 0;
             beat = 0;
@@ -810,6 +830,11 @@ namespace DesktopTenants
 
         void LeaveTick(float dt, Seg seg)
         {
+            if (d.TryDisplayByFloor(seg.win, out var street) && street.Floor.win != Surfaces.Floor)
+            {
+                d.Remove(this);
+                return;
+            }
             if (seg.win != Surfaces.Floor) { s = State.Fall; b.Drop(new Vector2(dir * 100, -200)); leavePending = true; return; }
             float dx = leaveX - b.p.x;
             dir = dx > 0 ? 1 : -1;
@@ -820,9 +845,11 @@ namespace DesktopTenants
         /// <summary>Fire drill: off any ledge, then run to the door and wait there, sweating.</summary>
         void Evac(float dt, Seg seg)
         {
-            float dx = d.Door.x - b.p.x;
+            float safeX = d.TryDisplayByFloor(seg.win, out var street) && seg.win != Surfaces.Floor
+                ? street.Bounds.center.x : d.Door.x;
+            float dx = safeX - b.p.x;
             dir = dx > 0 ? 1 : -1;
-            if (seg.win != Surfaces.Floor)
+            if (!d.TryDisplayByFloor(seg.win, out _))
             {
                 s = State.Fall;
                 b.Drop(new Vector2(dir * 120, -220));
@@ -899,10 +926,14 @@ namespace DesktopTenants
 
         void FinishTour(int destination)
         {
+            var street = d.DisplayBounds(destination);
+            arrivalFloor = street.Floor.win;
+            arrivalTarget = street.ArrivalWalkTarget(tourArrival.x, Random.Range(170f, 300f));
             b.p = tourArrival;
             s = State.Fall;
             touring = false;
-            b.Drop(new Vector2(dir * 55, 0));
+            tourCooldown = T.displayTourCooldown;
+            b.Drop(Vector2.zero);
             Emote("!", 1f);
             Debug.Log($"[desk] {Type.name} crossed from floor {tourSourceFloor} to display {destination + 1}");
         }
@@ -910,6 +941,17 @@ namespace DesktopTenants
         void WalkTick(float dt, Seg seg)
         {
             if (touring) { Tour(dt, seg); return; }
+            if (arrivalFloor == seg.win)
+            {
+                dir = arrivalTarget > P.x ? 1 : -1;
+                b.p.x = Mathf.MoveTowards(P.x, arrivalTarget, Mathf.Max(32f, Type.walkSpeed) * 1.7f * dt);
+                if (Mathf.Abs(P.x - arrivalTarget) <= 1)
+                {
+                    Debug.Log($"[desk] {Type.name} cleared arrival edge on floor {arrivalFloor}");
+                    Enter(State.Idle, 0.7f);
+                }
+                return;
+            }
             if (TryGoUp(dt, seg)) return;
             if (Type.IsCat) HuntCoins(seg);
             if (Type.IsDog) ChaseCats();
@@ -926,7 +968,7 @@ namespace DesktopTenants
         /// </summary>
         bool TryGoUp(float dt, Seg seg)
         {
-            float floorBoost = seg.win == Surfaces.Floor ? 2f : 1f;
+            float floorBoost = d.TryDisplayByFloor(seg.win, out _) ? 2f : 1f;
             float jumpUp = Type.jumper ? T.jumpUp : T.hopUp;
             float jumpChance = Type.jumper ? T.jumpChance : T.hopChance;
             if (Random.value < jumpChance * floorBoost * dt && d.JumpTarget(b.p, jumpUp, out var target)) { Jump(target); return true; }
@@ -1040,7 +1082,7 @@ namespace DesktopTenants
             b.p.x += dir * Type.walkSpeed * speedMul * dt;
             if (b.p.x >= seg.x0 + 3 && b.p.x <= seg.x1 - 3) return true;
             b.p.x = Mathf.Clamp(b.p.x, seg.x0 + 3, seg.x1 - 3);
-            bool ledge = seg.win != Surfaces.Floor;  // window tops and the roof
+            bool ledge = !d.TryDisplayByFloor(seg.win, out _);  // window tops and the roof
             if (s == State.Walk && !Type.IsAnimal && ledge)
             {
                 float roll = Random.value;

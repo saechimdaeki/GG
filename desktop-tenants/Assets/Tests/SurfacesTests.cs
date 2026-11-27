@@ -61,6 +61,15 @@ public class SurfacesTests
     }
 
     [Test]
+    public void ArrivalWalk_ClearsEitherEdgeWithoutOvershootingTheMiddle()
+    {
+        var display = new DesktopDisplay(1, new UnityEngine.Rect(-1920, -740, 1920, 1080), 340);
+        Assert.AreEqual(-1656, display.ArrivalWalkTarget(-1896, 240));
+        Assert.AreEqual(-264, display.ArrivalWalkTarget(-24, 240));
+        Assert.AreEqual(-960, display.ArrivalWalkTarget(-970, 240));
+    }
+
+    [Test]
     public void StackedDisplays_UseOnlyTheOverlappingWidth()
     {
         var lower = new DesktopDisplay(0, new UnityEngine.Rect(0, 0, 1500, 950), 900);

@@ -35,9 +35,9 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-27
 **Branch:** `codex/desktop-tenants-apartment`
-**Current task:** 세입자 보행 간섭 수정, 신규 세입자 4종과 만남 행동 2종 및 화면 이벤트 2종 추가.
-**Next step:** 일반 플레이에서 붐비는 창턱의 이동과 새 만남 행동의 빈도 확인.
-**Run result:** Unity EditMode 36/36 통과. macOS Apple Silicon 빌드 및 보조 화면에서 두 이벤트 완주 확인.
+**Current task:** 세입자가 외장 화면을 오간 뒤 가장자리를 비우도록 수정.
+**Next step:** 장시간 일반 플레이에서 화면별 세입자 분포 확인.
+**Run result:** Unity EditMode 37/37 통과, Apple Silicon 빌드 성공, 진행 복원 및 외장 화면 도착 후 가장자리를 비우는 주민 2명 확인.
 <!-- /CHECKPOINT -->
 
 ---

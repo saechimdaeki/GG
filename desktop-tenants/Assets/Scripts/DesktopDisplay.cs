@@ -14,6 +14,13 @@ namespace DesktopTenants
             Floor = new Seg(index == 0 ? Surfaces.Floor : -2 - index, bounds.xMin, bounds.xMax, floorY);
         }
 
+        /// <summary>Room to clear the arrival edge while staying on this screen's street.</summary>
+        public float ArrivalWalkTarget(float x, float distance)
+        {
+            float center = Bounds.center.x;
+            return Mathf.MoveTowards(x, center, distance);
+        }
+
         /// <summary>Finds a route only where two physical display edges share a usable span.</summary>
         public bool TryRoute(DesktopDisplay other, float fromX, out float departure, out Vector2 arrival)
         {
