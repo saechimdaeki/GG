@@ -67,6 +67,7 @@ namespace DesktopTenants
         public float jumpOffChance = 0.25f;
         public float sleepChance = 0.2f;
         public float idleMin = 1.5f, idleMax = 4f;
+        public float displayTourChance = 0.22f, displayTourCooldown = 45f;
         public float walkMin = 3f, walkMax = 9f;
         public float sleepMin = 6f, sleepMax = 14f;
 

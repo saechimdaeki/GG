@@ -11,7 +11,9 @@ namespace DesktopTenants
     {
 #if UNITY_STANDALONE_OSX && !UNITY_EDITOR
         const string Lib = "DesktopBridge";
-        [DllImport(Lib)] static extern int DB_MakeOverlay(int screen);
+        [DllImport(Lib)] static extern int DB_MakeOverlay(int screen, int external);
+        [DllImport(Lib)] static extern int DB_BindDisplay();
+        [DllImport(Lib)] static extern int DB_DisplayRect(int index, float[] out5);
         [DllImport(Lib)] static extern void DB_SetClickThrough(int on);
         [DllImport(Lib)] static extern void DB_Screen(float[] out6);
         [DllImport(Lib)] static extern void DB_Mouse(float[] out3);
@@ -24,7 +26,9 @@ namespace DesktopTenants
         public static void Stats(float[] out3) => DB_Stats(out3);
 
         /// <summary>Covers monitor <paramref name="screen"/> (0 = main, clamped to what is connected).</summary>
-        public static bool MakeOverlay(int screen) => DB_MakeOverlay(screen) != 0;
+        public static bool MakeOverlay(int screen, bool external) => DB_MakeOverlay(screen, external ? 1 : 0) != 0;
+        public static bool BindDisplay() => DB_BindDisplay() != 0;
+        public static bool DisplayRect(int index, float[] bounds) => DB_DisplayRect(index, bounds) != 0;
         public static void SetClickThrough(bool on) => DB_SetClickThrough(on ? 1 : 0);
         public static void Screen(float[] out6) => DB_Screen(out6);
         public static void Mouse(float[] out3) => DB_Mouse(out3);
@@ -32,7 +36,9 @@ namespace DesktopTenants
         public static void Refresh() => DB_Refresh();
         public static string ScreenList() => DB_ScreenList();
 #else
-        public static bool MakeOverlay(int screen) => true;
+        public static bool MakeOverlay(int screen, bool external) => true;
+        public static bool BindDisplay() => false;
+        public static bool DisplayRect(int index, float[] bounds) => false;
         public static void SetClickThrough(bool on) { }
         public static void Screen(float[] o)
         {
