@@ -35,6 +35,18 @@ namespace DesktopTenants
             ".....kkk.....", "......c......", "......c......", "...ccccccc...", "...kkkkkkk...",
         };
 
+        public static readonly string[] ActivityBubble =
+        {
+            "...ggg...", ".ggwwwgg.", ".gw...gg.", "gw.....gg", "gg.....gg",
+            "gg.....gg", ".gg...gg.", ".ggggggg.", "...ggg...",
+        };
+
+        public static readonly string[] ActivityStar =
+        {
+            "....y....", "....y....", "...ywy...", "..yywyy..", "yyywwwyyy",
+            "..yywyy..", "...ywy...", "....y....", "....y....",
+        };
+
         // Helicopter, facing left; two rotor frames. Pivot: centre.
         static readonly string[] HeliBody =
         {

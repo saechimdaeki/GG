@@ -34,10 +34,10 @@ Task:
 
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-27
-**Branch:** `codex/desktop-tenants-neighborhood`
-**Current task:** 커서로 참여하는 동네 행사 3종, 그림 감상, 제빵사와 사진사 행동 추가.
-**Next step:** 일반 플레이에서 행사 위치와 안내, 주민 반응 빈도를 확인.
-**Run result:** Unity EditMode 27/27 통과. macOS Apple Silicon 빌드 성공 및 새 행사 3종의 실제 커서 참여 확인.
+**Branch:** `codex/desktop-tenants-apartment`
+**Current task:** 세입자가 외장 화면을 오간 뒤 가장자리를 비우도록 수정.
+**Next step:** 장시간 일반 플레이에서 화면별 세입자 분포 확인.
+**Run result:** Unity EditMode 37/37 통과, Apple Silicon 빌드 성공, 진행 복원 및 외장 화면 도착 후 가장자리를 비우는 주민 2명 확인.
 <!-- /CHECKPOINT -->
 
 ---

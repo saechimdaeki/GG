@@ -37,17 +37,23 @@ namespace DesktopTenants
         {
             var segs = into ?? new List<Seg>();
             segs.Clear();
+            AppendDisplay(wins, new DesktopDisplay(0, new Rect(0, 0, width, floorY), floorY), segs);
+            return segs;
+        }
+
+        public static void AppendDisplay(IReadOnlyList<WinRect> wins, DesktopDisplay display, List<Seg> segs)
+        {
+            var bounds = display.Bounds;
             for (int i = 0; i < wins.Count; i++)
             {
                 // Only the part of the edge on this screen is walkable (windows can hang off it).
-                float x0 = Mathf.Max(wins[i].x, 0), x1 = Mathf.Min(wins[i].x + wins[i].w, width);
-                if (wins[i].y < 0 || wins[i].y > floorY) continue;
+                float x0 = Mathf.Max(wins[i].x, bounds.xMin), x1 = Mathf.Min(wins[i].x + wins[i].w, bounds.xMax);
+                if (wins[i].y < bounds.yMin || wins[i].y > display.Floor.y) continue;
                 Clip(new Seg(wins[i].id, x0, x1, wins[i].y), wins, i, 0, segs);
             }
             // The floor is never clipped: tenants draw above every window, and a window reaching
             // the Dock would otherwise leave nowhere to stand.
-            segs.Add(new Seg(Floor, 0, width, floorY));
-            return segs;
+            segs.Add(display.Floor);
         }
 
         /// <summary>

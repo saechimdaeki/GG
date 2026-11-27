@@ -165,6 +165,8 @@ namespace DesktopTenants
             ["sweat"] = new[] { "..b..", ".bbb.", "bbbbb", "bbbbb", ".bbb." },
             ["star"] = new[] { "..y..", "yyyyy", ".yyy.", "y...y" },
             ["flash"] = new[] { "...w...", "...w...", "www.www", "...w...", "...w..." },
+            ["yoyo"] = new[] { "..w..", "..w..", "..w..", ".rrr.", "ryyyr", "rwwyr", ".rrr." },
+            ["coin"] = new[] { ".yyy.", "ywwwy", "ywywy", "ywwwy", ".yyy." },
             ["steam"] = new[] { ".w..w.", "w..w..", ".w..w.", "w..w.." },
         };
 

@@ -9,6 +9,80 @@ public class SurfacesTests
     static List<Seg> Of(params WinRect[] frontToBack) => Surfaces.Compute(frontToBack, FloorY, Width);
 
     [Test]
+    public void OffsetDisplays_UseTheirOwnFloorsAndClipWindowEdges()
+    {
+        var left = new DesktopDisplay(1, new UnityEngine.Rect(-1920, -740, 1920, 1080), 340);
+        var right = new DesktopDisplay(0, new UnityEngine.Rect(0, 0, 1500, 900), 850);
+        var windows = new[] { new WinRect(1, -200, -500, 400, 600) };
+        var segs = new List<Seg>();
+
+        Surfaces.AppendDisplay(windows, left, segs);
+        Surfaces.AppendDisplay(windows, right, segs);
+
+        Assert.AreEqual(3, segs.Count);
+        Assert.AreEqual(0, segs[0].x1);
+        Assert.AreEqual(340, segs[1].y);
+        Assert.AreNotEqual(segs[1].win, segs[2].win);
+        Assert.AreEqual(850, segs[2].y);
+    }
+
+    [Test]
+    public void OffsetDisplays_EnterThroughTheSharedSide()
+    {
+        var main = new DesktopDisplay(0, new UnityEngine.Rect(0, 0, 1512, 982), 924);
+        var left = new DesktopDisplay(1, new UnityEngine.Rect(-1920, -740, 1920, 1080), 340);
+        var right = new DesktopDisplay(2, new UnityEngine.Rect(1512, -780, 1920, 1080), 300);
+
+        Assert.IsTrue(main.TryRoute(left, 1200, out float departure, out var arrival));
+        Assert.That(departure, Is.LessThan(10));
+        Assert.That(arrival.y, Is.InRange(0, left.Floor.y));
+        Assert.IsTrue(left.TryRoute(main, -600, out _, out arrival));
+        Assert.IsTrue(main.Bounds.Contains(arrival));
+        Assert.IsTrue(main.TryRoute(right, 1200, out departure, out arrival));
+        Assert.That(departure, Is.GreaterThan(1500));
+        Assert.IsTrue(right.Bounds.Contains(arrival));
+        Assert.IsFalse(left.TryRoute(right, -600, out _, out _));
+    }
+
+    [Test]
+    public void ExcludedDisplayBetweenMonitors_ConnectsFacingEdges()
+    {
+        var left = new DesktopDisplay(0, new UnityEngine.Rect(0, 0, 1920, 1080), 1020);
+        var right = new DesktopDisplay(2, new UnityEngine.Rect(3432, -41, 1920, 1080), 1039);
+
+        Assert.IsFalse(left.TryRoute(right, 1400, out _, out _));
+        Assert.IsTrue(left.TryGapRoute(right, 1400, out float departure, out var arrival));
+        Assert.That(departure, Is.EqualTo(1916));
+        Assert.That(arrival.x, Is.EqualTo(3456));
+        Assert.IsTrue(right.Bounds.Contains(arrival));
+        Assert.IsTrue(right.TryGapRoute(left, 4100, out departure, out arrival));
+        Assert.That(departure, Is.EqualTo(3436));
+        Assert.That(arrival.x, Is.EqualTo(1896));
+    }
+
+    [Test]
+    public void ArrivalWalk_ClearsEitherEdgeWithoutOvershootingTheMiddle()
+    {
+        var display = new DesktopDisplay(1, new UnityEngine.Rect(-1920, -740, 1920, 1080), 340);
+        Assert.AreEqual(-1656, display.ArrivalWalkTarget(-1896, 240));
+        Assert.AreEqual(-264, display.ArrivalWalkTarget(-24, 240));
+        Assert.AreEqual(-960, display.ArrivalWalkTarget(-970, 240));
+    }
+
+    [Test]
+    public void StackedDisplays_UseOnlyTheOverlappingWidth()
+    {
+        var lower = new DesktopDisplay(0, new UnityEngine.Rect(0, 0, 1500, 950), 900);
+        var upper = new DesktopDisplay(1, new UnityEngine.Rect(750, -1000, 1500, 1000), -30);
+        var gap = new DesktopDisplay(2, new UnityEngine.Rect(1550, 0, 1500, 950), 900);
+
+        Assert.IsTrue(lower.TryRoute(upper, 100, out float departure, out var arrival));
+        Assert.That(departure, Is.InRange(750, 1500));
+        Assert.IsTrue(upper.Bounds.Contains(arrival));
+        Assert.IsFalse(lower.TryRoute(gap, 100, out _, out _));
+    }
+
+    [Test]
     public void EmptyDesktop_OnlyFloor()
     {
         var s = Of();

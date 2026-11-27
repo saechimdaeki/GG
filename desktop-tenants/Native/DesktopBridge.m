@@ -1,18 +1,44 @@
 // DesktopBridge: turns the Unity player window into a transparent, click-through
-// overlay on one monitor and reports other apps' window rects. Build with tools/build-plugin.sh.
+// overlay on connected monitors and reports other apps' window rects. Build with tools/build-plugin.sh.
 // Every coordinate handed to Unity is in points with a top-left origin at the TARGET
 // monitor's top-left corner, so the game never needs to know where that monitor sits.
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/QuartzCore.h>
 
-static NSScreen *target;
+static NSNumber *targetID;
+static NSWindow *primary;
+static NSMutableArray<NSWindow *> *overlays;
+static NSMutableArray<NSWindow *> *renderWindows;
+static NSMutableArray<NSNumber *> *displays;
+static NSMutableIndexSet *inactiveOutputs;
+static BOOL externalOnly;
+static BOOL clickThrough = YES;
 
 static NSWindow *Win(void) {
     NSWindow *w = NSApp.mainWindow ?: NSApp.keyWindow;
     return w ?: NSApp.windows.firstObject;
 }
 
-static NSScreen *Target(void) { return target ?: NSScreen.screens.firstObject; }
+static NSNumber *DisplayID(NSScreen *screen) {
+    return screen.deviceDescription[@"NSScreenNumber"];
+}
+
+static BOOL IsBuiltIn(NSScreen *screen) {
+    return CGDisplayIsBuiltin(DisplayID(screen).unsignedIntValue) != 0;
+}
+
+static NSScreen *FirstExternal(NSArray<NSScreen *> *screens) {
+    for (NSScreen *screen in screens)
+        if (!IsBuiltIn(screen)) return screen;
+    return nil;
+}
+
+static NSScreen *Target(void) {
+    NSArray<NSScreen *> *screens = NSScreen.screens;
+    for (NSScreen *screen in screens)
+        if ([DisplayID(screen) isEqual:targetID]) return screen;
+    return (externalOnly ? FirstExternal(screens) : nil) ?: screens.firstObject;
+}
 
 /// Global top-left-origin space (CoreGraphics) → target-screen-local offset.
 static CGPoint Origin(void) {
@@ -44,39 +70,112 @@ const char *DB_ScreenList(void) {
     return strdup(s.UTF8String);
 }
 
-/// Makes the player window a borderless transparent overlay covering monitor `screen`
-/// (0 = main). Returns 0 when no window was found yet (call again next frame).
-int DB_MakeOverlay(int screen) {
-    NSWindow *w = Win();
-    if (!w) return 0;
+static void Configure(NSWindow *window, NSScreen *screen) {
+    window.styleMask = NSWindowStyleMaskBorderless | (window.styleMask & NSWindowStyleMaskNonactivatingPanel);
+    window.opaque = NO;
+    window.hasShadow = NO;
+    window.backgroundColor = NSColor.clearColor;
+    window.level = NSStatusWindowLevel;
+    window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                NSWindowCollectionBehaviorStationary |
+                                NSWindowCollectionBehaviorIgnoresCycle |
+                                NSWindowCollectionBehaviorFullScreenAuxiliary;
+    window.ignoresMouseEvents = clickThrough;
+    [window setFrame:screen.frame display:YES];
+    ClearLayers(window.contentView);
+    [window orderFrontRegardless];
+}
+
+int DB_MakeOverlay(int screen, int external) {
+    if (primary) return 1;
+    NSWindow *window = Win();
     NSArray<NSScreen *> *all = NSScreen.screens;
-    target = all[MAX(0, MIN(screen, (int)all.count - 1))];
-    w.styleMask = NSWindowStyleMaskBorderless;
-    w.opaque = NO;
-    w.hasShadow = NO;
-    w.backgroundColor = NSColor.clearColor;
-    // Above the menu bar, so tenants on a maximised window's top edge show in full.
-    // Still click-through, so the menu bar keeps working.
-    w.level = NSStatusWindowLevel;
-    w.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces |
-                           NSWindowCollectionBehaviorStationary |
-                           NSWindowCollectionBehaviorIgnoresCycle;
-    w.ignoresMouseEvents = YES;
-    [w setFrame:target.frame display:YES];
-    ClearLayers(w.contentView);
+    if (!window || all.count == 0) return 0;
+    NSScreen *selectedExternal = external ? FirstExternal(all) : nil;
+    externalOnly = selectedExternal != nil;
+    NSScreen *target = selectedExternal ?: all[MAX(0, MIN(screen, (int)all.count - 1))];
+    targetID = DisplayID(target);
+    primary = window;
+    overlays = [NSMutableArray arrayWithObject:window];
+    renderWindows = [NSMutableArray arrayWithObject:window];
+    displays = [NSMutableArray arrayWithObject:DisplayID(target)];
+    inactiveOutputs = [NSMutableIndexSet indexSet];
+    Configure(window, target);
     return 1;
 }
 
-void DB_SetClickThrough(int on) { Win().ignoresMouseEvents = on != 0; }
+/// Registers the new window made by Unity's most recent Display.Activate.
+int DB_BindDisplay(void) {
+    for (NSWindow *window in [NSApp.windows copy]) {
+        NSScreen *screen = window.screen;
+        if (!screen || [renderWindows containsObject:window] || [overlays containsObject:window]) continue;
+        if (!window.visible || window.frame.size.width < 400 || window.frame.size.height < 300) continue;
+        if ([DisplayID(screen) isEqual:DisplayID(Target())] || (externalOnly && IsBuiltIn(screen))) {
+            // Output zero already renders the home screen. Do not render a duplicate
+            // there or create an overlay on the excluded built-in screen.
+            [inactiveOutputs addIndex:overlays.count];
+            [renderWindows addObject:window];
+            [overlays addObject:window];
+            [displays addObject:DisplayID(screen)];
+            [window orderOut:nil];
+            return 1;
+        }
+        // Unity opens secondary outputs in its own display spaces. Rehost the
+        // Metal view in a regular overlay panel so it follows the desktop space.
+        NSView *renderView = window.contentView;
+        if (!renderView) continue;
+        NSPanel *panel = [[NSPanel alloc] initWithContentRect:screen.frame
+            styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+            backing:NSBackingStoreBuffered defer:NO];
+        panel.hidesOnDeactivate = NO;
+        window.contentView = nil;
+        panel.contentView = renderView;
+        [window orderOut:nil];
+        [renderWindows addObject:window];
+        [overlays addObject:panel];
+        [displays addObject:DisplayID(screen)];
+        Configure(panel, screen);
+        return 1;
+    }
+    return 0;
+}
 
-/// Re-applies transparency: the player recreates its Metal surface (opaque again) after a resize.
+void DB_SetClickThrough(int on) {
+    clickThrough = on != 0;
+    for (NSWindow *window in overlays) window.ignoresMouseEvents = clickThrough;
+}
+
 void DB_Refresh(void) {
-    NSWindow *w = Win();
-    if (!w) return;
-    w.opaque = NO;
-    w.backgroundColor = NSColor.clearColor;
-    ClearLayers(w.contentView);
-    for (CALayer *l in w.contentView.layer.sublayers) l.opaque = NO;
+    for (NSUInteger i = 0; i < overlays.count; i++) {
+        NSWindow *window = overlays[i];
+        if ([inactiveOutputs containsIndex:i]) { if (window.visible) [window orderOut:nil]; continue; }
+        window.opaque = NO;
+        window.backgroundColor = NSColor.clearColor;
+        ClearLayers(window.contentView);
+    }
+}
+
+/// One native screen for each registered camera, in primary-screen-local coordinates.
+int DB_DisplayRect(int index, float *out5) {
+    if (index < 0 || (NSUInteger)index >= displays.count || [inactiveOutputs containsIndex:index]) return 0;
+    NSNumber *identifier = displays[index];
+    NSWindow *window = overlays[index];
+    if (index == 0) identifier = DisplayID(Target());
+    for (NSScreen *screen in NSScreen.screens) {
+        if (![DisplayID(screen) isEqual:identifier]) continue;
+        NSRect frame = screen.frame;
+        NSRect origin = Target().frame;
+        out5[0] = NSMinX(frame) - NSMinX(origin);
+        out5[1] = NSMaxY(origin) - NSMaxY(frame);
+        out5[2] = NSWidth(frame);
+        out5[3] = NSHeight(frame);
+        out5[4] = NSMaxY(origin) - NSMinY(screen.visibleFrame);
+        if (!NSEqualRects(window.frame, frame)) [window setFrame:frame display:YES];
+        if (!window.visible) [window orderFrontRegardless];
+        return 1;
+    }
+    [window orderOut:nil];
+    return 0;
 }
 
 /// Target screen size and its usable area (excludes menu bar and Dock), screen-local, top-left origin.

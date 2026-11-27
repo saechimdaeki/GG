@@ -12,10 +12,10 @@ namespace DesktopTenants
     /// </summary>
     public class Tenant : MonoBehaviour
     {
-        enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held, Carried, Visit, Inside, Leave, Gather, Riding }
+        enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held, Carried, Visit, Inside, Leave, Gather, Riding, Travel }
 
         /// <summary>What two tenants do once they've finished talking.</summary>
-        public enum Outcome { None, Dance, HighFive, Argue, Hug, Rps, Tag, Share, Pet }
+        public enum Outcome { None, Dance, HighFive, Argue, Hug, Rps, Tag, Share, Pet, Mirror, CoinTrick }
 
         static readonly string[] Count = { "하나!", "둘!", "셋!", "넷!", "다섯!", "여섯!", "일곱!", "여덟!", "아홉!", "열!" };
         static readonly string[] PersonQuirks = { "stretch", "sneeze", "juggle", "shadowbox", "spin", "jumpjack", "hiccup", "meditate", "lookup" };
@@ -32,7 +32,7 @@ namespace DesktopTenants
         readonly Body b = new Body();
         State s = State.Walk;
         Vector2 grab, holdStart, climbAnchor;
-        int dir = -1, pokes, reps;
+        int dir = -1, pokes, reps, dragDisplay, beforeChatDirection;
         bool asleepInAir, tumbling, fleeOnLand, phased, quirkHit;
         Outcome outcome;
         string chatLine, quirk;
@@ -53,8 +53,8 @@ namespace DesktopTenants
         /// <summary>Says <paramref name="line"/> after <paramref name="delay"/> seconds (a punchline after a beat).</summary>
         void DelayedSay(string line, float delay) { laterLine = line; laterT = delay; }
 
-        /// <summary>Hugging someone: personal-space pushes would pull them apart.</summary>
-        public bool Hugging => s == State.Quirk && quirk == "hug";
+        /// <summary>Stationary residents who can be nudged to make room.</summary>
+        public bool AllowsSpacing => b.Grounded && (s == State.Idle || s == State.Sleep || s == State.Sit);
         readonly List<(Seg to, float lo, float hi)> climbOptions = new List<(Seg, float, float)>();
 
         readonly Dictionary<(string, Face), Sprite> frames = new Dictionary<(string, Face), Sprite>();
@@ -232,7 +232,8 @@ namespace DesktopTenants
         /// </summary>
         public void Gather(float x, float seconds, string line, string emoteName, float speedMul = 1.3f, bool dance = false, string endLine = null, float spread = 40)
         {
-            if (s == State.Held || s == State.Carried || s == State.Inside || Visitor) return;
+            if (s == State.Held || s == State.Carried || s == State.Inside || s == State.Travel ||
+                touring || arrivalFloor != Body.None || Visitor || d.DisplayAt(P) != 0) return;
             HideLadder();
             if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
             gatherX = x + Random.Range(-spread, spread);
@@ -250,6 +251,7 @@ namespace DesktopTenants
 
         void GatherTick(float dt, Seg seg)
         {
+            if (d.DisplayAt(P) != 0) { Enter(State.Idle, 0.8f); return; }
             if (seg.win != Surfaces.Floor)
             {
                 // Hop down to street level first.
@@ -282,7 +284,7 @@ namespace DesktopTenants
         /// <summary>Fire drill: everyone heads down to the front door for <paramref name="seconds"/>.</summary>
         public void Evacuate(float seconds)
         {
-            if (s == State.Carried || s == State.Held) return;
+            if (s == State.Carried || s == State.Held || s == State.Travel || arrivalFloor != Body.None) return;
             HideLadder();
             if (s == State.Climb) { s = State.Fall; b.Drop(Vector2.zero); }
             evacT = seconds;
@@ -310,7 +312,7 @@ namespace DesktopTenants
             Emote("!", 1f);
         }
 
-        public bool CanChat => (s == State.Walk || s == State.Idle) && b.Grounded && chatCool <= 0;
+        public bool CanChat => !touring && arrivalFloor == Body.None && (s == State.Walk || s == State.Idle) && b.Grounded && chatCool <= 0;
         public Rect Bounds => s == State.Inside ? Rect.zero : new Rect(b.p.x - w / 2 - 4, b.p.y - h - 4, w + 8, h + 8);
 
         public void Init(Desk desk, TenantType type, Vector2 at)
@@ -424,6 +426,8 @@ namespace DesktopTenants
             s = State.Held;
             grab = b.p - mouse;
             holdStart = mouse;
+            arrivalFloor = Body.None;
+            dragDisplay = d.DisplayAt(mouse, 0);
             holdT = 0;
             b.v = Vector2.zero;
             b.on = Body.None;
@@ -436,6 +440,7 @@ namespace DesktopTenants
         /// </summary>
         public void Chat(Tenant other, Outcome then, string line, float delay)
         {
+            beforeChatDirection = s == State.Walk ? dir : 0;
             s = State.Chat;
             partner = other;
             outcome = then;
@@ -484,6 +489,7 @@ namespace DesktopTenants
 
         public void Tick(float dt)
         {
+            tourCooldown -= dt;
             chatCool -= dt;
             talkCool -= dt;
             pokeT -= dt;
@@ -502,6 +508,7 @@ namespace DesktopTenants
                 case State.Held: Hold(dt); break;
                 case State.Fall: Falling(dt); break;
                 case State.Climb: Climbing(dt); break;
+                case State.Travel: CrossDisplay(dt); break;
                 case State.Carried: break;
                 case State.Riding: RidingTick(dt); break;
                 default: Grounded(dt); break;
@@ -515,8 +522,22 @@ namespace DesktopTenants
             var next = d.Mouse + grab;
             b.v = Vector2.Lerp(b.v, (next - b.p) / dt, 0.5f);
             b.p = next;
+            int currentDisplay = d.DisplayAt(d.Mouse);
+            if (currentDisplay >= 0 && dragDisplay != currentDisplay)
+            {
+                dragDisplay = currentDisplay;
+                Debug.Log($"[desk] dragged {Type.name} to display {currentDisplay + 1}");
+            }
             if (holdT > 0.3f && !bubble.Visible) { Say(TenantBook.Pick(Type.held), 1.5f); Emote("sweat", 1.5f); }
             if (d.MouseDown) return;
+            if (currentDisplay < 0)
+            {
+                var lastDisplay = d.DisplayBounds(dragDisplay);
+                var bounds = lastDisplay.Bounds;
+                b.p.x = Mathf.Clamp(b.p.x, bounds.xMin + 24, bounds.xMax - 24);
+                b.p.y = Mathf.Clamp(b.p.y, bounds.yMin + h, lastDisplay.Floor.y);
+                b.v = Vector2.zero;
+            }
             bool poke = holdT < 0.25f && (d.Mouse - holdStart).magnitude < 6;
             s = State.Fall;
             squash = -0.6f;
@@ -578,6 +599,21 @@ namespace DesktopTenants
                     tumbling = false;
                     if (asleepInAir) { Enter(State.Sleep, Random.Range(T.sleepMin, T.sleepMax)); asleepInAir = false; break; }
                     if (fleeOnLand) { fleeOnLand = false; Flee(d.Mouse); break; }
+                    if (arrivalFloor != Body.None)
+                    {
+                        if (b.on == arrivalFloor)
+                        {
+                            Enter(State.Walk, 0);
+                            break;
+                        }
+                        if (d.TryDisplayByFloor(arrivalFloor, out var street) && street.Bounds.Contains(P))
+                        {
+                            b.Drop(Vector2.zero);
+                            b.p.y += 2;
+                            break;
+                        }
+                        arrivalFloor = Body.None;
+                    }
                     if (impact > T.dizzySpeed)
                     {
                         Enter(State.Dizzy, 1.8f);
@@ -622,6 +658,12 @@ namespace DesktopTenants
 
         public int Dir => dir;
 
+        bool touring, approachingSeam, tourCrossesGap;
+        float tourDeparture, tourCooldown;
+        Vector2 tourArrival, tourEdge;
+        int tourSourceFloor, arrivalFloor = Body.None;
+        float arrivalTarget;
+
         void Flee(Vector2 from)
         {
             Enter(State.Flee, 2.2f);
@@ -631,6 +673,8 @@ namespace DesktopTenants
         void Enter(State next, float seconds)
         {
             s = next;
+            touring = false;
+            if (next != State.Walk) arrivalFloor = Body.None;
             timer = seconds;
             reps = 0;
             beat = 0;
@@ -693,6 +737,7 @@ namespace DesktopTenants
                 case State.Idle:
                     if (LookAtCursor()) break;
                     if (timer > 0) break;
+                    if (TryStartTour(seg)) break;
                     float sleepChance = d.Night ? Mathf.Max(Type.sleepChance, 0.6f) : Type.sleepChance;
                     if (d.Raining) sleepChance = 0;
                     var shop = seg.win == Surfaces.Floor && !Visitor ? d.Town.PickVisit(Type) : null;
@@ -785,6 +830,11 @@ namespace DesktopTenants
 
         void LeaveTick(float dt, Seg seg)
         {
+            if (d.TryDisplayByFloor(seg.win, out var street) && street.Floor.win != Surfaces.Floor)
+            {
+                d.Remove(this);
+                return;
+            }
             if (seg.win != Surfaces.Floor) { s = State.Fall; b.Drop(new Vector2(dir * 100, -200)); leavePending = true; return; }
             float dx = leaveX - b.p.x;
             dir = dx > 0 ? 1 : -1;
@@ -795,9 +845,11 @@ namespace DesktopTenants
         /// <summary>Fire drill: off any ledge, then run to the door and wait there, sweating.</summary>
         void Evac(float dt, Seg seg)
         {
-            float dx = d.Door.x - b.p.x;
+            float safeX = d.TryDisplayByFloor(seg.win, out var street) && seg.win != Surfaces.Floor
+                ? street.Bounds.center.x : d.Door.x;
+            float dx = safeX - b.p.x;
             dir = dx > 0 ? 1 : -1;
-            if (seg.win != Surfaces.Floor)
+            if (!d.TryDisplayByFloor(seg.win, out _))
             {
                 s = State.Fall;
                 b.Drop(new Vector2(dir * 120, -220));
@@ -808,8 +860,98 @@ namespace DesktopTenants
             if (evacT <= dt) { Enter(State.Idle, 1f); Say(Type.IsAnimal ? null : "휴~ 훈련이었구나", 1.6f); }
         }
 
+        bool TryStartTour(Seg floor)
+        {
+            if (Visitor || tourCooldown > 0 || Random.value >= T.displayTourChance ||
+                !d.TryDisplayRoute(floor, P.x, out tourDeparture, out tourArrival, out tourCrossesGap)) return false;
+            Enter(State.Walk, 0);
+            touring = true;
+            tourCooldown = T.displayTourCooldown;
+            Say(Type.IsAnimal ? null : "옆 화면에 다녀올게요!", 2f);
+            return true;
+        }
+
+        void Tour(float dt, Seg floor)
+        {
+            dir = tourDeparture >= P.x ? 1 : -1;
+            b.p.x = Mathf.MoveTowards(P.x, tourDeparture, Mathf.Max(Type.walkSpeed, 30) * 2.5f * dt);
+            if (Mathf.Abs(P.x - tourDeparture) > 1) return;
+            int destination = d.DisplayAt(tourArrival);
+            if (destination < 0 || destination == d.DisplayAt(P))
+            {
+                Enter(State.Idle, 1f);
+                return;
+            }
+
+            tourSourceFloor = floor.win;
+            if (tourCrossesGap) { FinishTour(destination); return; }
+            bool sideBySide = Mathf.Abs(tourArrival.x - tourDeparture) > 5;
+            tourEdge = sideBySide ? new Vector2(P.x, tourArrival.y) : tourArrival;
+            approachingSeam = true;
+            if (Mathf.Abs(tourEdge.y - P.y) > h)
+            {
+                ladder.enabled = true;
+                ladder.transform.position = Desk.W(new Vector2(P.x, Mathf.Max(P.y, tourEdge.y)), 0.5f);
+                ladder.size = new Vector2(7 * T.pixel, Mathf.Abs(P.y - tourEdge.y));
+            }
+            s = State.Travel;
+            b.Drop(Vector2.zero);
+        }
+
+        void CrossDisplay(float dt)
+        {
+            int destination = d.DisplayAt(tourArrival);
+            if (destination < 0 || !d.WinPos(tourSourceFloor, out _))
+            {
+                HideLadder();
+                s = State.Fall;
+                return;
+            }
+
+            if (approachingSeam)
+            {
+                b.p = Vector2.MoveTowards(P, tourEdge, T.climbSpeed * 1.5f * dt);
+                if (P != tourEdge) return;
+                approachingSeam = false;
+                HideLadder();
+            }
+            if (P != tourArrival)
+            {
+                dir = tourArrival.x > P.x ? 1 : -1;
+                b.p = Vector2.MoveTowards(P, tourArrival, T.climbSpeed * dt);
+                if (P != tourArrival) return;
+            }
+            FinishTour(destination);
+        }
+
+        void FinishTour(int destination)
+        {
+            var street = d.DisplayBounds(destination);
+            arrivalFloor = street.Floor.win;
+            arrivalTarget = street.ArrivalWalkTarget(tourArrival.x, Random.Range(170f, 300f));
+            b.p = tourArrival;
+            s = State.Fall;
+            touring = false;
+            tourCooldown = T.displayTourCooldown;
+            b.Drop(Vector2.zero);
+            Emote("!", 1f);
+            Debug.Log($"[desk] {Type.name} crossed from floor {tourSourceFloor} to display {destination + 1}");
+        }
+
         void WalkTick(float dt, Seg seg)
         {
+            if (touring) { Tour(dt, seg); return; }
+            if (arrivalFloor == seg.win)
+            {
+                dir = arrivalTarget > P.x ? 1 : -1;
+                b.p.x = Mathf.MoveTowards(P.x, arrivalTarget, Mathf.Max(32f, Type.walkSpeed) * 1.7f * dt);
+                if (Mathf.Abs(P.x - arrivalTarget) <= 1)
+                {
+                    Debug.Log($"[desk] {Type.name} cleared arrival edge on floor {arrivalFloor}");
+                    Enter(State.Idle, 0.7f);
+                }
+                return;
+            }
             if (TryGoUp(dt, seg)) return;
             if (Type.IsCat) HuntCoins(seg);
             if (Type.IsDog) ChaseCats();
@@ -826,7 +968,7 @@ namespace DesktopTenants
         /// </summary>
         bool TryGoUp(float dt, Seg seg)
         {
-            float floorBoost = seg.win == Surfaces.Floor ? 2f : 1f;
+            float floorBoost = d.TryDisplayByFloor(seg.win, out _) ? 2f : 1f;
             float jumpUp = Type.jumper ? T.jumpUp : T.hopUp;
             float jumpChance = Type.jumper ? T.jumpChance : T.hopChance;
             if (Random.value < jumpChance * floorBoost * dt && d.JumpTarget(b.p, jumpUp, out var target)) { Jump(target); return true; }
@@ -915,6 +1057,8 @@ namespace DesktopTenants
                 case Outcome.Rps: StartPair("rps", "rps"); break;
                 case Outcome.Tag: StartPair("tagIt", "tagRun"); break;
                 case Outcome.Share: StartPair("share", "thanks"); break;
+                case Outcome.Mirror: StartPair("mirror", "mirror"); break;
+                case Outcome.CoinTrick: StartPair("coinTrick", "coinWatch"); break;
                 case Outcome.Pet:
                     if (Type.IsAnimal) StartPair("purr", "petting");
                     else StartPair("petting", "purr");
@@ -927,7 +1071,7 @@ namespace DesktopTenants
                     break;
                 default:
                     Enter(State.Walk, Random.Range(T.walkMin, T.walkMax));
-                    dir = -dir;
+                    dir = beforeChatDirection != 0 ? beforeChatDirection : -dir;
                     break;
             }
         }
@@ -938,7 +1082,7 @@ namespace DesktopTenants
             b.p.x += dir * Type.walkSpeed * speedMul * dt;
             if (b.p.x >= seg.x0 + 3 && b.p.x <= seg.x1 - 3) return true;
             b.p.x = Mathf.Clamp(b.p.x, seg.x0 + 3, seg.x1 - 3);
-            bool ledge = seg.win != Surfaces.Floor;  // window tops and the roof
+            bool ledge = !d.TryDisplayByFloor(seg.win, out _);  // window tops and the roof
             if (s == State.Walk && !Type.IsAnimal && ledge)
             {
                 float roll = Random.value;
@@ -1022,7 +1166,12 @@ namespace DesktopTenants
             if (join) { partner.pairLead = false; partner.StartQuirk(theirs); }
             pairLead = true;
             StartQuirk(mine);
-            if (join) partner.timer = timer;
+            if (join)
+            {
+                partner.timer = timer;
+                if (mine == "mirror" || mine == "coinTrick")
+                    Debug.Log($"[encounter] {mine}: {Type.name}, {partner.Type.name}");
+            }
         }
 
         bool PartnerDoing(string q) => partner && partner.s == State.Quirk && partner.quirk == q;
@@ -1055,6 +1204,10 @@ namespace DesktopTenants
                 case "hiccup": timer = 3.2f; beat = 0; break;
                 case "meditate": timer = Random.Range(4f, 6f); Say(Pick(new[] { "옴~", "마음의 평화...", "(명상 중)" }), 1.8f); break;
                 case "lookup": timer = 2.6f; Say(d.Raining ? Pick(new[] { "비 언제 그치지", "우산 챙길걸..." }) : Pick(new[] { "구름 예쁘다~", "하늘 맑다", "저 구름 고양이 닮았다" }), 1.8f); Emote("?", 1.2f); break;
+                case "yoyo": timer = 3.5f; Say(TenantBook.Pick(Type.act), 1.6f); Emote("yoyo", timer); break;
+                case "mend": timer = 3f; Say(TenantBook.Pick(Type.act), 1.6f); break;
+                case "flute": timer = 4f; Say(TenantBook.Pick(Type.act), 1.6f); Emote("note", 4f); break;
+                case "coach": timer = 3.2f; Say(TenantBook.Pick(Type.act), 1.6f); Emote("sweat", 2f); break;
                 // ---- solo, animals
                 case "tailchase": timer = 2.4f; Say("냥냥냥?!", 1.2f); Emote("star", 2f); break;
                 case "loaf": timer = Random.Range(4f, 7f); Say("(식빵 굽는 중)", 1.6f); happyT = timer; break;
@@ -1063,6 +1216,9 @@ namespace DesktopTenants
                 case "dig": timer = 2.4f; Say("(파바바박)", 1.2f); Emote("sweat", 2f); break;
                 case "howl": timer = 2.4f; Say("아우우우~~", 2f); Emote("note", 2f); break;
                 // ---- pairs (see StartPair)
+                case "mirror": timer = 2.8f; if (pairLead) Say("내 동작 따라 해 봐!", 1.3f); break;
+                case "coinTrick": timer = 3f; Say("어느 손에 동전이 있게?", 1.5f); break;
+                case "coinWatch": timer = 3f; Emote("?", 1.5f); break;
                 case "hug": timer = 3f; quirkHit = false; if (pairLead) Say(Pick(new[] { "이리 와~ 안아줄게", "오늘 수고했어!", "보고 싶었어~" }), 1.6f); break;
                 case "rps": timer = 3.4f; quirkHit = false; hand = Random.Range(0, 3); if (pairLead) Say("가위바위보 하자!", 1.2f); break;
                 case "tagIt": timer = 5f; Say("술래잡기! 내가 술래~", 1.4f); break;
@@ -1161,6 +1317,58 @@ namespace DesktopTenants
                     happyT = 0.5f;
                     if (!Walk(dt, seg, 1.9f)) return;
                     break;
+                case "mend":
+                    if (!quirkHit && qt > 1.65f)
+                    {
+                        quirkHit = true;
+                        Emote("flash", 0.4f);
+                        Say("단추 다시 달았다!", 1.1f);
+                        var neighbor = d.NearestPerson(this, 65);
+                        if (neighbor && neighbor.On == On) neighbor.React("내 단추도 고쳐 줄래요?", "heart");
+                    }
+                    break;
+                case "flute":
+                    if (!quirkHit && qt > 1.3f)
+                    {
+                        quirkHit = true;
+                        foreach (var neighbor in d.Tenants)
+                            if (neighbor != this && neighbor.On == On && neighbor.AllowsSpacing &&
+                                Mathf.Abs(neighbor.P.x - P.x) < 150)
+                                neighbor.React(neighbor.Type.IsAnimal ? null : "어디서 피리 소리가 나지?", "note", 2f);
+                    }
+                    break;
+                case "coach":
+                    if (beat >= 0.65f)
+                    {
+                        beat = 0;
+                        squash = -0.6f;
+                        reps++;
+                        Say(Count[Mathf.Min(reps - 1, Count.Length - 1)], 0.6f);
+                    }
+                    break;
+                case "mirror":
+                    if (beat >= 0.55f)
+                    {
+                        beat = 0;
+                        squash = squash < 0 ? 0.55f : -0.55f;
+                        if (!quirkHit && qt >= 1.7f && PartnerDoing("mirror"))
+                        {
+                            quirkHit = true;
+                            Emote("star", 1f);
+                            if (!pairLead) Say("똑같지?", 1.1f);
+                        }
+                    }
+                    break;
+                case "coinTrick":
+                    if (!quirkHit && qt >= 1.65f && PartnerDoing("coinWatch"))
+                    {
+                        quirkHit = true;
+                        Say("귀 뒤에 있었지!", 1.25f);
+                        Emote("coin", 1f);
+                        partner.React("거기 있었어?!", "!", 1.25f);
+                        partner.squash = -0.5f;
+                    }
+                    break;
                 case "thanks":
                     if (!quirkHit && qt > 1.3f) { quirkHit = true; Say(Pick(new[] { "고마워! 냠냠", "와 맛있다!", "역시 너밖에 없어" }), 1.4f); Emote("heart", 1.4f); happyT = 1.5f; }
                     break;
@@ -1172,6 +1380,10 @@ namespace DesktopTenants
 
         void StartSpecial()
         {
+            if (Type.special == "yoyo") { StartQuirk("yoyo"); return; }
+            if (Type.special == "tailor") { StartQuirk("mend"); return; }
+            if (Type.special == "flute") { StartQuirk("flute"); return; }
+            if (Type.special == "stretchCoach") { StartQuirk("coach"); return; }
             Enter(State.Special, Random.Range(3f, 6f));
             switch (Type.special)
             {
@@ -1350,6 +1562,7 @@ namespace DesktopTenants
                 case State.Leave:
                 case State.Flee: return step == 0 ? "walkA" : "walkB";
                 case State.Gather: return !gatherArrived ? (step == 0 ? "walkA" : "walkB") : gatherDance && !animal ? DanceMoves[(int)(anim * 3) % DanceMoves.Length] : "idle";
+                case State.Travel: return (int)(anim * 8) % 2 == 0 ? "climbA" : "climbB";
                 case State.Climb: return (int)(b.p.y / 10) % 2 == 0 ? "climbA" : "climbB";
                 case State.Held: return (int)(anim * 8) % 2 == 0 || animal ? "fall" : "wave";
                 case State.Carried: return "fall";
@@ -1362,6 +1575,13 @@ namespace DesktopTenants
                 case State.Quirk:
                     switch (quirk)
                     {
+                        case "mirror": return qt % 1.1f < 0.55f ? "wave" : "climbA";
+                        case "coinTrick": return qt < 1.65f ? "idle" : "wave";
+                        case "coinWatch": return "idle";
+                        case "mend": return (int)(anim * 6) % 2 == 0 ? "phone" : "idle";
+                        case "flute": return "phone";
+                        case "coach": return (int)(qt * 4) % 2 == 0 ? "wave" : "pushA";
+                        case "yoyo":
                         case "juggle": return (int)(anim * 6) % 2 == 0 ? "wave" : "climbB";
                         case "shadowbox": return (int)(anim * 8) % 2 == 0 ? "climbA" : "climbB";
                         case "jumpjack": return (int)(qt * 12 / Mathf.PI) % 2 == 0 ? "fall" : "idle";
@@ -1494,6 +1714,8 @@ namespace DesktopTenants
                 var spot = new Vector3(-w * 0.6f, h - 2, 0);
                 if (EmoteIs("star")) spot = new Vector3(Mathf.Cos(anim * 8) * w * 0.5f, h + 2 + Mathf.Sin(anim * 8) * 4, 0);
                 if (EmoteIs("steam")) spot = new Vector3(w * 0.7f, h * 0.6f + Mathf.Repeat(anim * 10, 8), 0);
+                if (EmoteIs("yoyo"))
+                    spot = new Vector3(dir * w * 0.8f, h * (0.65f - Mathf.Abs(Mathf.Sin(qt * 5f)) * 0.45f), 0);
                 if (EmoteIs("note")) spot += new Vector3(0, Mathf.Abs(Mathf.Sin(anim * 4)) * 6, 0);
                 emote.transform.localPosition = spot;
             }

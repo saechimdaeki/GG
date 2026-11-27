@@ -10,9 +10,11 @@ namespace DesktopTenants
         public int fps = 30;
         public float pixel = 3f;          // points per art pixel
         public float spawnEvery = 2.5f;
-        public int startFloors = 3, maxFloors = 10, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
+        public int startFloors = 3, maxFloors = 16, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
         public int upgradeBase = 50000;       // cost of the first extra floor (from startFloors)
         public float upgradeGrowth = 2.3f;    // each further floor costs this many times the last
+        public int towerStartFloor = 10;
+        public float towerUpgradeGrowth = 1.12f;
         public float shopUpgradeGrowth = 2.5f; // shop level n→n+1 costs lot price × growth^n
         public int birthdayGift = 1000, marathonPrize = 3000;
         public int neighborhoodReward = 2400;
@@ -41,11 +43,13 @@ namespace DesktopTenants
         public float tripChance = 0.01f;      // per second while walking
         public float highfiveChance = 0.2f, argueChance = 0.15f; // chat outcomes besides dancing
         public float rpsChance = 0.12f, hugChance = 0.08f, tagChance = 0.1f, shareChance = 0.08f; // more chat outcomes
+        public float mirrorChance = 0.06f, coinTrickChance = 0.04f;
         public float petChance = 0.5f;        // a person meeting a cat or dog pets it
         public int roofCapacity = 2;
         public float roofJumpOff = 0.6f;      // chance to hop down on reaching the roof's edge
         public float personalSpace = 22f;     // tenants on one edge keep at least this far apart
         public float eventMin = 60f, eventMax = 120f; // seconds between random events
+        public float screenActivityDuration = 24f;
         public float drillDuration = 12f;
         public int antennaFloors = 4, helipadFloors = 5, neonFloors = 7, tickerFloors = 9;
         public float petDelay = 1f;
@@ -65,11 +69,18 @@ namespace DesktopTenants
         public float jumpOffChance = 0.25f;
         public float sleepChance = 0.2f;
         public float idleMin = 1.5f, idleMax = 4f;
+        public float displayTourChance = 0.28f, displayTourCooldown = 35f;
         public float walkMin = 3f, walkMax = 9f;
         public float sleepMin = 6f, sleepMax = 14f;
 
         /// <summary>Price of adding the next floor to a building that has <paramref name="floors"/>.</summary>
-        public int ApartmentCost(int floors) => Round(upgradeBase * Mathf.Pow(upgradeGrowth, floors - startFloors));
+        public int ApartmentCost(int floors)
+        {
+            int regularUpgrades = Mathf.Min(floors, towerStartFloor - 1) - startFloors;
+            int towerUpgrades = Mathf.Max(0, floors - towerStartFloor + 1);
+            return Round(upgradeBase * Mathf.Pow(upgradeGrowth, regularUpgrades)
+                * Mathf.Pow(towerUpgradeGrowth, towerUpgrades));
+        }
 
         /// <summary>Price of taking a shop bought for <paramref name="lotCost"/> from <paramref name="level"/> to the next.</summary>
         public int ShopUpgradeCost(int lotCost, int level) => Round(lotCost * Mathf.Pow(shopUpgradeGrowth, level));

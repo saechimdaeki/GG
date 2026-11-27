@@ -13,11 +13,13 @@ namespace DesktopTenants
         public float walkSpeed = 28, sleepChance = 0.2f;
         public bool sleepFall, jumper;
         public int rent = 3000;
+        /// <summary>Optional floor unlock override; original types keep their roster order.</summary>
+        public int minFloor;
         /// <summary>Drawn at this size (the baby is smaller).</summary>
         public float scale = 1;
         /// <summary>When set, this tenant sometimes gives a snack to someone nearby, saying this.</summary>
         public string treat;
-        /// <summary>Signature action: phone, yawn, pushup, groom, selfie, sing, wag, dj, cook, game, deliver, teleport, vacuum, slide, cry, patrol, magic, paint, bake or photo.</summary>
+        /// <summary>Signature action: phone, yawn, pushup, groom, selfie, sing, wag, dj, cook, game, deliver, teleport, vacuum, slide, cry, patrol, magic, paint, bake, photo, yoyo, tailor, flute or stretchCoach.</summary>
         public string special;
         public string[] idle, fling, bonk, land, poke, greet, held, pay, jump, act;
         public bool IsCat => kind == "cat";

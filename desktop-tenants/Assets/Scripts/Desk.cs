@@ -34,7 +34,13 @@ namespace DesktopTenants
         readonly List<Coin> coins = new List<Coin>();
         readonly List<Vector2> jumpSpots = new List<Vector2>();
         readonly float[] scr = new float[6], mouse = new float[3], buf = new float[5 * 64];
+        readonly List<Camera> cameras = new List<Camera>();
+        readonly List<DesktopDisplay> displays = new List<DesktopDisplay>();
+        readonly float[] displayRect = new float[5];
         Camera cam;
+        bool externalScreens;
+        int nextDisplay;
+        float bindDeadline;
         SpriteRenderer house;
         Bubble moneyLabel, houseTip;
         bool overlay, clickThrough = true, wasDown;
@@ -98,21 +104,18 @@ namespace DesktopTenants
             forcedWeather = wi >= 0 && wi + 1 < args.Length ? args[wi + 1] : null;
             // --screen N: which monitor to live on (1 = main). Each monitor can run its own copy.
             int si = System.Array.IndexOf(args, "--screen");
+            externalScreens = si < 0;
             if (si >= 0 && si + 1 < args.Length && int.TryParse(args[si + 1], out var sn)) screen = sn - 1;
             money = PlayerPrefs.GetInt("money", 0);
-            floors = PlayerPrefs.GetInt("floors", Tune.startFloors);
+            floors = Mathf.Clamp(PlayerPrefs.GetInt("floors", Tune.startFloors), 1, Tune.maxFloors);
             // --floors N: jump straight to an N-floor building (playtesting all tenant types).
             int fi = System.Array.IndexOf(args, "--floors");
             if (fi >= 0 && fi + 1 < args.Length && int.TryParse(args[fi + 1], out var fl)) { floors = Mathf.Clamp(fl, 1, Tune.maxFloors); playtest = true; }
 
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = Tune.fps;
-            cam = new GameObject("Camera").AddComponent<Camera>();
-            cam.orthographic = true;
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = Color.clear;
-            cam.allowHDR = false;
-            cam.allowMSAA = false;
+            cam = CreateCamera(0);
+            cameras.Add(cam);
             house = new GameObject("House").AddComponent<SpriteRenderer>();
             moneyLabel = Bubble.Create(house.transform, Vector3.zero);
             houseTip = Bubble.Create(house.transform, Vector3.zero);
@@ -215,12 +218,46 @@ namespace DesktopTenants
             moneyLabel.Say(Won(money), 0);
         }
 
+        static Camera CreateCamera(int index)
+        {
+            var camera = new GameObject($"Display {index + 1} camera").AddComponent<Camera>();
+            camera.orthographic = true;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = Color.clear;
+            camera.allowHDR = false;
+            camera.allowMSAA = false;
+            camera.targetDisplay = index;
+            return camera;
+        }
+
+        void BindDisplays()
+        {
+            if (!externalScreens || cameras.Count >= Display.displays.Length) return;
+            if (nextDisplay == 0)
+            {
+                nextDisplay = cameras.Count;
+                Display.displays[nextDisplay].Activate();
+                bindDeadline = Time.realtimeSinceStartup + 5;
+            }
+            if (Bridge.BindDisplay())
+            {
+                cameras.Add(CreateCamera(nextDisplay));
+                Debug.Log($"[desk] bound display output {nextDisplay + 1}");
+                nextDisplay = 0;
+            }
+            else if (Time.realtimeSinceStartup >= bindDeadline)
+            {
+                Debug.LogWarning($"[desk] could not bind display output {nextDisplay + 1}");
+                externalScreens = false;
+            }
+        }
+
         void Update()
         {
             if (!overlay)
             {
-                overlay = Bridge.MakeOverlay(screen);
-                if (overlay) Debug.Log($"[desk] overlay on screen {screen + 1}. Monitors:\n{Bridge.ScreenList()}");
+                overlay = Bridge.MakeOverlay(screen, externalScreens);
+                if (overlay) Debug.Log($"[desk] overlay mode {(externalScreens ? "external" : $"screen {screen + 1}")}. Monitors:\n{Bridge.ScreenList()}");
                 return;
             }
             float dt = Mathf.Min(Time.deltaTime, 0.1f);
@@ -228,6 +265,7 @@ namespace DesktopTenants
             // The player recreates its Metal surface (opaque again) after resizes; keep re-clearing it.
             if ((refreshT -= dt) <= 0) { refreshT = 0.25f; Bridge.Refresh(); }
 
+            BindDisplays();
             ReadDesktop();
             Town.Tick(dt, Door.x - houseW / 2, Blackout);
             Town.AddSegs(segs);
@@ -250,7 +288,7 @@ namespace DesktopTenants
                 holding |= t.Held;
             }
             StartChats();
-            KeepApart();
+            KeepApart(dt);
             LayoutBubbles();
             bool hoverH = !hoverT && HouseBounds.Contains(Mouse);
             bool hoverTown = !hoverT && !hoverH && (Town.At(Mouse) != null || Town.OverLot(Mouse));
@@ -296,8 +334,25 @@ namespace DesktopTenants
             ScreenH = scr[1];
             TopY = scr[3];
             FloorY = scr[3] + scr[5];
-            cam.orthographicSize = ScreenH / 2;
-            cam.transform.position = new Vector3(ScreenW / 2, -ScreenH / 2, -10);
+            displays.Clear();
+            for (int i = 0; i < cameras.Count; i++)
+            {
+                if (!Bridge.DisplayRect(i, displayRect))
+                {
+                    if (i != 0) { cameras[i].enabled = false; continue; }
+                    displayRect[0] = displayRect[1] = 0;
+                    displayRect[2] = ScreenW;
+                    displayRect[3] = ScreenH;
+                    displayRect[4] = FloorY;
+                }
+                var rect = new Rect(displayRect[0], displayRect[1], displayRect[2], displayRect[3]);
+                displays.Add(new DesktopDisplay(i, rect, displayRect[4]));
+                var camera = cameras[i];
+                camera.enabled = true;
+                camera.orthographicSize = rect.height / 2;
+                camera.aspect = rect.width / rect.height;
+                camera.transform.position = W(rect.center, -10);
+            }
             Door = new Vector2(ScreenW - 140, FloorY);
             house.transform.position = W(Door, 1);
             if (Home != null) Home.X = Door.x;
@@ -314,7 +369,8 @@ namespace DesktopTenants
             wins.Clear();
             for (int i = 0; i < n; i++)
                 wins.Add(new WinRect((int)buf[i * 5], buf[i * 5 + 1], buf[i * 5 + 2], buf[i * 5 + 3], buf[i * 5 + 4]));
-            Surfaces.Compute(wins, FloorY, ScreenW, segs);
+            segs.Clear();
+            foreach (var display in displays) Surfaces.AppendDisplay(wins, display, segs);
             segs.Add(new Seg(Surfaces.Roof, Door.x - houseW / 2 + 5 * Tune.pixel, Door.x + houseW / 2 - 5 * Tune.pixel, RoofTop));
         }
 
@@ -370,9 +426,10 @@ namespace DesktopTenants
             // Variety first: the unlocked type with the fewest tenants moves in next.
             TenantType pick = null;
             int best = int.MaxValue;
-            for (int i = 0; i < UnlockedTypes; i++)
+            for (int i = 0; i < Book.types.Length; i++)
             {
                 var type = Book.types[i];
+                if (type.minFloor > 0 ? floors < type.minFloor : i >= UnlockedTypes) continue;
                 int count = tenants.FindAll(x => x.Type == type && !x.Visitor).Count;
                 if (count < best || (count == best && Random.value < 0.5f)) { best = count; pick = type; }
             }
@@ -595,6 +652,8 @@ namespace DesktopTenants
             if ((r -= Tune.hugChance) < 0) return Tenant.Outcome.Hug;
             if ((r -= Tune.tagChance) < 0) return Tenant.Outcome.Tag;
             if ((r -= Tune.shareChance) < 0) return Tenant.Outcome.Share;
+            if ((r -= Tune.mirrorChance) < 0) return Tenant.Outcome.Mirror;
+            if ((r -= Tune.coinTrickChance) < 0) return Tenant.Outcome.CoinTrick;
             return Tenant.Outcome.None;
         }
 
@@ -604,7 +663,7 @@ namespace DesktopTenants
                 for (int j = i + 1; j < tenants.Count; j++)
                 {
                     Tenant a = tenants[i], b = tenants[j];
-                    if (a.CanChat && b.CanChat && a.On == b.On && Mathf.Abs(a.P.x - b.P.x) < 28)
+                    if (a.CanChat && b.CanChat && a.On == b.On && Mathf.Abs(a.P.y - b.P.y) < 2 && Mathf.Abs(a.P.x - b.P.x) < 28)
                     {
                         bool people = !a.Type.IsAnimal && !b.Type.IsAnimal;
                         var outcome = PickOutcome(a, b);
@@ -736,20 +795,19 @@ namespace DesktopTenants
         bool RoofFull => tenants.FindAll(t => t.On == Surfaces.Roof).Count >= Tune.roofCapacity;
 
         /// <summary>
-        /// Keeps tenants standing on the same edge from overlapping: free ones closer than
-        /// <c>personalSpace</c> are nudged apart (chatting and dancing pairs may stand close).
+        /// Separates idle tenants gradually. Walking and interaction animations keep
+        /// their own movement, so separation cannot push a tenant back every frame.
         /// </summary>
-        void KeepApart()
+        void KeepApart(float dt)
         {
             for (int i = 0; i < tenants.Count; i++)
                 for (int j = i + 1; j < tenants.Count; j++)
                 {
                     Tenant a = tenants[i], b = tenants[j];
-                    if (!a.Free || !b.Free || a.On != b.On || a.Hugging || b.Hugging) continue;
+                    if (!a.AllowsSpacing || !b.AllowsSpacing || a.On != b.On || Mathf.Abs(a.P.y - b.P.y) >= 2) continue;
                     float dx = b.P.x - a.P.x, gap = Tune.personalSpace;
                     if (Mathf.Abs(dx) >= gap) continue;
-                    float push = (gap - Mathf.Abs(dx)) * 0.25f * (dx >= 0 ? 1 : -1);
-                    if (dx == 0) push = Random.value < 0.5f ? 1 : -1;
+                    float push = Mathf.Min((gap - Mathf.Abs(dx)) * 0.5f, 12f * dt) * (dx >= 0 ? 1 : -1);
                     a.Nudge(-push);
                     b.Nudge(push);
                 }
@@ -823,7 +881,8 @@ namespace DesktopTenants
         /// <summary>Top-left of window <paramref name="id"/> (the floor counts as a window).</summary>
         public bool WinPos(int id, out Vector2 pos)
         {
-            if (id == Surfaces.Floor) { pos = new Vector2(0, FloorY); return true; }
+            foreach (var display in displays)
+                if (id == display.Floor.win) { pos = new Vector2(display.Floor.x0, display.Floor.y); return true; }
             if (id == Surfaces.Roof) { pos = new Vector2(Door.x, RoofTop); return true; }
             if (id <= Town.TopBase) return Town.SegPos(id, out pos);
             foreach (var w in wins)
@@ -838,6 +897,51 @@ namespace DesktopTenants
             foreach (var s in segs)
                 if (s.win == id && Mathf.Abs(s.y - p.y) < 1.5f && p.x >= s.x0 - 1 && p.x <= s.x1 + 1) { seg = s; return true; }
             seg = default;
+            return false;
+        }
+
+        public int DisplayAt(Vector2 point, int fallback = -1)
+        {
+            for (int i = 0; i < displays.Count; i++)
+            {
+                var rect = displays[i].Bounds;
+                if (point.x >= rect.xMin && point.x < rect.xMax &&
+                    point.y >= rect.yMin && point.y <= rect.yMax) return i;
+            }
+            return fallback;
+        }
+
+        public int DisplayCount => displays.Count;
+
+        public DesktopDisplay DisplayBounds(int index) => displays[Mathf.Clamp(index, 0, displays.Count - 1)];
+
+        public bool TryDisplayByFloor(int floorId, out DesktopDisplay display)
+        {
+            foreach (var candidate in displays)
+                if (candidate.Floor.win == floorId) { display = candidate; return true; }
+            display = default;
+            return false;
+        }
+
+        public bool TryDisplayRoute(Seg floor, float fromX, out float departure, out Vector2 arrival, out bool crossesGap)
+        {
+            crossesGap = false;
+            departure = 0;
+            arrival = default;
+            if (displays.Count <= 1) return false;
+            int source = displays.FindIndex(display => display.Floor.win == floor.win);
+            if (source < 0) return false;
+            int start = Random.Range(0, displays.Count);
+            for (int step = 0; step < displays.Count; step++)
+                if (displays[source].TryRoute(displays[(start + step) % displays.Count], fromX, out departure, out arrival))
+                    return true;
+            if (!externalScreens) return false;
+            for (int step = 0; step < displays.Count; step++)
+            {
+                if (!displays[source].TryGapRoute(displays[(start + step) % displays.Count], fromX, out departure, out arrival)) continue;
+                crossesGap = true;
+                return true;
+            }
             return false;
         }
 

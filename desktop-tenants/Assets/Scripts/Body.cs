@@ -58,16 +58,33 @@ namespace DesktopTenants
             var next = p + v * dt;
             if (v.y > 0 && d.Land(p, next, out var seg))
             {
-                p = new Vector2(next.x, seg.y);
+                p = new Vector2(Mathf.Clamp(next.x, seg.x0, seg.x1), seg.y);
                 on = seg.win;
                 d.WinPos(on, out anchor);
                 v = Vector2.zero;
                 return FallResult.Landed;
             }
+            int from = d.DisplayAt(p, 0);
+            int to = d.DisplayAt(next);
+            var display = d.DisplayBounds(to >= 0 ? to : from);
+            var bounds = display.Bounds;
             p = next;
-            if (p.x < 10 || p.x > d.ScreenW - 10) { p.x = Mathf.Clamp(p.x, 10, d.ScreenW - 10); v.x = -v.x * 0.5f; }
-            if (p.y - height < 0 && v.y < 0) { p.y = height; v.y = -v.y * 0.3f; return FallResult.Bonk; }
-            if (p.y > d.ScreenH + 60) { p = d.Door; v = Vector2.zero; return FallResult.Respawned; }
+            if (to < 0 && (p.x < bounds.xMin || p.x >= bounds.xMax))
+            {
+                p.x = Mathf.Clamp(p.x, bounds.xMin + 10, bounds.xMax - 10);
+                v.x = -v.x * 0.5f;
+            }
+            if (p.y - height < bounds.yMin && v.y < 0 && d.DisplayAt(p - new Vector2(0, height)) < 0)
+            {
+                p.y = bounds.yMin + height;
+                v.y = -v.y * 0.3f;
+                return FallResult.Bonk;
+            }
+            if (p.y > display.Floor.y && v.y >= 0 && to < 0)
+            {
+                Stand(d, display.Floor);
+                return FallResult.Landed;
+            }
             return FallResult.Air;
         }
     }
