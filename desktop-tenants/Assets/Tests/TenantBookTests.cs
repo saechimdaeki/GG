@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class TenantBookTests
 {
-    static readonly string[] Specials = { "phone", "yawn", "pushup", "groom", "selfie", "sing", "wag", "dj", "cook", "game", "deliver", "teleport", "vacuum", "slide", "cry", "patrol", "magic", "paint", "bake", "photo" };
+    static readonly string[] Specials = { "phone", "yawn", "pushup", "groom", "selfie", "sing", "wag", "dj", "cook", "game", "deliver", "teleport", "vacuum", "slide", "cry", "patrol", "magic", "paint", "bake", "photo", "yoyo", "tailor", "flute", "stretchCoach" };
 
     [Test]
     public void EveryType_HasLookRentAndCoreLines()
@@ -38,6 +38,17 @@ public class TenantBookTests
             int index = Array.FindIndex(book.types, type => type.special == action);
             Assert.That(index, Is.InRange(0, maxTypes - 1), action);
         }
+    }
+
+    [TestCase("yoyo", 3)]
+    [TestCase("tailor", 4)]
+    [TestCase("flute", 5)]
+    [TestCase("stretchCoach", 6)]
+    public void NewResidents_HaveExplicitEarlyFloorUnlocks(string special, int floor)
+    {
+        var type = Array.Find(TenantBook.Load().types, candidate => candidate.special == special);
+        Assert.IsNotNull(type, special);
+        Assert.AreEqual(floor, type.minFloor);
     }
 
     [Test]

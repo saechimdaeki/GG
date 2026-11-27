@@ -35,9 +35,9 @@ Task:
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-27
 **Branch:** `codex/desktop-tenants-apartment`
-**Current task:** 내장 화면을 건너뛰는 외장 오버레이, 공유 동네, 드래그 및 자율 이동 추가.
-**Next step:** 다른 화면 배치와 Spaces에서 오버레이 표시 및 이동을 플레이테스트.
-**Run result:** Unity EditMode 32/32 통과. macOS Apple Silicon 실기에서 외장 창 2개와 드래그·자율 이동 확인.
+**Current task:** 세입자 보행 간섭 수정, 신규 세입자 4종과 만남 행동 2종 및 화면 이벤트 2종 추가.
+**Next step:** 일반 플레이에서 붐비는 창턱의 이동과 새 만남 행동의 빈도 확인.
+**Run result:** Unity EditMode 36/36 통과. macOS Apple Silicon 빌드 및 보조 화면에서 두 이벤트 완주 확인.
 <!-- /CHECKPOINT -->
 
 ---

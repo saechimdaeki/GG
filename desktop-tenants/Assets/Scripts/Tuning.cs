@@ -43,11 +43,13 @@ namespace DesktopTenants
         public float tripChance = 0.01f;      // per second while walking
         public float highfiveChance = 0.2f, argueChance = 0.15f; // chat outcomes besides dancing
         public float rpsChance = 0.12f, hugChance = 0.08f, tagChance = 0.1f, shareChance = 0.08f; // more chat outcomes
+        public float mirrorChance = 0.06f, coinTrickChance = 0.04f;
         public float petChance = 0.5f;        // a person meeting a cat or dog pets it
         public int roofCapacity = 2;
         public float roofJumpOff = 0.6f;      // chance to hop down on reaching the roof's edge
         public float personalSpace = 22f;     // tenants on one edge keep at least this far apart
         public float eventMin = 60f, eventMax = 120f; // seconds between random events
+        public float screenActivityDuration = 24f;
         public float drillDuration = 12f;
         public int antennaFloors = 4, helipadFloors = 5, neonFloors = 7, tickerFloors = 9;
         public float petDelay = 1f;
@@ -67,7 +69,7 @@ namespace DesktopTenants
         public float jumpOffChance = 0.25f;
         public float sleepChance = 0.2f;
         public float idleMin = 1.5f, idleMax = 4f;
-        public float displayTourChance = 0.22f, displayTourCooldown = 45f;
+        public float displayTourChance = 0.28f, displayTourCooldown = 35f;
         public float walkMin = 3f, walkMax = 9f;
         public float sleepMin = 6f, sleepMax = 14f;
 

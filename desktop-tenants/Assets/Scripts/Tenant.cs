@@ -15,7 +15,7 @@ namespace DesktopTenants
         enum State { Idle, Walk, Sleep, Chat, Dance, Special, Quirk, Sit, Dizzy, Flee, Approach, Climb, Fall, Held, Carried, Visit, Inside, Leave, Gather, Riding, Travel }
 
         /// <summary>What two tenants do once they've finished talking.</summary>
-        public enum Outcome { None, Dance, HighFive, Argue, Hug, Rps, Tag, Share, Pet }
+        public enum Outcome { None, Dance, HighFive, Argue, Hug, Rps, Tag, Share, Pet, Mirror, CoinTrick }
 
         static readonly string[] Count = { "하나!", "둘!", "셋!", "넷!", "다섯!", "여섯!", "일곱!", "여덟!", "아홉!", "열!" };
         static readonly string[] PersonQuirks = { "stretch", "sneeze", "juggle", "shadowbox", "spin", "jumpjack", "hiccup", "meditate", "lookup" };
@@ -32,7 +32,7 @@ namespace DesktopTenants
         readonly Body b = new Body();
         State s = State.Walk;
         Vector2 grab, holdStart, climbAnchor;
-        int dir = -1, pokes, reps, dragDisplay;
+        int dir = -1, pokes, reps, dragDisplay, beforeChatDirection;
         bool asleepInAir, tumbling, fleeOnLand, phased, quirkHit;
         Outcome outcome;
         string chatLine, quirk;
@@ -53,8 +53,8 @@ namespace DesktopTenants
         /// <summary>Says <paramref name="line"/> after <paramref name="delay"/> seconds (a punchline after a beat).</summary>
         void DelayedSay(string line, float delay) { laterLine = line; laterT = delay; }
 
-        /// <summary>Hugging someone: personal-space pushes would pull them apart.</summary>
-        public bool Hugging => s == State.Quirk && quirk == "hug";
+        /// <summary>Stationary residents who can be nudged to make room.</summary>
+        public bool AllowsSpacing => b.Grounded && (s == State.Idle || s == State.Sleep || s == State.Sit);
         readonly List<(Seg to, float lo, float hi)> climbOptions = new List<(Seg, float, float)>();
 
         readonly Dictionary<(string, Face), Sprite> frames = new Dictionary<(string, Face), Sprite>();
@@ -437,6 +437,7 @@ namespace DesktopTenants
         /// </summary>
         public void Chat(Tenant other, Outcome then, string line, float delay)
         {
+            beforeChatDirection = s == State.Walk ? dir : 0;
             s = State.Chat;
             partner = other;
             outcome = then;
@@ -1014,6 +1015,8 @@ namespace DesktopTenants
                 case Outcome.Rps: StartPair("rps", "rps"); break;
                 case Outcome.Tag: StartPair("tagIt", "tagRun"); break;
                 case Outcome.Share: StartPair("share", "thanks"); break;
+                case Outcome.Mirror: StartPair("mirror", "mirror"); break;
+                case Outcome.CoinTrick: StartPair("coinTrick", "coinWatch"); break;
                 case Outcome.Pet:
                     if (Type.IsAnimal) StartPair("purr", "petting");
                     else StartPair("petting", "purr");
@@ -1026,7 +1029,7 @@ namespace DesktopTenants
                     break;
                 default:
                     Enter(State.Walk, Random.Range(T.walkMin, T.walkMax));
-                    dir = -dir;
+                    dir = beforeChatDirection != 0 ? beforeChatDirection : -dir;
                     break;
             }
         }
@@ -1121,7 +1124,12 @@ namespace DesktopTenants
             if (join) { partner.pairLead = false; partner.StartQuirk(theirs); }
             pairLead = true;
             StartQuirk(mine);
-            if (join) partner.timer = timer;
+            if (join)
+            {
+                partner.timer = timer;
+                if (mine == "mirror" || mine == "coinTrick")
+                    Debug.Log($"[encounter] {mine}: {Type.name}, {partner.Type.name}");
+            }
         }
 
         bool PartnerDoing(string q) => partner && partner.s == State.Quirk && partner.quirk == q;
@@ -1154,6 +1162,10 @@ namespace DesktopTenants
                 case "hiccup": timer = 3.2f; beat = 0; break;
                 case "meditate": timer = Random.Range(4f, 6f); Say(Pick(new[] { "옴~", "마음의 평화...", "(명상 중)" }), 1.8f); break;
                 case "lookup": timer = 2.6f; Say(d.Raining ? Pick(new[] { "비 언제 그치지", "우산 챙길걸..." }) : Pick(new[] { "구름 예쁘다~", "하늘 맑다", "저 구름 고양이 닮았다" }), 1.8f); Emote("?", 1.2f); break;
+                case "yoyo": timer = 3.5f; Say(TenantBook.Pick(Type.act), 1.6f); Emote("yoyo", timer); break;
+                case "mend": timer = 3f; Say(TenantBook.Pick(Type.act), 1.6f); break;
+                case "flute": timer = 4f; Say(TenantBook.Pick(Type.act), 1.6f); Emote("note", 4f); break;
+                case "coach": timer = 3.2f; Say(TenantBook.Pick(Type.act), 1.6f); Emote("sweat", 2f); break;
                 // ---- solo, animals
                 case "tailchase": timer = 2.4f; Say("냥냥냥?!", 1.2f); Emote("star", 2f); break;
                 case "loaf": timer = Random.Range(4f, 7f); Say("(식빵 굽는 중)", 1.6f); happyT = timer; break;
@@ -1162,6 +1174,9 @@ namespace DesktopTenants
                 case "dig": timer = 2.4f; Say("(파바바박)", 1.2f); Emote("sweat", 2f); break;
                 case "howl": timer = 2.4f; Say("아우우우~~", 2f); Emote("note", 2f); break;
                 // ---- pairs (see StartPair)
+                case "mirror": timer = 2.8f; if (pairLead) Say("내 동작 따라 해 봐!", 1.3f); break;
+                case "coinTrick": timer = 3f; Say("어느 손에 동전이 있게?", 1.5f); break;
+                case "coinWatch": timer = 3f; Emote("?", 1.5f); break;
                 case "hug": timer = 3f; quirkHit = false; if (pairLead) Say(Pick(new[] { "이리 와~ 안아줄게", "오늘 수고했어!", "보고 싶었어~" }), 1.6f); break;
                 case "rps": timer = 3.4f; quirkHit = false; hand = Random.Range(0, 3); if (pairLead) Say("가위바위보 하자!", 1.2f); break;
                 case "tagIt": timer = 5f; Say("술래잡기! 내가 술래~", 1.4f); break;
@@ -1260,6 +1275,58 @@ namespace DesktopTenants
                     happyT = 0.5f;
                     if (!Walk(dt, seg, 1.9f)) return;
                     break;
+                case "mend":
+                    if (!quirkHit && qt > 1.65f)
+                    {
+                        quirkHit = true;
+                        Emote("flash", 0.4f);
+                        Say("단추 다시 달았다!", 1.1f);
+                        var neighbor = d.NearestPerson(this, 65);
+                        if (neighbor && neighbor.On == On) neighbor.React("내 단추도 고쳐 줄래요?", "heart");
+                    }
+                    break;
+                case "flute":
+                    if (!quirkHit && qt > 1.3f)
+                    {
+                        quirkHit = true;
+                        foreach (var neighbor in d.Tenants)
+                            if (neighbor != this && neighbor.On == On && neighbor.AllowsSpacing &&
+                                Mathf.Abs(neighbor.P.x - P.x) < 150)
+                                neighbor.React(neighbor.Type.IsAnimal ? null : "어디서 피리 소리가 나지?", "note", 2f);
+                    }
+                    break;
+                case "coach":
+                    if (beat >= 0.65f)
+                    {
+                        beat = 0;
+                        squash = -0.6f;
+                        reps++;
+                        Say(Count[Mathf.Min(reps - 1, Count.Length - 1)], 0.6f);
+                    }
+                    break;
+                case "mirror":
+                    if (beat >= 0.55f)
+                    {
+                        beat = 0;
+                        squash = squash < 0 ? 0.55f : -0.55f;
+                        if (!quirkHit && qt >= 1.7f && PartnerDoing("mirror"))
+                        {
+                            quirkHit = true;
+                            Emote("star", 1f);
+                            if (!pairLead) Say("똑같지?", 1.1f);
+                        }
+                    }
+                    break;
+                case "coinTrick":
+                    if (!quirkHit && qt >= 1.65f && PartnerDoing("coinWatch"))
+                    {
+                        quirkHit = true;
+                        Say("귀 뒤에 있었지!", 1.25f);
+                        Emote("coin", 1f);
+                        partner.React("거기 있었어?!", "!", 1.25f);
+                        partner.squash = -0.5f;
+                    }
+                    break;
                 case "thanks":
                     if (!quirkHit && qt > 1.3f) { quirkHit = true; Say(Pick(new[] { "고마워! 냠냠", "와 맛있다!", "역시 너밖에 없어" }), 1.4f); Emote("heart", 1.4f); happyT = 1.5f; }
                     break;
@@ -1271,6 +1338,10 @@ namespace DesktopTenants
 
         void StartSpecial()
         {
+            if (Type.special == "yoyo") { StartQuirk("yoyo"); return; }
+            if (Type.special == "tailor") { StartQuirk("mend"); return; }
+            if (Type.special == "flute") { StartQuirk("flute"); return; }
+            if (Type.special == "stretchCoach") { StartQuirk("coach"); return; }
             Enter(State.Special, Random.Range(3f, 6f));
             switch (Type.special)
             {
@@ -1462,6 +1533,13 @@ namespace DesktopTenants
                 case State.Quirk:
                     switch (quirk)
                     {
+                        case "mirror": return qt % 1.1f < 0.55f ? "wave" : "climbA";
+                        case "coinTrick": return qt < 1.65f ? "idle" : "wave";
+                        case "coinWatch": return "idle";
+                        case "mend": return (int)(anim * 6) % 2 == 0 ? "phone" : "idle";
+                        case "flute": return "phone";
+                        case "coach": return (int)(qt * 4) % 2 == 0 ? "wave" : "pushA";
+                        case "yoyo":
                         case "juggle": return (int)(anim * 6) % 2 == 0 ? "wave" : "climbB";
                         case "shadowbox": return (int)(anim * 8) % 2 == 0 ? "climbA" : "climbB";
                         case "jumpjack": return (int)(qt * 12 / Mathf.PI) % 2 == 0 ? "fall" : "idle";
@@ -1594,6 +1672,8 @@ namespace DesktopTenants
                 var spot = new Vector3(-w * 0.6f, h - 2, 0);
                 if (EmoteIs("star")) spot = new Vector3(Mathf.Cos(anim * 8) * w * 0.5f, h + 2 + Mathf.Sin(anim * 8) * 4, 0);
                 if (EmoteIs("steam")) spot = new Vector3(w * 0.7f, h * 0.6f + Mathf.Repeat(anim * 10, 8), 0);
+                if (EmoteIs("yoyo"))
+                    spot = new Vector3(dir * w * 0.8f, h * (0.65f - Mathf.Abs(Mathf.Sin(qt * 5f)) * 0.45f), 0);
                 if (EmoteIs("note")) spot += new Vector3(0, Mathf.Abs(Mathf.Sin(anim * 4)) * 6, 0);
                 emote.transform.localPosition = spot;
             }

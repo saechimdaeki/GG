@@ -15,7 +15,7 @@ namespace DesktopTenants
             "birds", "icecream", "plane", "meteor", "marathon", "busking", "confession", "meeting",
             "storm", "snow", "windy", "rainbow",
             "ghost", "boxes", "strays", "movie", "bbq", "snowball", "bungeo",
-            "flea", "photo", "lantern",
+            "flea", "photo", "lantern", "bubbles", "stardust", "bubbles", "stardust",
             "boxes", "strays", "bbq", "movie",
             "heli", "ufo", "birds", "icecream", "plane", "busking", "confession",
         };
@@ -33,6 +33,7 @@ namespace DesktopTenants
         readonly Snowballs snowballs;
         readonly Van foodVan;
         readonly NeighborhoodEvent neighborhood;
+        readonly ScreenActivity screenActivity;
         float boxT;
         readonly List<(float at, System.Action act)> script = new List<(float, System.Action)>();
         float clock;
@@ -60,6 +61,7 @@ namespace DesktopTenants
             snowballs = new Snowballs(desk);
             foodVan = new Van(desk, Props.FoodTruck);
             neighborhood = new NeighborhoodEvent(desk);
+            screenActivity = new ScreenActivity(desk);
             nextT = forced != null ? 6 : Random.Range(desk.Tune.eventMin, desk.Tune.eventMax);
             pending = forced;
         }
@@ -82,6 +84,7 @@ namespace DesktopTenants
             snowballs.Tick(dt);
             foodVan.Tick(dt);
             neighborhood.Tick(dt);
+            screenActivity.Tick(dt);
             if (boxT > 0 && (boxT -= dt) % 0.6f < dt) d.DropBox(Random.Range(60f, d.ScreenW - 60f));
             RunScript(dt);
             RaceTick();
@@ -117,6 +120,8 @@ namespace DesktopTenants
             Debug.Log("[event] " + name);
             switch (name)
             {
+                case "bubbles": return screenActivity.Start(true);
+                case "stardust": return screenActivity.Start(false);
                 case "flea": return neighborhood.Start(NeighborhoodEvent.Kind.FleaMarket);
                 case "photo": return neighborhood.Start(NeighborhoodEvent.Kind.PhotoBooth);
                 case "lantern": return neighborhood.Start(NeighborhoodEvent.Kind.LanternStand);

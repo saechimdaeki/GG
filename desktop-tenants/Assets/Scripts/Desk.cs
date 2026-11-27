@@ -288,7 +288,7 @@ namespace DesktopTenants
                 holding |= t.Held;
             }
             StartChats();
-            KeepApart();
+            KeepApart(dt);
             LayoutBubbles();
             bool hoverH = !hoverT && HouseBounds.Contains(Mouse);
             bool hoverTown = !hoverT && !hoverH && (Town.At(Mouse) != null || Town.OverLot(Mouse));
@@ -426,9 +426,10 @@ namespace DesktopTenants
             // Variety first: the unlocked type with the fewest tenants moves in next.
             TenantType pick = null;
             int best = int.MaxValue;
-            for (int i = 0; i < UnlockedTypes; i++)
+            for (int i = 0; i < Book.types.Length; i++)
             {
                 var type = Book.types[i];
+                if (type.minFloor > 0 ? floors < type.minFloor : i >= UnlockedTypes) continue;
                 int count = tenants.FindAll(x => x.Type == type && !x.Visitor).Count;
                 if (count < best || (count == best && Random.value < 0.5f)) { best = count; pick = type; }
             }
@@ -651,6 +652,8 @@ namespace DesktopTenants
             if ((r -= Tune.hugChance) < 0) return Tenant.Outcome.Hug;
             if ((r -= Tune.tagChance) < 0) return Tenant.Outcome.Tag;
             if ((r -= Tune.shareChance) < 0) return Tenant.Outcome.Share;
+            if ((r -= Tune.mirrorChance) < 0) return Tenant.Outcome.Mirror;
+            if ((r -= Tune.coinTrickChance) < 0) return Tenant.Outcome.CoinTrick;
             return Tenant.Outcome.None;
         }
 
@@ -660,7 +663,7 @@ namespace DesktopTenants
                 for (int j = i + 1; j < tenants.Count; j++)
                 {
                     Tenant a = tenants[i], b = tenants[j];
-                    if (a.CanChat && b.CanChat && a.On == b.On && Mathf.Abs(a.P.x - b.P.x) < 28)
+                    if (a.CanChat && b.CanChat && a.On == b.On && Mathf.Abs(a.P.y - b.P.y) < 2 && Mathf.Abs(a.P.x - b.P.x) < 28)
                     {
                         bool people = !a.Type.IsAnimal && !b.Type.IsAnimal;
                         var outcome = PickOutcome(a, b);
@@ -792,20 +795,19 @@ namespace DesktopTenants
         bool RoofFull => tenants.FindAll(t => t.On == Surfaces.Roof).Count >= Tune.roofCapacity;
 
         /// <summary>
-        /// Keeps tenants standing on the same edge from overlapping: free ones closer than
-        /// <c>personalSpace</c> are nudged apart (chatting and dancing pairs may stand close).
+        /// Separates idle tenants gradually. Walking and interaction animations keep
+        /// their own movement, so separation cannot push a tenant back every frame.
         /// </summary>
-        void KeepApart()
+        void KeepApart(float dt)
         {
             for (int i = 0; i < tenants.Count; i++)
                 for (int j = i + 1; j < tenants.Count; j++)
                 {
                     Tenant a = tenants[i], b = tenants[j];
-                    if (!a.Free || !b.Free || a.On != b.On || a.Hugging || b.Hugging) continue;
+                    if (!a.AllowsSpacing || !b.AllowsSpacing || a.On != b.On || Mathf.Abs(a.P.y - b.P.y) >= 2) continue;
                     float dx = b.P.x - a.P.x, gap = Tune.personalSpace;
                     if (Mathf.Abs(dx) >= gap) continue;
-                    float push = (gap - Mathf.Abs(dx)) * 0.25f * (dx >= 0 ? 1 : -1);
-                    if (dx == 0) push = Random.value < 0.5f ? 1 : -1;
+                    float push = Mathf.Min((gap - Mathf.Abs(dx)) * 0.5f, 12f * dt) * (dx >= 0 ? 1 : -1);
                     a.Nudge(-push);
                     b.Nudge(push);
                 }
@@ -909,7 +911,17 @@ namespace DesktopTenants
             return fallback;
         }
 
+        public int DisplayCount => displays.Count;
+
         public DesktopDisplay DisplayBounds(int index) => displays[Mathf.Clamp(index, 0, displays.Count - 1)];
+
+        public bool TryDisplayByFloor(int floorId, out DesktopDisplay display)
+        {
+            foreach (var candidate in displays)
+                if (candidate.Floor.win == floorId) { display = candidate; return true; }
+            display = default;
+            return false;
+        }
 
         public bool TryDisplayRoute(Seg floor, float fromX, out float departure, out Vector2 arrival, out bool crossesGap)
         {
