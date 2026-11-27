@@ -100,7 +100,7 @@ namespace DesktopTenants
             int si = System.Array.IndexOf(args, "--screen");
             if (si >= 0 && si + 1 < args.Length && int.TryParse(args[si + 1], out var sn)) screen = sn - 1;
             money = PlayerPrefs.GetInt("money", 0);
-            floors = PlayerPrefs.GetInt("floors", Tune.startFloors);
+            floors = Mathf.Clamp(PlayerPrefs.GetInt("floors", Tune.startFloors), 1, Tune.maxFloors);
             // --floors N: jump straight to an N-floor building (playtesting all tenant types).
             int fi = System.Array.IndexOf(args, "--floors");
             if (fi >= 0 && fi + 1 < args.Length && int.TryParse(args[fi + 1], out var fl)) { floors = Mathf.Clamp(fl, 1, Tune.maxFloors); playtest = true; }

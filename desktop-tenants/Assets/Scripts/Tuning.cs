@@ -10,9 +10,11 @@ namespace DesktopTenants
         public int fps = 30;
         public float pixel = 3f;          // points per art pixel
         public float spawnEvery = 2.5f;
-        public int startFloors = 3, maxFloors = 10, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
+        public int startFloors = 3, maxFloors = 16, tenantsPerFloor = 2, startTypes = 6, typesPerFloor = 2;
         public int upgradeBase = 50000;       // cost of the first extra floor (from startFloors)
         public float upgradeGrowth = 2.3f;    // each further floor costs this many times the last
+        public int towerStartFloor = 10;
+        public float towerUpgradeGrowth = 1.12f;
         public float shopUpgradeGrowth = 2.5f; // shop level n→n+1 costs lot price × growth^n
         public int birthdayGift = 1000, marathonPrize = 3000;
         public int neighborhoodReward = 2400;
@@ -69,7 +71,13 @@ namespace DesktopTenants
         public float sleepMin = 6f, sleepMax = 14f;
 
         /// <summary>Price of adding the next floor to a building that has <paramref name="floors"/>.</summary>
-        public int ApartmentCost(int floors) => Round(upgradeBase * Mathf.Pow(upgradeGrowth, floors - startFloors));
+        public int ApartmentCost(int floors)
+        {
+            int regularUpgrades = Mathf.Min(floors, towerStartFloor - 1) - startFloors;
+            int towerUpgrades = Mathf.Max(0, floors - towerStartFloor + 1);
+            return Round(upgradeBase * Mathf.Pow(upgradeGrowth, regularUpgrades)
+                * Mathf.Pow(towerUpgradeGrowth, towerUpgrades));
+        }
 
         /// <summary>Price of taking a shop bought for <paramref name="lotCost"/> from <paramref name="level"/> to the next.</summary>
         public int ShopUpgradeCost(int lotCost, int level) => Round(lotCost * Mathf.Pow(shopUpgradeGrowth, level));

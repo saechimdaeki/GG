@@ -34,10 +34,10 @@ Task:
 
 <!-- CHECKPOINT -->
 **Updated:** 2026-11-27
-**Branch:** `codex/desktop-tenants-neighborhood`
-**Current task:** 커서로 참여하는 동네 행사 3종, 그림 감상, 제빵사와 사진사 행동 추가.
-**Next step:** 일반 플레이에서 행사 위치와 안내, 주민 반응 빈도를 확인.
-**Run result:** Unity EditMode 27/27 통과. macOS Apple Silicon 빌드 성공 및 새 행사 3종의 실제 커서 참여 확인.
+**Branch:** `codex/desktop-tenants-apartment`
+**Current task:** 메인 아파트 16층 확장, 11층 이후 가격과 상층 외벽 추가.
+**Next step:** 일반 플레이에서 10층 이후 증축에 걸리는 시간을 확인.
+**Run result:** Unity EditMode 28/28 통과. macOS Apple Silicon 빌드 및 16층·32명 정원 실행 확인.
 <!-- /CHECKPOINT -->
 
 ---

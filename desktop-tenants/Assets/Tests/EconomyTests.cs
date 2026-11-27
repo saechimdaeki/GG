@@ -4,19 +4,31 @@ using NUnit.Framework;
 public class EconomyTests
 {
     [Test]
-    public void ApartmentCost_GrowsFasterEveryFloor()
+    public void ApartmentCost_IncreasesWithinBothTiers()
     {
         var t = Tuning.Load();
 
-        int prev = 0, prevStep = 0;
+        int prev = 0;
         for (int floors = t.startFloors; floors < t.maxFloors; floors++)
         {
             int cost = t.ApartmentCost(floors);
             Assert.Greater(cost, prev, $"floor {floors + 1}");
-            Assert.Greater(cost - prev, prevStep, $"floor {floors + 1} should jump more than the last one");
-            prevStep = cost - prev;
+            if (floors >= t.towerStartFloor)
+                Assert.Less(cost / (float)prev, t.upgradeGrowth, $"floor {floors + 1} uses tower pricing");
             prev = cost;
         }
+    }
+
+    [Test]
+    public void ApartmentExtension_PreservesOldPricesAndExpandsAtTheTop()
+    {
+        var t = Tuning.Load();
+        Assert.AreEqual(16, t.maxFloors);
+        Assert.AreEqual(50_000, t.ApartmentCost(3));
+        Assert.AreEqual(7_402_000, t.ApartmentCost(9));
+        Assert.AreEqual(8_290_000, t.ApartmentCost(10));
+        Assert.Greater(Pixels.House(16).Length, Pixels.House(10).Length);
+        Assert.Greater(Pixels.HouseCols(16), Pixels.HouseCols(10));
     }
 
     [Test]

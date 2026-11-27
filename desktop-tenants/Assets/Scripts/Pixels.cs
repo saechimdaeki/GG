@@ -83,6 +83,8 @@ namespace DesktopTenants
                         bool winRow = f < floors && k >= 2 && k <= 5;
                         bool winCol = x >= 4 && (x - 4) % 7 <= 3 && (x - 4) / 7 < cols;
                         if (winRow && winCol) c = 'y';
+                        int level = floors - f;
+                        if (k == 6 && (level == 12 || level == 15)) c = 't';
                         if (y >= H - 6 && x >= door0 && x <= door0 + 3) c = 'd';
                     }
                     r[x] = c;
@@ -96,6 +98,7 @@ namespace DesktopTenants
         {
             { 'o', Ink }, { 'r', new Color32(0xc8, 0x4b, 0x3c, 255) }, { 'b', new Color32(0xe8, 0xc6, 0x9a, 255) },
             { 'y', new Color32(0xff, 0xe0, 0x7a, 255) }, { 'd', new Color32(0x7a, 0x4a, 0x2e, 255) },
+            { 't', new Color32(0x73, 0x8a, 0x95, 255) },
         };
 
     }
